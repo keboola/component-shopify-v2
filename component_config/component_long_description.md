@@ -1,0 +1,1 @@
+ex-shopify-v2 long description

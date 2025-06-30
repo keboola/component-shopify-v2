@@ -1,0 +1,1 @@
+https://github.com/keboola/cookiecutter-python-component/blob/master/README.md

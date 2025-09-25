@@ -1,0 +1,113 @@
+# Get all inventory items with pagination
+query GetInventoryItems($first: Int!, $after: String) {
+  inventoryItems(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        sku
+        tracked
+        createdAt
+        updatedAt
+        variant {
+          id
+          title
+          sku
+          price
+          product {
+            id
+            title
+            handle
+          }
+        }
+        inventoryLevels(first: 10) {
+          edges {
+            node {
+              id
+              available
+              location {
+                id
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# Get a specific inventory item by ID
+query GetInventoryItem($id: ID!) {
+  inventoryItem(id: $id) {
+    id
+    sku
+    tracked
+    createdAt
+    updatedAt
+    variant {
+      id
+      title
+      sku
+      price
+      product {
+        id
+        title
+        handle
+      }
+    }
+    inventoryLevels(first: 10) {
+      edges {
+        node {
+          id
+          available
+          location {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+}
+
+# Get inventory levels for a specific location
+query GetInventoryLevelsByLocation($locationId: ID!, $first: Int!, $after: String) {
+  location(id: $locationId) {
+    id
+    name
+    inventoryLevels(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+      edges {
+        node {
+          id
+          available
+          item {
+            id
+            sku
+            variant {
+              id
+              title
+              sku
+              product {
+                id
+                title
+                handle
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

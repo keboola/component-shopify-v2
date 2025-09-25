@@ -1,0 +1,135 @@
+# Get inventory levels with pagination
+query GetInventoryLevels($first: Int!, $after: String) {
+  inventoryLevels(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        available
+        item {
+          id
+          sku
+          tracked
+          variant {
+            id
+            title
+            sku
+            product {
+              id
+              title
+              handle
+            }
+          }
+        }
+        location {
+          id
+          name
+          address {
+            address1
+            address2
+            city
+            province
+            country
+            zip
+            phone
+          }
+          isActive
+          isPrimary
+        }
+        updatedAt
+      }
+    }
+  }
+}
+
+# Get inventory levels for a specific location
+query GetInventoryLevelsByLocation($locationId: ID!, $first: Int!, $after: String) {
+  location(id: $locationId) {
+    id
+    name
+    inventoryLevels(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+      edges {
+        node {
+          id
+          available
+          item {
+            id
+            sku
+            tracked
+            variant {
+              id
+              title
+              sku
+              product {
+                id
+                title
+                handle
+              }
+            }
+          }
+          updatedAt
+        }
+      }
+    }
+  }
+}
+
+# Get inventory levels for a specific inventory item
+query GetInventoryLevelsByItem($itemId: ID!, $first: Int!, $after: String) {
+  inventoryItem(id: $itemId) {
+    id
+    sku
+    tracked
+    variant {
+      id
+      title
+      sku
+      product {
+        id
+        title
+        handle
+      }
+    }
+    inventoryLevels(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+      edges {
+        node {
+          id
+          available
+          location {
+            id
+            name
+            address {
+              address1
+              address2
+              city
+              province
+              country
+              zip
+              phone
+            }
+            isActive
+            isPrimary
+          }
+          updatedAt
+        }
+      }
+    }
+  }
+}

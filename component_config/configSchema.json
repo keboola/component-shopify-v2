@@ -2,18 +2,255 @@
   "type": "object",
   "title": "extractor configuration",
   "required": [
-    "print_hello"
+    "shop",
+    "#api_token",
+    "loading_options",
+    "endpoints"
   ],
   "properties": {
-    "print_hello": {
-      "type": "boolean",
-      "title": "Print Hello",
-      "propertyOrder": 1
+    "shop": {
+      "type": "string",
+      "title": "Shop name",
+      "description": "Your shop id found in url, e.g. [shop_id].myshopify.com",
+      "propertyOrder": 250
     },
-    "debug": {
-      "type": "boolean",
-      "title": "Debug",
-      "propertyOrder": 2
+    "endpoints": {
+      "type": "object",
+      "title": "Endpoints",
+      "properties": {
+        "products": {
+          "type": "boolean",
+          "title": "Products",
+          "format": "checkbox",
+          "default": true,
+          "description": "Get Products data",
+          "propertyOrder": 30
+        },
+        "products_drafts": {
+          "type": "boolean",
+          "title": "Product - Drafts",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Get drafts of products",
+          "propertyOrder": 31
+        },
+        "product_metafields": {
+          "type": "boolean",
+          "title": "Product - Metafields",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Get metafields related to products",
+          "propertyOrder": 32
+        },
+        "variant_metafields": {
+          "type": "boolean",
+          "title": "Product - Variant Metafields",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Get metafields related to product variants",
+          "propertyOrder": 33
+        },
+        "inventory": {
+          "type": "boolean",
+          "title": "Product - Inventory",
+          "format": "checkbox",
+          "default": true,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Get inventory levels and locations related to products",
+          "propertyOrder": 34
+        },
+        "products_archived": {
+          "type": "boolean",
+          "title": "Product - Archived",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Get archived products",
+          "propertyOrder": 35
+        },
+        "orders": {
+          "type": "boolean",
+          "title": "Orders",
+          "format": "checkbox",
+          "default": true,
+          "description": "Get Orders data",
+          "propertyOrder": 40
+        },
+        "transactions": {
+          "type": "boolean",
+          "title": "Order - Transactions",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "orders": true
+            }
+          },
+          "description": "Get orders transaction",
+          "propertyOrder": 41
+        },
+        "customers": {
+          "type": "boolean",
+          "title": "Customers",
+          "format": "checkbox",
+          "default": true,
+          "description": "Get Customers data",
+          "propertyOrder": 50
+        },
+        "payments_transactions": {
+          "type": "boolean",
+          "title": "Payments - transactions",
+          "format": "checkbox",
+          "default": true,
+          "description": "Get balance transactions - needs activated Shopify payments",
+          "propertyOrder": 60
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "title": "Setup",
+            "required": [
+              "filters",
+              "types"
+            ],
+            "properties": {
+              "types": {
+                "type": "string",
+                "title": "Event Types",
+                "format": "textarea",
+                "options": {
+                  "input_height": "100px"
+                },
+                "description": "Comma separated list of required event types. e.g. 'confirmed', 'create', 'destroy'. If omitted all possible types are downloaded.  Different resources generate different types of event. See the docs for a list of possible verbs.",
+                "uniqueItems": true,
+                "propertyOrder": 700
+              },
+              "filters": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "Article",
+                    "Blog",
+                    "Collection",
+                    "Comment",
+                    "Order",
+                    "Page",
+                    "PriceRule",
+                    "Product",
+                    "ApiPermission"
+                  ],
+                  "type": "string"
+                },
+                "title": "Types",
+                "format": "select",
+                "description": "Resource Types",
+                "uniqueItems": true,
+                "propertyOrder": 360
+              }
+            }
+          },
+          "title": "Events",
+          "maxItems": 1,
+          "description": "Download Events",
+          "propertyOrder": 4000
+        }
+      },
+      "propertyOrder": 500
+    },
+    "#api_token": {
+      "type": "string",
+      "title": "Admin API access token",
+      "format": "password",
+      "description": "Admin API access token of your Shopify custom app.",
+      "propertyOrder": 200
+    },
+    "api_version": {
+      "type": "string",
+      "title": "API version",
+      "default": "2024-01",
+      "readOnly": true,
+      "description": "The API version, gets updated regularly based on the <a href=\"https://shopify.dev/api/usage/versioning#release-schedule\">Shopify release cycle</a>",
+      "propertyOrder": 251
+    },
+    "loading_options": {
+      "type": "object",
+      "title": "Loading Options",
+      "format": "grid",
+      "required": [
+        "incremental_output",
+        "date_since",
+        "date_to"
+      ],
+      "properties": {
+        "date_to": {
+          "type": "string",
+          "title": "Period to date [excluding].",
+          "default": "now",
+          "description": " Date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, it is set to the current datetime.",
+          "propertyOrder": 450
+        },
+        "date_since": {
+          "type": "string",
+          "title": "Period from date [including].",
+          "default": "1 week ago",
+          "description": " Date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, all records are downloaded.",
+          "propertyOrder": 400
+        },
+        "fetch_parameter": {
+          "enum": [
+            "updated_at",
+            "created_at"
+          ],
+          "type": "string",
+          "title": "Fetch parameter",
+          "default": "updated_at",
+          "description": "Field/parameter to be used for filtering data from API.",
+          "propertyOrder": 300
+        },
+        "incremental_output": {
+          "enum": [
+            0,
+            1
+          ],
+          "type": "number",
+          "title": "Load type",
+          "default": 1,
+          "options": {
+            "enum_titles": [
+              "Full Load",
+              "Incremental Update"
+            ]
+          },
+          "description": "If set to Incremental update, the result tables will be updated based on primary key. Full load overwrites the destination table each time. NOTE: If you wish to remove deleted records, this needs to be set to Full load and the Period from attribute empty.",
+          "propertyOrder": 450
+        }
+      },
+      "description": "Data is fetched incrementally based on the last updated datetime. NOTE: Column names longer than 64 characters will be automatically shortened, more in <a href=\"https://github.com/keboola/component-shopify/blob/main/README.md\">documenation.</a>",
+      "propertyOrder": 400
     }
   }
 }

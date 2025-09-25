@@ -1,0 +1,59 @@
+# Get product metafields with pagination
+query GetProductMetafields($first: Int!, $after: String) {
+  metafields(first: $first, after: $after, ownerType: PRODUCT) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        namespace
+        key
+        value
+        type
+        description
+        owner {
+          ... on Product {
+            id
+            title
+            handle
+          }
+        }
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}
+
+# Get metafields for a specific product
+query GetProductMetafieldsByProduct($productId: ID!, $first: Int!, $after: String) {
+  product(id: $productId) {
+    id
+    title
+    handle
+    metafields(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+      edges {
+        node {
+          id
+          namespace
+          key
+          value
+          type
+          description
+          createdAt
+          updatedAt
+        }
+      }
+    }
+  }
+}

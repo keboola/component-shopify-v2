@@ -1,0 +1,86 @@
+# Get transactions for orders with pagination
+query GetTransactions($first: Int!, $after: String) {
+  transactions(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        kind
+        status
+        amount
+        currency
+        gateway
+        createdAt
+        processedAt
+        test
+        parentTransaction {
+          id
+          kind
+          status
+        }
+        order {
+          id
+          name
+          email
+          createdAt
+        }
+        errorCode
+        message
+        authorizationCode
+        authorizationExpiresAt
+        receipt {
+          id
+          testcase
+        }
+      }
+    }
+  }
+}
+
+# Get transactions for a specific order
+query GetOrderTransactions($orderId: ID!, $first: Int!, $after: String) {
+  order(id: $orderId) {
+    id
+    name
+    email
+    transactions(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+      edges {
+        node {
+          id
+          kind
+          status
+          amount
+          currency
+          gateway
+          createdAt
+          processedAt
+          test
+          parentTransaction {
+            id
+            kind
+            status
+          }
+          errorCode
+          message
+          authorizationCode
+          authorizationExpiresAt
+          receipt {
+            id
+            testcase
+          }
+        }
+      }
+    }
+  }
+}

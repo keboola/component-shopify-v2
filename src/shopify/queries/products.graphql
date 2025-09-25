@@ -1,0 +1,222 @@
+# Get all products with basic information
+query GetProducts($first: Int!, $after: String) {
+  products(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        title
+        handle
+        description
+        vendor
+        productType
+        tags
+        status
+        createdAt
+        updatedAt
+        publishedAt
+        totalInventory
+        variants(first: 250) {
+          edges {
+            node {
+              id
+              title
+              sku
+              barcode
+              price
+              compareAtPrice
+              weight
+              weightUnit
+              inventoryQuantity
+              inventoryItem {
+                id
+                inventoryLevels(first: 10) {
+                  edges {
+                    node {
+                      available
+                      location {
+                        id
+                        name
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        images(first: 10) {
+          edges {
+            node {
+              id
+              url
+              altText
+              width
+              height
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# Get a specific product by ID
+query GetProduct($id: ID!) {
+  product(id: $id) {
+    id
+    title
+    handle
+    description
+    vendor
+    productType
+    tags
+    status
+    createdAt
+    updatedAt
+    publishedAt
+    totalInventory
+    variants(first: 250) {
+      edges {
+        node {
+          id
+          title
+          sku
+          barcode
+          price
+          compareAtPrice
+          weight
+          weightUnit
+          inventoryQuantity
+          inventoryItem {
+            id
+            inventoryLevels(first: 10) {
+              edges {
+                node {
+                  available
+                  location {
+                    id
+                    name
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    images(first: 10) {
+      edges {
+        node {
+          id
+          url
+          altText
+          width
+          height
+        }
+      }
+    }
+  }
+}
+
+# Get products by handle
+query GetProductByHandle($handle: String!) {
+  productByHandle(handle: $handle) {
+    id
+    title
+    handle
+    description
+    vendor
+    productType
+    tags
+    status
+    createdAt
+    updatedAt
+    publishedAt
+    totalInventory
+    variants(first: 250) {
+      edges {
+        node {
+          id
+          title
+          sku
+          barcode
+          price
+          compareAtPrice
+          weight
+          weightUnit
+          inventoryQuantity
+          inventoryItem {
+            id
+            inventoryLevels(first: 10) {
+              edges {
+                node {
+                  available
+                  location {
+                    id
+                    name
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    images(first: 10) {
+      edges {
+        node {
+          id
+          url
+          altText
+          width
+          height
+        }
+      }
+    }
+  }
+}
+
+# Search products
+query SearchProducts($query: String!, $first: Int!, $after: String) {
+  products(query: $query, first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        title
+        handle
+        description
+        vendor
+        productType
+        tags
+        status
+        createdAt
+        updatedAt
+        publishedAt
+        totalInventory
+        variants(first: 10) {
+          edges {
+            node {
+              id
+              title
+              sku
+              price
+              inventoryQuantity
+            }
+          }
+        }
+      }
+    }
+  }
+}

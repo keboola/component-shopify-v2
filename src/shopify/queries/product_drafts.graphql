@@ -1,0 +1,97 @@
+# Get product drafts with pagination
+query GetProductDrafts($first: Int!, $after: String) {
+  productDrafts(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        title
+        handle
+        description
+        vendor
+        productType
+        tags
+        status
+        createdAt
+        updatedAt
+        publishedAt
+        totalInventory
+        variants(first: 250) {
+          edges {
+            node {
+              id
+              title
+              sku
+              barcode
+              price
+              compareAtPrice
+              weight
+              weightUnit
+              inventoryQuantity
+            }
+          }
+        }
+        images(first: 10) {
+          edges {
+            node {
+              id
+              url
+              altText
+              width
+              height
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# Get a specific product draft by ID
+query GetProductDraft($id: ID!) {
+  productDraft(id: $id) {
+    id
+    title
+    handle
+    description
+    vendor
+    productType
+    tags
+    status
+    createdAt
+    updatedAt
+    publishedAt
+    totalInventory
+    variants(first: 250) {
+      edges {
+        node {
+          id
+          title
+          sku
+          barcode
+          price
+          compareAtPrice
+          weight
+          weightUnit
+          inventoryQuantity
+        }
+      }
+    }
+    images(first: 10) {
+      edges {
+        node {
+          id
+          url
+          altText
+          width
+          height
+        }
+      }
+    }
+  }
+}

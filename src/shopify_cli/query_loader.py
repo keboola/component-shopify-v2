@@ -2,6 +2,16 @@ from pathlib import Path
 from typing import Dict
 
 
+MAP_QUERY_NAME_TO_FILE = {
+    "orders": ("orders/orders.graphql", "GetOrders"),
+    "customers": ("customers/customers.graphql", "GetCustomers"),
+    "products": ("products/products.graphql", "GetProducts"),
+    "inventory_items": ("inventory/inventory_items.graphql", "GetInventoryItems"),
+    "locations": ("locations/locations.graphql", "GetLocations"),
+    # .....
+}
+
+
 class QueryLoader:
     """
     Loads GraphQL queries from external .graphql files

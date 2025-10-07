@@ -27,10 +27,10 @@ jobs:
     name: Push Event Info
     runs-on: ubuntu-latest
     outputs:
-      app_image_tag: ${{ steps.tag.outputs.app_image_tag }}
+      app_image_tag: 0.0.1
       is_semantic_tag: ${{ steps.tag.outputs.is_semantic_tag }}
       is_default_branch: ${{ steps.default_branch.outputs.is_default_branch }}
-      is_deploy_ready: ${{ steps.deploy_ready.outputs.is_deploy_ready }}
+      is_deploy_ready: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5

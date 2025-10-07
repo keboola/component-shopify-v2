@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Dict
 
 MAP_QUERY_NAME_TO_FILE = {
     "orders": ("orders/orders.graphql", "GetOrders"),
@@ -29,7 +28,7 @@ class QueryLoader:
             queries_dir = current_dir / "queries"
 
         self.queries_dir = Path(queries_dir)
-        self._queries_cache: Dict[str, str] = {}
+        self._queries_cache: dict[str, str] = {}
 
     def load_query(self, query_name: str) -> str:
         """

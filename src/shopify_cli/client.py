@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import shopify
 from keboola.component.exceptions import UserException

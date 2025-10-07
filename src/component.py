@@ -1,10 +1,10 @@
 # src/component.py
-import duckdb
 import json
 import logging
-from typing import Any
 from pathlib import Path
+from typing import Any
 
+import duckdb
 from keboola.component.base import ComponentBase
 from keboola.component.exceptions import UserException
 
@@ -27,9 +27,9 @@ class Component(ComponentBase):
 
         # Initialize Shopify client
         client = ShopifyGraphQLClient(
-            store_name=params.store_name, 
-            api_token=params.api_token, 
-            api_version=params.api_version
+            store_name=params.store_name,
+            api_token=params.api_token,
+            api_version=params.api_version,
         )
 
         self.logger.info(f"Starting data extraction for endpoints: {params.endpoints}")
@@ -78,9 +78,7 @@ class Component(ComponentBase):
         # Collect all data
         all_orders = []
         for batch in client.get_orders(
-            date_from=params.date_from, 
-            date_to=params.date_to, 
-            batch_size=params.batch_size
+            date_from=params.date_from, date_to=params.date_to, batch_size=params.batch_size
         ):
             all_orders.extend(batch)
 
@@ -99,19 +97,19 @@ class Component(ComponentBase):
 
         # Create temporary JSON file
         temp_json = self.data_out_tables / f"{table_name}_temp.json"
-        with open(temp_json, 'w', encoding='utf-8') as f:
+        with open(temp_json, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
         try:
             # Load JSON data into DuckDB with automatic type detection
             self.conn.execute(f"""
-                CREATE OR REPLACE TABLE {table_name}_raw AS 
+                CREATE OR REPLACE TABLE {table_name}_raw AS
                 SELECT * FROM read_json_auto('{temp_json}')
             """)
 
             # Get table schema for manifest
             schema_info = self.conn.execute(f"DESCRIBE {table_name}_raw").fetchall()
-            
+
             # Create normalized tables based on endpoint
             if table_name == "orders":
                 self._create_orders_tables(table_name)
@@ -132,7 +130,7 @@ class Component(ComponentBase):
         # Main orders table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE orders AS
-            SELECT 
+            SELECT
                 id,
                 name,
                 email,
@@ -162,7 +160,7 @@ class Component(ComponentBase):
         # Order line items table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE order_line_items AS
-            SELECT 
+            SELECT
                 id as orderId,
                 lineItems.edges[].node.id as lineItemId,
                 lineItems.edges[].node.title as title,
@@ -185,7 +183,7 @@ class Component(ComponentBase):
         # Main products table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE products AS
-            SELECT 
+            SELECT
                 id,
                 title,
                 handle,
@@ -203,7 +201,7 @@ class Component(ComponentBase):
         # Product variants table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE product_variants AS
-            SELECT 
+            SELECT
                 id as productId,
                 variants.edges[].node.id as variantId,
                 variants.edges[].node.title as title,
@@ -226,7 +224,7 @@ class Component(ComponentBase):
         # Main inventory items table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE inventory_items AS
-            SELECT 
+            SELECT
                 id,
                 sku,
                 tracked,
@@ -251,7 +249,7 @@ class Component(ComponentBase):
         # Inventory levels table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE inventory_levels AS
-            SELECT 
+            SELECT
                 id as inventoryItemId,
                 inventoryLevels.edges[].node.id as levelId,
                 inventoryLevels.edges[].node.available as available,
@@ -272,16 +270,16 @@ class Component(ComponentBase):
     def _export_table_to_csv(self, output_name: str, table_name: str):
         """Export DuckDB table to CSV with proper types"""
         output_file = self.data_out_tables / f"{output_name}.csv"
-        
+
         # Export to CSV
         self.conn.execute(f"""
-            COPY {table_name} TO '{output_file}' 
+            COPY {table_name} TO '{output_file}'
             WITH (FORMAT CSV, HEADER, DELIMITER ',')
         """)
 
         # Get column information for manifest
         columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-        
+
         # Create manifest with data types
         self._create_typed_manifest(output_name, output_file, columns_info)
 
@@ -292,65 +290,57 @@ class Component(ComponentBase):
             "name": table_name,
             "primary_key": self._get_primary_key(table_name),
             "columns": [col[0] for col in columns_info],
-            "metadata": [
-                {
-                    "key": "KBC.createdBy.component.id",
-                    "value": "ex-shopify-v2"
-                }
-            ],
-            "column_metadata": []
+            "metadata": [{"key": "KBC.createdBy.component.id", "value": "ex-shopify-v2"}],
+            "column_metadata": [],
         }
 
         # Add column type metadata
         for col_name, col_type, null, key, default, extra in columns_info:
             # Map DuckDB types to Keboola base types
             keboola_type = self._map_duckdb_to_keboola_type(col_type)
-            manifest["column_metadata"].append({
-                "key": f"KBC.datatype.basetype.{col_name}",
-                "value": keboola_type
-            })
+            manifest["column_metadata"].append({"key": f"KBC.datatype.basetype.{col_name}", "value": keboola_type})
 
         # Write manifest
-        manifest_file = output_file.with_suffix('.csv.manifest')
-        with open(manifest_file, 'w', encoding='utf-8') as f:
+        manifest_file = output_file.with_suffix(".csv.manifest")
+        with open(manifest_file, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)
 
     def _map_duckdb_to_keboola_type(self, duckdb_type: str) -> str:
         """Map DuckDB types to Keboola base types"""
         type_mapping = {
-            'VARCHAR': 'STRING',
-            'BIGINT': 'INTEGER',
-            'INTEGER': 'INTEGER',
-            'DOUBLE': 'FLOAT',
-            'DECIMAL': 'NUMERIC',
-            'BOOLEAN': 'BOOLEAN',
-            'DATE': 'DATE',
-            'TIMESTAMP': 'TIMESTAMP',
-            'TIMESTAMPTZ': 'TIMESTAMP',
+            "VARCHAR": "STRING",
+            "BIGINT": "INTEGER",
+            "INTEGER": "INTEGER",
+            "DOUBLE": "FLOAT",
+            "DECIMAL": "NUMERIC",
+            "BOOLEAN": "BOOLEAN",
+            "DATE": "DATE",
+            "TIMESTAMP": "TIMESTAMP",
+            "TIMESTAMPTZ": "TIMESTAMP",
         }
-        
+
         # Handle complex types
-        if duckdb_type.startswith('VARCHAR'):
-            return 'STRING'
-        elif duckdb_type.startswith('DECIMAL'):
-            return 'NUMERIC'
-        elif duckdb_type.startswith('DOUBLE'):
-            return 'FLOAT'
-        
-        return type_mapping.get(duckdb_type, 'STRING')
+        if duckdb_type.startswith("VARCHAR"):
+            return "STRING"
+        elif duckdb_type.startswith("DECIMAL"):
+            return "NUMERIC"
+        elif duckdb_type.startswith("DOUBLE"):
+            return "FLOAT"
+
+        return type_mapping.get(duckdb_type, "STRING")
 
     def _get_primary_key(self, table_name: str) -> list[str]:
         """Define primary keys for different tables"""
         primary_keys = {
-            'orders': ['id'],
-            'order_line_items': ['orderId', 'lineItemId'],
-            'products': ['id'],
-            'product_variants': ['productId', 'variantId'],
-            'inventory_items': ['id'],
-            'inventory_levels': ['inventoryItemId', 'levelId'],
-            'customers': ['id'],
-            'locations': ['id'],
+            "orders": ["id"],
+            "order_line_items": ["orderId", "lineItemId"],
+            "products": ["id"],
+            "product_variants": ["productId", "variantId"],
+            "inventory_items": ["id"],
+            "inventory_levels": ["inventoryItemId", "levelId"],
+            "customers": ["id"],
+            "locations": ["id"],
         }
-        return primary_keys.get(table_name, ['id'])
+        return primary_keys.get(table_name, ["id"])
 
     # ... ostatní extract metody zůstávají stejné, jen volají _process_with_duckdb

@@ -3,6 +3,7 @@ from typing import Any, Iterator
 
 import shopify
 from keboola.component.exceptions import UserException
+
 from .query_loader import QueryLoader
 
 

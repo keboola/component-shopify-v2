@@ -19,6 +19,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "flake8>=7.3.0",
+    "ruff>=0.13.3",
 ]
 
 [tool.ruff]

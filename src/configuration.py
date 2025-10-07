@@ -1,7 +1,8 @@
 import logging
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from typing import List, Optional
+
 from keboola.component.exceptions import UserException
-from typing import Optional, List
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 
 class Configuration(BaseModel):

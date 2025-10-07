@@ -1,14 +1,7 @@
-"""
-Tests for Shopify GraphQL Extractor Component
-
-Created on 12. 11. 2018
-@author: esner
-Updated for GraphQL version
-"""
-
-import unittest
-import mock
 import os
+import unittest
+
+import mock
 from freezegun import freeze_time
 
 from component import Component

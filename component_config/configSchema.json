@@ -191,7 +191,7 @@
     "api_version": {
       "type": "string",
       "title": "API version",
-      "default": "2024-01",
+      "default": "2025-10",
       "readOnly": true,
       "description": "The API version, gets updated regularly based on the <a href=\"https://shopify.dev/api/usage/versioning#release-schedule\">Shopify release cycle</a>",
       "propertyOrder": 251

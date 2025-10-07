@@ -18,7 +18,6 @@ query GetOrders($first: Int!, $after: String, $query: String) {
         processedAt
         cancelledAt
         cancelReason
-        currency
         totalPriceSet {
           shopMoney {
             amount

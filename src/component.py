@@ -13,8 +13,8 @@ from shopify_cli.client import ShopifyGraphQLClient
 
 
 class Component(ComponentBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
         # Inicializace DuckDB
         self.conn = duckdb.connect()
@@ -48,17 +48,17 @@ class Component(ComponentBase):
         endpoint_methods = {
             "orders": self._extract_orders,
             "products": self._extract_products,
-            "customers": self._extract_customers,
-            "inventory_items": self._extract_inventory_items,
-            "locations": self._extract_locations,
-            "products_drafts": self._extract_product_drafts,
-            "product_metafields": self._extract_product_metafields,
-            "variant_metafields": self._extract_variant_metafields,
-            "inventory": self._extract_inventory_levels,
-            "products_archived": self._extract_products_archived,
-            "transactions": self._extract_transactions,
-            "payments_transactions": self._extract_payment_transactions,
-            "events": self._extract_events,
+            # "customers": self._extract_customers,
+            # "inventory_items": self._extract_inventory_items,
+            # "locations": self._extract_locations,
+            # "products_drafts": self._extract_product_drafts,
+            # "product_metafields": self._extract_product_metafields,
+            # "variant_metafields": self._extract_variant_metafields,
+            # "inventory": self._extract_inventory_levels,
+            # "products_archived": self._extract_products_archived,
+            # "transactions": self._extract_transactions,
+            # "payments_transactions": self._extract_payment_transactions,
+            # "events": self._extract_events,
         }
 
         try:
@@ -87,6 +87,21 @@ class Component(ComponentBase):
             self.logger.info(f"Successfully extracted {len(all_orders)} orders")
         else:
             self.logger.info("No orders found")
+
+    def _extract_products(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract products data using DuckDB"""
+        self.logger.info("Extracting products data")
+
+        # Collect all data
+        all_products = []
+        for batch in client.get_products(batch_size=params.batch_size):
+            all_products.extend(batch)
+
+        if all_products:
+            self._process_with_duckdb("products", all_products, params)
+            self.logger.info(f"Successfully extracted {len(all_products)} products")
+        else:
+            self.logger.info("No products found")
 
     def _process_with_duckdb(self, table_name: str, data: list[dict[str, Any]], params: Configuration):
         """
@@ -344,3 +359,19 @@ class Component(ComponentBase):
         return primary_keys.get(table_name, ["id"])
 
     # ... ostatní extract metody zůstávají stejné, jen volají _process_with_duckdb
+
+
+"""
+        Main entrypoint
+"""
+if __name__ == "__main__":
+    try:
+        comp = Component()
+        # this triggers the run method by default and is controlled by the configuration.action parameter
+        comp.execute_action()
+    except UserException as exc:
+        logging.exception(exc)
+        exit(1)
+    except Exception as exc:
+        logging.exception(exc)
+        exit(2)

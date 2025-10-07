@@ -1,3 +1,4 @@
+import json
 import logging
 from collections.abc import Iterator
 from typing import Any
@@ -56,7 +57,10 @@ class ShopifyGraphQLClient:
         """
         try:
             client = shopify.GraphQL()
-            result = client.execute(query, variables=variables)
+            result_str = client.execute(query, variables=variables)
+
+            result = json.loads(result_str)
+            logging.info(result)
 
             if "errors" in result:
                 error_messages = [error.get("message", "Unknown error") for error in result["errors"]]
@@ -93,14 +97,14 @@ class ShopifyGraphQLClient:
                 date_conditions.append(f"created_at:>={date_from}")
             if date_to:
                 date_conditions.append(f"created_at:<={date_to}")
-            date_filter = f'query: "{", ".join(date_conditions)}"'
+            date_filter = f'query: "{" ".join(date_conditions)}"'
 
         # Modify query to include date filter if needed
         if date_filter:
             # Replace the query parameter in the loaded query
             query = query.replace(
                 "query GetOrders($first: Int!, $after: String, $query: String)",
-                "query GetOrders($first: Int!, $after: String, $query: String)",
+                "query GetOrders($first: Int!, $after: String)",
             )
             query = query.replace(
                 "orders(first: $first, after: $after, query: $query)",
@@ -113,8 +117,11 @@ class ShopifyGraphQLClient:
                 "query GetOrders($first: Int!, $after: String)",
             )
             query = query.replace(
-                "orders(first: $first, after: $after, query: $query)", "orders(first: $first, after: $after)"
+                "orders(first: $first, after: $after, query: $query)",
+                "orders(first: $first, after: $after)",
             )
+
+        logging.info(query)
 
         cursor = None
         while True:

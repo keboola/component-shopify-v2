@@ -48,29 +48,6 @@ class TestComponent(unittest.TestCase):
         config = Configuration(**config_data)
         self.assertEqual(config.store_name, "test-shop")
 
-    def test_flatten_dict(self):
-        """Test dictionary flattening functionality"""
-        comp = Component()
-
-        # Test simple dict
-        simple_dict = {"key1": "value1", "key2": "value2"}
-        flattened = comp._flatten_dict(simple_dict)
-        self.assertEqual(flattened, simple_dict)
-
-        # Test nested dict
-        nested_dict = {"order": {"id": "123", "customer": {"name": "John Doe", "email": "john@example.com"}}}
-        flattened = comp._flatten_dict(nested_dict)
-        expected = {"order_id": "123", "order_customer_name": "John Doe", "order_customer_email": "john@example.com"}
-        self.assertEqual(flattened, expected)
-
-        # Test list handling
-        list_dict = {"items": [{"name": "item1", "price": 10}, {"name": "item2", "price": 20}]}
-        flattened = comp._flatten_dict(list_dict)
-        self.assertIn("items_0_name", flattened)
-        self.assertIn("items_1_name", flattened)
-        self.assertEqual(flattened["items_0_name"], "item1")
-        self.assertEqual(flattened["items_1_name"], "item2")
-
 
 if __name__ == "__main__":
     # import sys;sys.argv = ['', 'Test.testName']

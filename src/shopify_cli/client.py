@@ -72,6 +72,42 @@ class ShopifyGraphQLClient:
                 raise
             raise UserException(f"Failed to execute GraphQL query: {str(e)}")
 
+    def _paginate(self, query: str, data_key: str, batch_size: int) -> Iterator[list[dict[str, Any]]]:
+        """
+        Generic pagination helper for GraphQL queries
+
+        Args:
+            query: GraphQL query string
+            data_key: Key in response data containing the edges
+            batch_size: Number of items per batch
+
+        Yields:
+            List of item dictionaries
+        """
+        cursor = None
+        while True:
+            variables = {"first": batch_size}
+            if cursor:
+                variables["after"] = cursor
+
+            data = self.execute_query(query, variables)
+            collection_data = data.get(data_key, {})
+            edges = collection_data.get("edges", [])
+
+            if not edges:
+                break
+
+            # Extract nodes from edges
+            items = [edge["node"] for edge in edges]
+            yield items
+
+            # Check if there are more pages
+            page_info = collection_data.get("pageInfo", {})
+            if not page_info.get("hasNextPage", False):
+                break
+
+            cursor = page_info.get("endCursor")
+
     def get_orders(
         self, date_from: str | None = None, date_to: str | None = None, batch_size: int = 50
     ) -> Iterator[list[dict[str, Any]]]:
@@ -86,7 +122,6 @@ class ShopifyGraphQLClient:
         Yields:
             List of order dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetOrders")
 
         # Build date filter query
@@ -101,7 +136,6 @@ class ShopifyGraphQLClient:
 
         # Modify query to include date filter if needed
         if date_filter:
-            # Replace the query parameter in the loaded query
             query = query.replace(
                 "query GetOrders($first: Int!, $after: String, $query: String)",
                 "query GetOrders($first: Int!, $after: String)",
@@ -111,7 +145,6 @@ class ShopifyGraphQLClient:
                 f"orders(first: $first, after: $after, {date_filter})",
             )
         else:
-            # Remove query parameter if no date filter
             query = query.replace(
                 "query GetOrders($first: Int!, $after: String, $query: String)",
                 "query GetOrders($first: Int!, $after: String)",
@@ -122,30 +155,7 @@ class ShopifyGraphQLClient:
             )
 
         logging.info(query)
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            orders_data = data.get("orders", {})
-            edges = orders_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract orders from edges
-            orders = [edge["node"] for edge in edges]
-            yield orders
-
-            # Check if there are more pages
-            page_info = orders_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "orders", batch_size)
 
     def get_products(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
@@ -157,32 +167,8 @@ class ShopifyGraphQLClient:
         Yields:
             List of product dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetProducts")
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            products_data = data.get("products", {})
-            edges = products_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract products from edges
-            products = [edge["node"] for edge in edges]
-            yield products
-
-            # Check if there are more pages
-            page_info = products_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "products", batch_size)
 
     def get_customers(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
@@ -194,32 +180,8 @@ class ShopifyGraphQLClient:
         Yields:
             List of customer dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetCustomers")
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            customers_data = data.get("customers", {})
-            edges = customers_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract customers from edges
-            customers = [edge["node"] for edge in edges]
-            yield customers
-
-            # Check if there are more pages
-            page_info = customers_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "customers", batch_size)
 
     def get_inventory_items(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
@@ -231,32 +193,8 @@ class ShopifyGraphQLClient:
         Yields:
             List of inventory item dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetInventoryItems")
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            inventory_data = data.get("inventoryItems", {})
-            edges = inventory_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract inventory items from edges
-            inventory_items = [edge["node"] for edge in edges]
-            yield inventory_items
-
-            # Check if there are more pages
-            page_info = inventory_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "inventoryItems", batch_size)
 
     def get_locations(self) -> list[dict[str, Any]]:
         """
@@ -284,32 +222,8 @@ class ShopifyGraphQLClient:
         Yields:
             List of product draft dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetProductDrafts")
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            drafts_data = data.get("productDrafts", {})
-            edges = drafts_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract product drafts from edges
-            drafts = [edge["node"] for edge in edges]
-            yield drafts
-
-            # Check if there are more pages
-            page_info = drafts_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "productDrafts", batch_size)
 
     def get_product_metafields(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
@@ -321,32 +235,8 @@ class ShopifyGraphQLClient:
         Yields:
             List of metafield dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetProductMetafields")
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            metafields_data = data.get("metafields", {})
-            edges = metafields_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract metafields from edges
-            metafields = [edge["node"] for edge in edges]
-            yield metafields
-
-            # Check if there are more pages
-            page_info = metafields_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "metafields", batch_size)
 
     def get_variant_metafields(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
@@ -358,32 +248,8 @@ class ShopifyGraphQLClient:
         Yields:
             List of metafield dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetVariantMetafields")
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            metafields_data = data.get("metafields", {})
-            edges = metafields_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract metafields from edges
-            metafields = [edge["node"] for edge in edges]
-            yield metafields
-
-            # Check if there are more pages
-            page_info = metafields_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "metafields", batch_size)
 
     def get_inventory_levels(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
@@ -395,32 +261,8 @@ class ShopifyGraphQLClient:
         Yields:
             List of inventory level dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetInventoryLevels")
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            inventory_data = data.get("inventoryLevels", {})
-            edges = inventory_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract inventory levels from edges
-            inventory_levels = [edge["node"] for edge in edges]
-            yield inventory_levels
-
-            # Check if there are more pages
-            page_info = inventory_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "inventoryLevels", batch_size)
 
     def get_products_archived(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
@@ -432,37 +274,12 @@ class ShopifyGraphQLClient:
         Yields:
             List of archived product dictionaries
         """
-        # Use the same query as products but with status filter
         query = self.query_loader.load_query("GetProducts")
-
         # Modify query to filter for archived products
         query = query.replace(
             "products(first: $first, after: $after)", 'products(first: $first, after: $after, query: "status:archived")'
         )
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            products_data = data.get("products", {})
-            edges = products_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract products from edges
-            products = [edge["node"] for edge in edges]
-            yield products
-
-            # Check if there are more pages
-            page_info = products_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "products", batch_size)
 
     def get_transactions(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
@@ -474,32 +291,8 @@ class ShopifyGraphQLClient:
         Yields:
             List of transaction dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetTransactions")
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            transactions_data = data.get("transactions", {})
-            edges = transactions_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract transactions from edges
-            transactions = [edge["node"] for edge in edges]
-            yield transactions
-
-            # Check if there are more pages
-            page_info = transactions_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "transactions", batch_size)
 
     def get_payment_transactions(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
@@ -511,32 +304,8 @@ class ShopifyGraphQLClient:
         Yields:
             List of payment transaction dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetPaymentTransactions")
-
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            transactions_data = data.get("balanceTransactions", {})
-            edges = transactions_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract payment transactions from edges
-            transactions = [edge["node"] for edge in edges]
-            yield transactions
-
-            # Check if there are more pages
-            page_info = transactions_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "balanceTransactions", batch_size)
 
     def get_events(
         self, batch_size: int = 50, event_types: list[str] | None = None, subject_types: list[str] | None = None
@@ -552,7 +321,6 @@ class ShopifyGraphQLClient:
         Yields:
             List of event dictionaries
         """
-        # Load query from external file
         query = self.query_loader.load_query("GetEvents")
 
         # Build query filter
@@ -572,26 +340,4 @@ class ShopifyGraphQLClient:
                 "events(first: $first, after: $after, query: $query)", "events(first: $first, after: $after)"
             )
 
-        cursor = None
-        while True:
-            variables = {"first": batch_size}
-            if cursor:
-                variables["after"] = cursor
-
-            data = self.execute_query(query, variables)
-            events_data = data.get("events", {})
-            edges = events_data.get("edges", [])
-
-            if not edges:
-                break
-
-            # Extract events from edges
-            events = [edge["node"] for edge in edges]
-            yield events
-
-            # Check if there are more pages
-            page_info = events_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage", False):
-                break
-
-            cursor = page_info.get("endCursor")
+        yield from self._paginate(query, "events", batch_size)

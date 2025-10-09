@@ -30,15 +30,12 @@ query GetProducts($first: Int!, $after: String) {
               barcode
               price
               compareAtPrice
-              weight
-              weightUnit
               inventoryQuantity
               inventoryItem {
                 id
                 inventoryLevels(first: 10) {
                   edges {
                     node {
-                      available
                       location {
                         id
                         name

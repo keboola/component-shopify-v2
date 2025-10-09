@@ -44,7 +44,7 @@ class ShopifyGraphQLClient:
         except Exception as e:
             raise UserException(f"Failed to connect to Shopify store: {str(e)}")
 
-    def execute_query(self, query: str, variables: dict[str, Any] | None) -> dict[str, Any]:
+    def execute_query(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
         """
         Execute GraphQL query
 

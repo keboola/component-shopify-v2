@@ -48,9 +48,9 @@ class Component(ComponentBase):
         endpoint_methods = {
             "orders": self._extract_orders,
             "products": self._extract_products,
-            # "customers": self._extract_customers,
-            # "inventory_items": self._extract_inventory_items,
-            # "locations": self._extract_locations,
+            "customers": self._extract_customers,
+            "inventory_items": self._extract_inventory_items,
+            "locations": self._extract_locations,
             # "products_drafts": self._extract_product_drafts,
             # "product_metafields": self._extract_product_metafields,
             # "variant_metafields": self._extract_variant_metafields,
@@ -103,6 +103,48 @@ class Component(ComponentBase):
         else:
             self.logger.info("No products found")
 
+    def _extract_customers(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract customers data using DuckDB"""
+        self.logger.info("Extracting customers data")
+
+        # Collect all data
+        all_customers = []
+        for batch in client.get_customers(batch_size=params.batch_size):
+            all_customers.extend(batch)
+
+        if all_customers:
+            self._process_with_duckdb("customers", all_customers, params)
+            self.logger.info(f"Successfully extracted {len(all_customers)} customers")
+        else:
+            self.logger.info("No customers found")
+
+    def _extract_inventory_items(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract inventory items data using DuckDB"""
+        self.logger.info("Extracting inventory items data")
+
+        # Collect all data
+        all_inventory_items = []
+        for batch in client.get_inventory_items(batch_size=params.batch_size):
+            all_inventory_items.extend(batch)
+
+        if all_inventory_items:
+            self._process_with_duckdb("inventory_items", all_inventory_items, params)
+            self.logger.info(f"Successfully extracted {len(all_inventory_items)} inventory items")
+        else:
+            self.logger.info("No inventory items found")
+
+    def _extract_locations(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract locations data using DuckDB"""
+        self.logger.info("Extracting locations data")
+
+        # Collect all data
+        all_locations = client.get_locations()
+        if all_locations:
+            self._process_with_duckdb("locations", all_locations, params)
+            self.logger.info(f"Successfully extracted {len(all_locations)} locations")
+        else:
+            self.logger.info("No locations found")
+
     def _process_with_duckdb(self, table_name: str, data: list[dict[str, Any]], params: Configuration):
         """
         Process data using DuckDB for type detection and normalization
@@ -111,7 +153,8 @@ class Component(ComponentBase):
             return
 
         # Create temporary JSON file
-        temp_json = self.data_out_tables / f"{table_name}_temp.json"
+        file_def = self.create_out_file_definition(f"{table_name}_temp.json")
+        temp_json = Path(file_def.full_path)
         with open(temp_json, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -134,7 +177,7 @@ class Component(ComponentBase):
                 self._create_inventory_tables(table_name)
             else:
                 # For simple tables, just export as CSV
-                self._export_simple_table(table_name, schema_info)
+                self._export_simple_table(f"{table_name}_raw", schema_info)
 
         finally:
             # Clean up temporary file
@@ -284,7 +327,8 @@ class Component(ComponentBase):
 
     def _export_table_to_csv(self, output_name: str, table_name: str):
         """Export DuckDB table to CSV with proper types"""
-        output_file = self.data_out_tables / f"{output_name}.csv"
+        table = self.create_out_table_definition(f"{output_name}.csv", incremental=True)
+        output_file = Path(table.full_path)
 
         # Export to CSV
         self.conn.execute(f"""
@@ -362,7 +406,7 @@ class Component(ComponentBase):
 
 
 """
-        Main entrypoint
+    Main entrypoint
 """
 if __name__ == "__main__":
     try:

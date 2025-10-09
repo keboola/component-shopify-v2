@@ -29,7 +29,6 @@ query GetInventoryItems($first: Int!, $after: String) {
           edges {
             node {
               id
-              available
               location {
                 id
                 name

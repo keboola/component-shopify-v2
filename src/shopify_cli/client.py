@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from collections.abc import Iterator
 from typing import Any
 
@@ -44,35 +45,59 @@ class ShopifyGraphQLClient:
         except Exception as e:
             raise UserException(f"Failed to connect to Shopify store: {str(e)}")
 
-    def execute_query(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
+    def execute_query(
+        self, query: str, variables: dict[str, Any] | None = None, max_retries: int = 5
+    ) -> dict[str, Any]:
         """
-        Execute GraphQL query
+        Execute GraphQL query with retry logic for throttling
 
         Args:
             query: GraphQL query string
             variables: Query variables
+            max_retries: Maximum number of retries for throttled requests
 
         Returns:
             Query response data
         """
-        try:
-            client = shopify.GraphQL()
-            result_str = client.execute(query, variables=variables)
+        retry_count = 0
+        base_wait = 1  # Start with 1 second
 
-            result = json.loads(result_str)
-            logging.info(result)
+        while retry_count <= max_retries:
+            try:
+                client = shopify.GraphQL()
+                result_str = client.execute(query, variables=variables)
 
-            if "errors" in result:
-                error_messages = [error.get("message", "Unknown error") for error in result["errors"]]
-                raise UserException(f"GraphQL query failed: {'; '.join(error_messages)}")
+                result = json.loads(result_str)
+                logging.info(result)
 
-            return result.get("data", {})
-        except Exception as e:
-            if isinstance(e, UserException):
-                raise
-            raise UserException(f"Failed to execute GraphQL query: {str(e)}")
+                if "errors" in result:
+                    error_messages = [error.get("message", "Unknown error") for error in result["errors"]]
 
-    def _paginate(self, query: str, data_key: str, batch_size: int) -> Iterator[list[dict[str, Any]]]:
+                    # Check if it's a throttling error
+                    if any("throttled" in msg.lower() for msg in error_messages):
+                        if retry_count < max_retries:
+                            wait_time = base_wait * (2**retry_count)  # Exponential backoff
+                            self.logger.warning(
+                                f"API throttled. Waiting {wait_time}s before retry {retry_count + 1}/{max_retries}"
+                            )
+                            time.sleep(wait_time)
+                            retry_count += 1
+                            continue
+
+                    raise UserException(f"GraphQL query failed: {'; '.join(error_messages)}")
+
+                return result.get("data", {})
+            except Exception as e:
+                if isinstance(e, UserException):
+                    raise
+                raise UserException(f"Failed to execute GraphQL query: {str(e)}")
+
+        # If all retries exhausted
+        raise UserException(f"GraphQL query failed after {max_retries} retries due to throttling")
+
+    def _paginate(
+        self, query: str, data_key: str, batch_size: int, max_items: int | None = 2_000
+    ) -> Iterator[list[dict[str, Any]]]:
         """
         Generic pagination helper for GraphQL queries
 
@@ -80,11 +105,14 @@ class ShopifyGraphQLClient:
             query: GraphQL query string
             data_key: Key in response data containing the edges
             batch_size: Number of items per batch
+            max_items: Maximum total items to fetch (for testing)
 
         Yields:
             List of item dictionaries
         """
         cursor = None
+        total_fetched = 0
+
         while True:
             variables = {"first": batch_size}
             if cursor:
@@ -99,9 +127,23 @@ class ShopifyGraphQLClient:
 
             # Extract nodes from edges
             items = [edge["node"] for edge in edges]
+
+            # Apply max_items limit if specified
+            if max_items is not None:
+                remaining = max_items - total_fetched
+                if len(items) > remaining:
+                    items = items[:remaining]
+                    self.logger.info(f"Sliced batch to {len(items)} items to respect limit")
+                total_fetched += len(items)
+                self.logger.info(f"Fetched {len(items)} items (total: {total_fetched}/{max_items})")
+
             yield items
 
-            # Check if there are more pages
+            # Check if we've reached the limit
+            if max_items is not None and total_fetched >= max_items:
+                self.logger.info(f"Reached max_items limit of {max_items}, stopping pagination")
+                break
+
             page_info = collection_data.get("pageInfo", {})
             if not page_info.get("hasNextPage", False):
                 break
@@ -109,7 +151,10 @@ class ShopifyGraphQLClient:
             cursor = page_info.get("endCursor")
 
     def get_orders(
-        self, date_from: str | None = None, date_to: str | None = None, batch_size: int = 50
+        self,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        batch_size: int = 50,
     ) -> Iterator[list[dict[str, Any]]]:
         """
         Get orders with pagination
@@ -222,7 +267,7 @@ class ShopifyGraphQLClient:
         Yields:
             List of product draft dictionaries
         """
-        query = self.query_loader.load_query("GetProductDrafts")
+        query = self.query_loader.load_query("GetProducts")
         yield from self._paginate(query, "productDrafts", batch_size)
 
     def get_product_metafields(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:

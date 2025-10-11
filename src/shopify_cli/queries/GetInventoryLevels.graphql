@@ -1,6 +1,6 @@
 # Get inventory levels with pagination
 query GetInventoryLevels($first: Int!, $after: String) {
-  inventoryLevels(first: $first, after: $after) {
+  inventoryItems(first: $first, after: $after) {
     pageInfo {
       hasNextPage
       hasPreviousPage

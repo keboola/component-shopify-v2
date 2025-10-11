@@ -51,13 +51,13 @@ class Component(ComponentBase):
             "customers": self._extract_customers,
             "inventory_items": self._extract_inventory_items,
             "locations": self._extract_locations,
-            # "products_drafts": self._extract_product_drafts,
-            # "product_metafields": self._extract_product_metafields,
-            # "variant_metafields": self._extract_variant_metafields,
-            # "inventory": self._extract_inventory_levels,
-            # "products_archived": self._extract_products_archived,
-            # "transactions": self._extract_transactions,
-            # "payments_transactions": self._extract_payment_transactions,
+            "products_drafts": self._extract_product_drafts,  # ❌ not working, use extract_products with status: draft query
+            "product_metafields": self._extract_product_metafields,  # ❌ not working, use product endpoint, include metafields node
+            "variant_metafields": self._extract_variant_metafields,  # ❌ not working, probably implemented in GetVariantMetafieldsByVariant
+            "inventory": self._extract_inventory_levels,  # ❌ not working, needs to be examined
+            "products_archived": self._extract_products_archived,  # ❌ not working, use extract_products with status: archived query
+            "transactions": self._extract_transactions,  # ❌ not working, needs to be examined (there is many transaction-related GraphQL endpoints)
+            # "payments_transactions": self._extract_payment_transactions,  # ❌ not working, same as above 👆
             # "events": self._extract_events,
         }
 
@@ -144,6 +144,96 @@ class Component(ComponentBase):
             self.logger.info(f"Successfully extracted {len(all_locations)} locations")
         else:
             self.logger.info("No locations found")
+
+    def _extract_product_drafts(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract product drafts data using DuckDB"""
+        self.logger.info("Extracting product drafts data")
+
+        # Collect all data
+        all_product_drafts = []
+        for batch in client.get_product_drafts(batch_size=params.batch_size):
+            all_product_drafts.extend(batch)
+
+        if all_product_drafts:
+            self._process_with_duckdb("product_drafts", all_product_drafts, params)
+            self.logger.info(f"Successfully extracted {len(all_product_drafts)} product drafts")
+        else:
+            self.logger.info("No product drafts found")
+
+    def _extract_products_archived(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract archived products data using DuckDB"""
+        # self.logger.info("Extracting archived products data")
+
+        # # Collect all data
+        # all_archived_products = []
+        # for batch in client.get_archived_products(batch_size=params.batch_size):
+        #     all_archived_products.extend(batch)
+
+        # if all_archived_products:
+        #     self._process_with_duckdb("products_archived", all_archived_products, params)
+        #     self.logger.info(f"Successfully extracted {len(all_archived_products)} archived products")
+        # else:
+        #     self.logger.info("No archived products found")
+
+    def _extract_product_metafields(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract product metafields data using DuckDB"""
+        self.logger.info("Extracting product metafields data")
+
+        # Collect all data
+        all_product_metafields = []
+        for batch in client.get_product_metafields(batch_size=params.batch_size):
+            all_product_metafields.extend(batch)
+
+        if all_product_metafields:
+            self._process_with_duckdb("product_metafields", all_product_metafields, params)
+            self.logger.info(f"Successfully extracted {len(all_product_metafields)} product metafields")
+        else:
+            self.logger.info("No product metafields found")
+
+    def _extract_variant_metafields(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract variant metafields data using DuckDB"""
+        self.logger.info("Extracting variant metafields data")
+
+        # Collect all data
+        all_variant_metafields = []
+        for batch in client.get_variant_metafields(batch_size=params.batch_size):
+            all_variant_metafields.extend(batch)
+
+        if all_variant_metafields:
+            self._process_with_duckdb("variant_metafields", all_variant_metafields, params)
+            self.logger.info(f"Successfully extracted {len(all_variant_metafields)} variant metafields")
+        else:
+            self.logger.info("No variant metafields found")
+
+    def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract inventory levels data using DuckDB"""
+        self.logger.info("Extracting inventory levels data")
+
+        # Collect all data
+        all_inventory_levels = []
+        for batch in client.get_inventory_levels(batch_size=params.batch_size):
+            all_inventory_levels.extend(batch)
+
+        if all_inventory_levels:
+            self._process_with_duckdb("inventory_levels", all_inventory_levels, params)
+            self.logger.info(f"Successfully extracted {len(all_inventory_levels)} inventory levels")
+        else:
+            self.logger.info("No inventory levels found")
+
+    def _extract_transactions(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract transactions data using DuckDB"""
+        self.logger.info("Extracting transactions data")
+
+        # Collect all data
+        all_transactions = []
+        for batch in client.get_transactions(batch_size=params.batch_size):
+            all_transactions.extend(batch)
+
+        if all_transactions:
+            self._process_with_duckdb("transactions", all_transactions, params)
+            self.logger.info(f"Successfully extracted {len(all_transactions)} transactions")
+        else:
+            self.logger.info("No transactions found")
 
     def _process_with_duckdb(self, table_name: str, data: list[dict[str, Any]], params: Configuration):
         """

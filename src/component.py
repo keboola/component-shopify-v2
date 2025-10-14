@@ -17,7 +17,7 @@ class Component(ComponentBase):
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
         # Inicializace DuckDB
-        self.conn = duckdb.connect()
+        self.conn = duckdb.connect("shopify_data.duckdb")
 
     def run(self):
         """
@@ -48,6 +48,7 @@ class Component(ComponentBase):
         endpoint_methods = {
             "orders": self._extract_orders,
             "products": self._extract_products,
+            "products_bulk": self._extract_products_bulk,
             "customers": self._extract_customers,
             "inventory_items": self._extract_inventory_items,
             "locations": self._extract_locations,
@@ -102,6 +103,66 @@ class Component(ComponentBase):
             self.logger.info(f"Successfully extracted {len(all_products)} products")
         else:
             self.logger.info("No products found")
+
+    def _extract_products_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract products data using Shopify bulk operations"""
+        self.logger.info("Extracting products data via bulk operation")
+
+        all_products = client.get_products_bulk()
+
+        if all_products:
+            # Bulk results are already flattened, use simple export
+            self._process_bulk_products(all_products)
+            self.logger.info(f"Successfully extracted {len(all_products)} products via bulk")
+        else:
+            self.logger.info("No products found")
+
+    def _process_bulk_products(self, data: list[dict[str, Any]]):
+        """Process bulk products data - already flattened by Shopify"""
+        from pathlib import Path
+
+        # Separate records by type
+        products = [r for r in data if r.get("__typename") == "Product"]
+        variants = [r for r in data if r.get("__typename") == "ProductVariant"]
+        images = [r for r in data if r.get("__typename") == "ProductImage"]
+
+        self.logger.info(f"Bulk data: {len(products)} products, {len(variants)} variants, {len(images)} images")
+
+        # Process products
+        if products:
+            self.conn.execute("DROP TABLE IF EXISTS products_bulk")
+            self.conn.execute("CREATE TABLE products_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(products)])
+
+            table = self.create_out_table_definition("products_bulk.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(f"COPY products_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+
+            columns_info = self.conn.execute("DESCRIBE products_bulk").fetchall()
+            self._create_typed_manifest("products_bulk", output_file, columns_info)
+
+        # Process variants
+        if variants:
+            self.conn.execute("DROP TABLE IF EXISTS product_variants_bulk")
+            self.conn.execute("CREATE TABLE product_variants_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(variants)])
+
+            table = self.create_out_table_definition("product_variants_bulk.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(f"COPY product_variants_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+
+            columns_info = self.conn.execute("DESCRIBE product_variants_bulk").fetchall()
+            self._create_typed_manifest("product_variants_bulk", output_file, columns_info)
+
+        # Process images
+        if images:
+            self.conn.execute("DROP TABLE IF EXISTS product_images_bulk")
+            self.conn.execute("CREATE TABLE product_images_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(images)])
+
+            table = self.create_out_table_definition("product_images_bulk.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(f"COPY product_images_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+
+            columns_info = self.conn.execute("DESCRIBE product_images_bulk").fetchall()
+            self._create_typed_manifest("product_images_bulk", output_file, columns_info)
 
     def _extract_customers(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract customers data using DuckDB"""

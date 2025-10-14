@@ -1,0 +1,72 @@
+mutation {
+  bulkOperationRunQuery(
+    query: """
+    {
+      products {
+        edges {
+          node {
+            id
+            title
+            handle
+            description
+            vendor
+            productType
+            tags
+            status
+            createdAt
+            updatedAt
+            publishedAt
+            totalInventory
+            variants {
+              edges {
+                node {
+                  id
+                  title
+                  sku
+                  barcode
+                  price
+                  compareAtPrice
+                  inventoryQuantity
+                  inventoryItem {
+                    id
+                    inventoryLevels(first: 10) {
+                      edges {
+                        node {
+                          location {
+                            id
+                            name
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            images {
+              edges {
+                node {
+                  id
+                  url
+                  altText
+                  width
+                  height
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+  ) {
+    bulkOperation {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

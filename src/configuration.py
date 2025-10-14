@@ -45,6 +45,7 @@ class Configuration(BaseModel):
         valid_endpoints = [
             "orders",
             "products",
+            "products_bulk",
             "customers",
             "inventory_items",
             "locations",

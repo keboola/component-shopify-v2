@@ -10,6 +10,9 @@ from keboola.component.exceptions import UserException
 from .query_loader import QueryLoader
 
 
+TOTAL_ITEMS_LIMIT: int | None = None  # None for production, count for testing
+
+
 class ShopifyGraphQLClient:
     """
     Shopify GraphQL API client for data extraction
@@ -96,7 +99,7 @@ class ShopifyGraphQLClient:
         raise UserException(f"GraphQL query failed after {max_retries} retries due to throttling")
 
     def _paginate(
-        self, query: str, data_key: str, batch_size: int, max_items: int | None = 2_000
+        self, query: str, data_key: str, batch_size: int, max_items: int | None = TOTAL_ITEMS_LIMIT
     ) -> Iterator[list[dict[str, Any]]]:
         """
         Generic pagination helper for GraphQL queries

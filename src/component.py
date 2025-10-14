@@ -51,14 +51,14 @@ class Component(ComponentBase):
             "customers": self._extract_customers,
             "inventory_items": self._extract_inventory_items,
             "locations": self._extract_locations,
-            "products_drafts": self._extract_product_drafts,  # ❌ not working, use extract_products with status: draft query
-            "product_metafields": self._extract_product_metafields,  # ❌ not working, use product endpoint, include metafields node
-            "variant_metafields": self._extract_variant_metafields,  # ❌ not working, probably implemented in GetVariantMetafieldsByVariant
+            "products_drafts": self._extract_product_drafts,  # ❌ not working, use extract_products with status: draft query # noqa: E501
+            "product_metafields": self._extract_product_metafields,  # ❌ not working, use product endpoint, include metafields node # noqa: E501
+            "variant_metafields": self._extract_variant_metafields,  # ❌ not working, probably implemented in GetVariantMetafieldsByVariant # noqa: E501
             "inventory": self._extract_inventory_levels,  # ❌ not working, needs to be examined
-            "products_archived": self._extract_products_archived,  # ❌ not working, use extract_products with status: archived query
-            "transactions": self._extract_transactions,  # ❌ not working, needs to be examined (there is many transaction-related GraphQL endpoints)
+            "products_archived": self._extract_products_archived,  # ❌ not working, use extract_products with status: archived query # noqa: E501
+            "transactions": self._extract_transactions,  # ❌ not working, needs to be examined (there is many transaction-related GraphQL endpoints) # noqa: E501
             # "payments_transactions": self._extract_payment_transactions,  # ❌ not working, same as above 👆
-            # "events": self._extract_events,
+            "events": self._extract_events,
         }
 
         try:
@@ -234,6 +234,21 @@ class Component(ComponentBase):
             self.logger.info(f"Successfully extracted {len(all_transactions)} transactions")
         else:
             self.logger.info("No transactions found")
+
+    def _extract_events(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract events data using DuckDB"""
+        self.logger.info("Extracting events data")
+
+        # Collect all data
+        all_events = []
+        for batch in client.get_events(batch_size=params.batch_size):
+            all_events.extend(batch)
+
+        if all_events:
+            self._process_with_duckdb("events", all_events, params)
+            self.logger.info(f"Successfully extracted {len(all_events)} events")
+        else:
+            self.logger.info("No events found")
 
     def _process_with_duckdb(self, table_name: str, data: list[dict[str, Any]], params: Configuration):
         """

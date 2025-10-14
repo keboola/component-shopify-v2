@@ -1,6 +1,6 @@
 # Get events with pagination
-query GetEvents($first: Int!, $after: String, $query: String) {
-  events(first: $first, after: $after, query: $query) {
+query GetEvents($first: Int!, $after: String) {
+  events(first: $first, after: $after) {
     pageInfo {
       hasNextPage
       hasPreviousPage
@@ -10,15 +10,8 @@ query GetEvents($first: Int!, $after: String, $query: String) {
     edges {
       node {
         id
-        subjectId
-        subjectType
-        verb
         createdAt
         message
-        description
-        path
-        arguments
-        author
       }
     }
   }

@@ -50,6 +50,7 @@ class Component(ComponentBase):
             "products": self._extract_products,
             "products_bulk": self._extract_products_bulk,
             "customers": self._extract_customers,
+            "customers_bulk": self._extract_customers_bulk,
             "inventory_items": self._extract_inventory_items,
             "locations": self._extract_locations,
             "products_drafts": self._extract_product_drafts,  # ❌ not working, use extract_products with status: draft query # noqa: E501
@@ -143,7 +144,9 @@ class Component(ComponentBase):
         # Process variants
         if variants:
             self.conn.execute("DROP TABLE IF EXISTS product_variants_bulk")
-            self.conn.execute("CREATE TABLE product_variants_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(variants)])
+            self.conn.execute(
+                "CREATE TABLE product_variants_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(variants)]
+            )
 
             table = self.create_out_table_definition("product_variants_bulk.csv", incremental=True)
             output_file = Path(table.full_path)
@@ -155,7 +158,9 @@ class Component(ComponentBase):
         # Process images
         if images:
             self.conn.execute("DROP TABLE IF EXISTS product_images_bulk")
-            self.conn.execute("CREATE TABLE product_images_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(images)])
+            self.conn.execute(
+                "CREATE TABLE product_images_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(images)]
+            )
 
             table = self.create_out_table_definition("product_images_bulk.csv", incremental=True)
             output_file = Path(table.full_path)
@@ -178,6 +183,57 @@ class Component(ComponentBase):
             self.logger.info(f"Successfully extracted {len(all_customers)} customers")
         else:
             self.logger.info("No customers found")
+
+    def _extract_customers_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract customers data using Shopify bulk operations"""
+        self.logger.info("Extracting customers data via bulk operation")
+
+        all_customers = client.get_customers_bulk()
+
+        if all_customers:
+            # Bulk results are already flattened, use simple export
+            self._process_bulk_customers(all_customers)
+            self.logger.info(f"Successfully extracted {len(all_customers)} customers via bulk")
+        else:
+            self.logger.info("No customers found")
+
+    def _process_bulk_customers(self, data: list[dict[str, Any]]):
+        """Process bulk customers data - already flattened by Shopify"""
+        from pathlib import Path
+
+        # Separate records by type
+        customers = [r for r in data if r.get("__typename") == "Customer"]
+        addresses = [r for r in data if r.get("__typename") == "MailingAddress"]
+
+        self.logger.info(f"Bulk data: {len(customers)} customers, {len(addresses)} addresses")
+
+        # Process customers
+        if customers:
+            self.conn.execute("DROP TABLE IF EXISTS customers_bulk")
+            self.conn.execute("CREATE TABLE customers_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(customers)])
+
+            table = self.create_out_table_definition("customers_bulk.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(f"COPY customers_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+
+            columns_info = self.conn.execute("DESCRIBE customers_bulk").fetchall()
+            self._create_typed_manifest("customers_bulk", output_file, columns_info)
+
+        # Process addresses
+        if addresses:
+            self.conn.execute("DROP TABLE IF EXISTS customer_addresses_bulk")
+            self.conn.execute(
+                "CREATE TABLE customer_addresses_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(addresses)]
+            )
+
+            table = self.create_out_table_definition("customer_addresses_bulk.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(
+                f"COPY customer_addresses_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')"
+            )
+
+            columns_info = self.conn.execute("DESCRIBE customer_addresses_bulk").fetchall()
+            self._create_typed_manifest("customer_addresses_bulk", output_file, columns_info)
 
     def _extract_inventory_items(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory items data using DuckDB"""

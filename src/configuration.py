@@ -9,8 +9,6 @@ class Configuration(BaseModel):
     api_version: str = Field(default="2025-10", description="Shopify API version")
     api_token: str = Field(alias="#api_token", description="Shopify Admin API access token")
     endpoints: list[str] = Field(default=["orders", "products"], description="List of endpoints to extract data from")
-    date_from: str | None = Field(default=None, description="Start date for data extraction (YYYY-MM-DD)")
-    date_to: str | None = Field(default=None, description="End date for data extraction (YYYY-MM-DD)")
     batch_size: int = Field(default=50, ge=1, le=250, description="Number of records per batch")
     debug: bool = Field(default=False, description="Enable debug mode")
 
@@ -47,6 +45,7 @@ class Configuration(BaseModel):
             "products",
             "products_bulk",
             "customers",
+            "customers_bulk",
             "inventory_items",
             "locations",
             "products_drafts",

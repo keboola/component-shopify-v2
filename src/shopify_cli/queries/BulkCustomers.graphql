@@ -1,0 +1,64 @@
+mutation {
+  bulkOperationRunQuery(
+    query: """
+    {
+      customers {
+        edges {
+          node {
+            id
+            firstName
+            lastName
+            email
+            phone
+            createdAt
+            updatedAt
+            emailMarketingConsent {
+              marketingState
+              marketingOptInLevel
+            }
+            defaultAddress {
+              id
+              firstName
+              lastName
+              address1
+              address2
+              city
+              province
+              country
+              zip
+              phone
+              name
+              provinceCode
+              countryCodeV2
+            }
+            addresses {
+              id
+              firstName
+              lastName
+              address1
+              address2
+              city
+              province
+              country
+              zip
+              phone
+              name
+              provinceCode
+              countryCodeV2
+            }
+          }
+        }
+      }
+    }
+    """
+  ) {
+    bulkOperation {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

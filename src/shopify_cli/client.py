@@ -11,7 +11,7 @@ from keboola.component.exceptions import UserException
 from .query_loader import QueryLoader
 
 
-TOTAL_ITEMS_LIMIT: int | None = 2000  # None for production, count for testing
+TOTAL_ITEMS_LIMIT: int | None = None  # None for production, count for testing
 
 
 class ShopifyGraphQLClient:
@@ -436,28 +436,81 @@ class ShopifyGraphQLClient:
 
                 self.logger.info(f"Downloading results from: {url}")
                 object_count = current_op.get("objectCount", 0)
-                return self._download_bulk_results(url, object_count)
+                return self._download_bulk_results(url, object_count, "products")
 
             elif status in ["FAILED", "CANCELED"]:
                 error = current_op.get("errorCode", "Unknown error")
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
-    def _download_bulk_results(self, url: str, expected_count: int) -> list[dict[str, Any]]:
+    def get_customers_bulk(self) -> list[dict[str, Any]]:
+        """
+        Get all customers using Shopify's bulk operations
+
+        Returns:
+            List of all customers
+        """
+        self.logger.info("Starting bulk operation for customers")
+
+        # Start bulk operation - load mutation directly
+        mutation_file = self.query_loader.queries_dir / "BulkCustomers.graphql"
+        with open(mutation_file, "r", encoding="utf-8") as f:
+            mutation = f.read()
+
+        result = self.execute_query(mutation)
+
+        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
+        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
+
+        if user_errors:
+            raise UserException(f"Bulk operation failed: {user_errors}")
+
+        operation_id = bulk_op.get("id")
+        self.logger.info(f"Bulk operation started: {operation_id}")
+
+        # Poll for completion - load query directly
+        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
+        with open(status_file, "r", encoding="utf-8") as f:
+            status_query = f.read()
+
+        while True:
+            time.sleep(2)  # Poll every 2 seconds
+            status_result = self.execute_query(status_query)
+            current_op = status_result.get("currentBulkOperation", {})
+
+            status = current_op.get("status")
+            self.logger.info(f"Bulk operation status: {status}")
+
+            if status == "COMPLETED":
+                url = current_op.get("url")
+                if not url:
+                    raise UserException("Bulk operation completed but no download URL")
+
+                self.logger.info(f"Downloading results from: {url}")
+                object_count = current_op.get("objectCount", 0)
+                return self._download_bulk_results(url, object_count, "customers")
+
+            elif status in ["FAILED", "CANCELED"]:
+                error = current_op.get("errorCode", "Unknown error")
+                raise UserException(f"Bulk operation {status.lower()}: {error}")
+
+    def _download_bulk_results(
+        self, url: str, expected_count: int, entity_type: str = "products"
+    ) -> list[dict[str, Any]]:
         """Download and parse JSONL results from bulk operation"""
         with urlopen(url) as response:
             data = response.read().decode("utf-8")
 
         # Save raw JSONL file
-        jsonl_file = "bulk_products_download.jsonl"
+        jsonl_file = f"bulk_{entity_type}_download.jsonl"
         with open(jsonl_file, "w", encoding="utf-8") as f:
             f.write(data)
         self.logger.info(f"Saved bulk results to {jsonl_file}")
 
         # Parse JSONL (one JSON object per line)
-        products = []
+        items = []
         for line in data.strip().split("\n"):
             if line:
-                products.append(json.loads(line))
+                items.append(json.loads(line))
 
-        self.logger.info(f"Downloaded {len(products)} items from bulk operation (expected: {expected_count})")
-        return products
+        self.logger.info(f"Downloaded {len(items)} items from bulk operation (expected: {expected_count})")
+        return items

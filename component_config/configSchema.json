@@ -2,17 +2,88 @@
   "type": "object",
   "title": "extractor configuration",
   "required": [
-    "shop",
     "#api_token",
+    "store_name",
     "loading_options",
     "endpoints"
   ],
   "properties": {
-    "shop": {
+    "#api_token": {
       "type": "string",
-      "title": "Shop name",
-      "description": "Your shop id found in url, e.g. [shop_id].myshopify.com",
-      "propertyOrder": 250
+      "title": "Admin API access token",
+      "format": "password",
+      "description": "Admin API access token of your Shopify custom app.",
+      "propertyOrder": 0
+    },
+    "store_name": {
+      "type": "string",
+      "title": "Store name",
+      "description": "Shopify store name found in URL, e.g. [store_name].myshopify.com",
+      "propertyOrder": 10
+    },
+    "api_version": {
+      "type": "string",
+      "title": "API version",
+      "default": "2025-10",
+      "readOnly": true,
+      "description": "The API version, gets updated regularly based on the <a href=\"https://shopify.dev/api/usage/versioning#release-schedule\">Shopify release cycle</a>",
+      "propertyOrder": 20
+    },
+    "loading_options": {
+      "type": "object",
+      "title": "Loading Options",
+      "description": "Data is fetched incrementally based on the last updated datetime. NOTE: Column names longer than 64 characters will be automatically shortened, more in <a href=\"https://github.com/keboola/component-shopify/blob/main/README.md\">documenation.</a>",
+      "propertyOrder": 30,
+      "format": "grid",
+      "required": [
+        "incremental_output",
+        "date_since",
+        "date_to"
+      ],
+      "properties": {
+        "date_since": {
+          "type": "string",
+          "title": "Period start date [including]",
+          "default": "1 week ago",
+          "description": " Date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, all records are downloaded.",
+          "propertyOrder": 40
+        },
+        "date_to": {
+          "type": "string",
+          "title": "Period end date [excluding]",
+          "default": "now",
+          "description": " Date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, it is set to the current datetime.",
+          "propertyOrder": 45
+        },
+        "fetch_parameter": {
+          "enum": [
+            "updated_at",
+            "created_at"
+          ],
+          "type": "string",
+          "title": "Fetch parameter",
+          "default": "updated_at",
+          "description": "Field/parameter to be used for filtering data from API.",
+          "propertyOrder": 50
+        },
+        "incremental_output": {
+          "enum": [
+            0,
+            1
+          ],
+          "type": "number",
+          "title": "Load type",
+          "default": 1,
+          "options": {
+            "enum_titles": [
+              "Full Load",
+              "Incremental Update"
+            ]
+          },
+          "description": "If set to Incremental update, the result tables will be updated based on primary key. Full load overwrites the destination table each time. NOTE: If you wish to remove deleted records, this needs to be set to Full load and the Period from attribute empty.",
+          "propertyOrder": 55
+        }
+      }
     },
     "endpoints": {
       "type": "object",
@@ -180,77 +251,6 @@
         }
       },
       "propertyOrder": 500
-    },
-    "#api_token": {
-      "type": "string",
-      "title": "Admin API access token",
-      "format": "password",
-      "description": "Admin API access token of your Shopify custom app.",
-      "propertyOrder": 200
-    },
-    "api_version": {
-      "type": "string",
-      "title": "API version",
-      "default": "2025-10",
-      "readOnly": true,
-      "description": "The API version, gets updated regularly based on the <a href=\"https://shopify.dev/api/usage/versioning#release-schedule\">Shopify release cycle</a>",
-      "propertyOrder": 251
-    },
-    "loading_options": {
-      "type": "object",
-      "title": "Loading Options",
-      "format": "grid",
-      "required": [
-        "incremental_output",
-        "date_since",
-        "date_to"
-      ],
-      "properties": {
-        "date_to": {
-          "type": "string",
-          "title": "Period to date [excluding].",
-          "default": "now",
-          "description": " Date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, it is set to the current datetime.",
-          "propertyOrder": 450
-        },
-        "date_since": {
-          "type": "string",
-          "title": "Period from date [including].",
-          "default": "1 week ago",
-          "description": " Date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, all records are downloaded.",
-          "propertyOrder": 400
-        },
-        "fetch_parameter": {
-          "enum": [
-            "updated_at",
-            "created_at"
-          ],
-          "type": "string",
-          "title": "Fetch parameter",
-          "default": "updated_at",
-          "description": "Field/parameter to be used for filtering data from API.",
-          "propertyOrder": 300
-        },
-        "incremental_output": {
-          "enum": [
-            0,
-            1
-          ],
-          "type": "number",
-          "title": "Load type",
-          "default": 1,
-          "options": {
-            "enum_titles": [
-              "Full Load",
-              "Incremental Update"
-            ]
-          },
-          "description": "If set to Incremental update, the result tables will be updated based on primary key. Full load overwrites the destination table each time. NOTE: If you wish to remove deleted records, this needs to be set to Full load and the Period from attribute empty.",
-          "propertyOrder": 450
-        }
-      },
-      "description": "Data is fetched incrementally based on the last updated datetime. NOTE: Column names longer than 64 characters will be automatically shortened, more in <a href=\"https://github.com/keboola/component-shopify/blob/main/README.md\">documenation.</a>",
-      "propertyOrder": 400
     }
   }
 }

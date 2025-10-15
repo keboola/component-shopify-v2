@@ -4,10 +4,16 @@ from keboola.component.exceptions import UserException
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 
+class LoadingOptions(BaseModel):
+    date_since: str | None = Field(default=None, description="Start date for data extraction (YYYY-MM-DD)")
+    date_to: str | None = Field(default=None, description="End date for data extraction (YYYY-MM-DD)")
+
+
 class Configuration(BaseModel):
     store_name: str = Field(..., description="Shopify store name (without .myshopify.com)")
     api_version: str = Field(default="2025-10", description="Shopify API version")
     api_token: str = Field(alias="#api_token", description="Shopify Admin API access token")
+    loading_options: LoadingOptions = Field(default_factory=LoadingOptions)
     endpoints: list[str] = Field(default=["orders", "products"], description="List of endpoints to extract data from")
     batch_size: int = Field(default=50, ge=1, le=250, description="Number of records per batch")
     debug: bool = Field(default=False, description="Enable debug mode")

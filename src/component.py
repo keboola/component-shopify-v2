@@ -80,7 +80,9 @@ class Component(ComponentBase):
         # Collect all data
         all_orders = []
         for batch in client.get_orders(
-            date_from=params.date_from, date_to=params.date_to, batch_size=params.batch_size
+            date_since=params.loading_options.date_since,
+            date_to=params.loading_options.date_to,
+            batch_size=params.batch_size,
         ):
             all_orders.extend(batch)
 

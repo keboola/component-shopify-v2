@@ -61,7 +61,7 @@ The component supports the following Shopify GraphQL endpoints:
 - **api_version** - Shopify API version (default: "2024-01")
 - **endpoints** - List of endpoints to extract (default: ["orders", "products"])
   - Valid endpoints: orders, products, customers, inventory_items, locations, products_drafts, product_metafields, variant_metafields, inventory, products_archived, transactions, payments_transactions, events
-- **date_from** - Start date for data extraction (YYYY-MM-DD format)
+- **date_since** - Start date for data extraction (YYYY-MM-DD format)
 - **date_to** - End date for data extraction (YYYY-MM-DD format)
 - **batch_size** - Number of records per batch (1-250, default: 50)
 - **debug** - Enable debug logging (default: false)
@@ -75,8 +75,10 @@ The component supports the following Shopify GraphQL endpoints:
     "store_name": "your-shop-name",
     "api_version": "2024-01",
     "endpoints": ["orders", "products", "customers", "inventory_items"],
-    "date_from": "2024-01-01",
-    "date_to": "2024-12-31",
+    "loading_options": {
+      "date_since": "2024-01-01",
+      "date_to": "2025-10-06"
+    },
     "batch_size": 50,
     "debug": false
   }

@@ -72,7 +72,6 @@ class ShopifyGraphQLClient:
                 result_str = client.execute(query, variables=variables)
 
                 result = json.loads(result_str)
-                logging.info(result)
 
                 if "errors" in result:
                     error_messages = [error.get("message", "Unknown error") for error in result["errors"]]
@@ -156,7 +155,7 @@ class ShopifyGraphQLClient:
 
     def get_orders(
         self,
-        date_from: str | None = None,
+        date_since: str | None = None,
         date_to: str | None = None,
         batch_size: int = 50,
     ) -> Iterator[list[dict[str, Any]]]:
@@ -164,7 +163,7 @@ class ShopifyGraphQLClient:
         Get orders with pagination
 
         Args:
-            date_from: Start date for filtering (YYYY-MM-DD)
+            date_since: Start date for filtering (YYYY-MM-DD)
             date_to: End date for filtering (YYYY-MM-DD)
             batch_size: Number of orders per batch
 
@@ -175,10 +174,10 @@ class ShopifyGraphQLClient:
 
         # Build date filter query
         date_filter = ""
-        if date_from or date_to:
+        if date_since or date_to:
             date_conditions = []
-            if date_from:
-                date_conditions.append(f"created_at:>={date_from}")
+            if date_since:
+                date_conditions.append(f"created_at:>={date_since}")
             if date_to:
                 date_conditions.append(f"created_at:<={date_to}")
             date_filter = f'query: "{" ".join(date_conditions)}"'
@@ -203,7 +202,6 @@ class ShopifyGraphQLClient:
                 "orders(first: $first, after: $after)",
             )
 
-        logging.info(query)
         yield from self._paginate(query, "orders", batch_size)
 
     def get_products(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:

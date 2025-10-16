@@ -17,7 +17,7 @@ class Component(ComponentBase):
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
         # Inicializace DuckDB
-        self.conn = duckdb.connect("shopify_data.duckdb")
+        self.conn = duckdb.connect()
 
     def run(self):
         """
@@ -422,7 +422,6 @@ class Component(ComponentBase):
                 processedAt,
                 cancelledAt,
                 cancelReason,
-                currency,
                 totalPriceSet.shopMoney.amount as totalPrice,
                 totalPriceSet.shopMoney.currencyCode as totalPriceCurrency,
                 subtotalPriceSet.shopMoney.amount as subtotalPrice,
@@ -443,17 +442,17 @@ class Component(ComponentBase):
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE order_line_items AS
             SELECT
-                id as orderId,
-                lineItems.edges[].node.id as lineItemId,
-                lineItems.edges[].node.title as title,
-                lineItems.edges[].node.quantity as quantity,
-                lineItems.edges[].node.sku as sku,
-                lineItems.edges[].node.variant.id as variantId,
-                lineItems.edges[].node.variant.title as variantTitle,
-                lineItems.edges[].node.variant.sku as variantSku,
-                lineItems.edges[].node.variant.price as variantPrice
-            FROM {table_name}_raw
-            WHERE lineItems.edges IS NOT NULL
+                o.id as orderId,
+                item->>'$.node.id' as lineItemId,
+                item->>'$.node.title' as title,
+                CAST(item->>'$.node.quantity' AS INTEGER) as quantity,
+                item->>'$.node.sku' as sku,
+                item->>'$.node.variant.id' as variantId,
+                item->>'$.node.variant.title' as variantTitle,
+                item->>'$.node.variant.sku' as variantSku,
+                item->>'$.node.variant.price' as variantPrice
+            FROM {table_name}_raw o,
+            UNNEST(o.lineItems.edges) as t(item)
         """)
 
         # Export both tables
@@ -484,17 +483,17 @@ class Component(ComponentBase):
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE product_variants AS
             SELECT
-                id as productId,
-                variants.edges[].node.id as variantId,
-                variants.edges[].node.title as title,
-                variants.edges[].node.sku as sku,
-                variants.edges[].node.price as price,
-                variants.edges[].node.compareAtPrice as compareAtPrice,
-                variants.edges[].node.inventoryQuantity as inventoryQuantity,
-                variants.edges[].node.weight as weight,
-                variants.edges[].node.weightUnit as weightUnit
-            FROM {table_name}_raw
-            WHERE variants.edges IS NOT NULL
+                p.id as productId,
+                variant->>'$.node.id' as variantId,
+                variant->>'$.node.title' as title,
+                variant->>'$.node.sku' as sku,
+                variant->>'$.node.price' as price,
+                variant->>'$.node.compareAtPrice' as compareAtPrice,
+                CAST(variant->>'$.node.inventoryQuantity' AS INTEGER) as inventoryQuantity,
+                CAST(variant->>'$.node.weight' AS DOUBLE) as weight,
+                variant->>'$.node.weightUnit' as weightUnit
+            FROM {table_name}_raw p,
+            UNNEST(p.variants.edges) as t(variant)
         """)
 
         # Export both tables
@@ -532,13 +531,13 @@ class Component(ComponentBase):
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE inventory_levels AS
             SELECT
-                id as inventoryItemId,
-                inventoryLevels.edges[].node.id as levelId,
-                inventoryLevels.edges[].node.available as available,
-                inventoryLevels.edges[].node.location.id as locationId,
-                inventoryLevels.edges[].node.location.name as locationName
-            FROM {table_name}_raw
-            WHERE inventoryLevels.edges IS NOT NULL
+                i.id as inventoryItemId,
+                level->>'$.node.id' as levelId,
+                CAST(level->>'$.node.available' AS INTEGER) as available,
+                level->>'$.node.location.id' as locationId,
+                level->>'$.node.location.name' as locationName
+            FROM {table_name}_raw i,
+            UNNEST(i.inventoryLevels.edges) as t(level)
         """)
 
         # Export both tables

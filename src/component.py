@@ -1,11 +1,13 @@
 # src/component.py
 import json
 import logging
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
 import duckdb
 from keboola.component.base import ComponentBase
+from keboola.component.dao import BaseType, ColumnDefinition, SupportedDataTypes
 from keboola.component.exceptions import UserException
 
 from configuration import Configuration
@@ -18,6 +20,7 @@ class Component(ComponentBase):
         self.logger = logging.getLogger(__name__)
         # Inicializace DuckDB
         self.conn = duckdb.connect()
+        self.params = Configuration(**self.configuration.parameters)
 
     def run(self):
         """
@@ -141,7 +144,7 @@ class Component(ComponentBase):
             self.conn.execute(f"COPY products_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             columns_info = self.conn.execute("DESCRIBE products_bulk").fetchall()
-            self._create_typed_manifest("products_bulk", output_file, columns_info)
+            self._create_typed_manifest("products_bulk", columns_info)
 
         # Process variants
         if variants:
@@ -155,7 +158,7 @@ class Component(ComponentBase):
             self.conn.execute(f"COPY product_variants_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             columns_info = self.conn.execute("DESCRIBE product_variants_bulk").fetchall()
-            self._create_typed_manifest("product_variants_bulk", output_file, columns_info)
+            self._create_typed_manifest("product_variants_bulk", columns_info)
 
         # Process images
         if images:
@@ -169,7 +172,7 @@ class Component(ComponentBase):
             self.conn.execute(f"COPY product_images_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             columns_info = self.conn.execute("DESCRIBE product_images_bulk").fetchall()
-            self._create_typed_manifest("product_images_bulk", output_file, columns_info)
+            self._create_typed_manifest("product_images_bulk", columns_info)
 
     def _extract_customers(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract customers data using DuckDB"""
@@ -219,7 +222,7 @@ class Component(ComponentBase):
             self.conn.execute(f"COPY customers_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             columns_info = self.conn.execute("DESCRIBE customers_bulk").fetchall()
-            self._create_typed_manifest("customers_bulk", output_file, columns_info)
+            self._create_typed_manifest("customers_bulk", columns_info)
 
         # Process addresses
         if addresses:
@@ -235,7 +238,7 @@ class Component(ComponentBase):
             )
 
             columns_info = self.conn.execute("DESCRIBE customer_addresses_bulk").fetchall()
-            self._create_typed_manifest("customer_addresses_bulk", output_file, columns_info)
+            self._create_typed_manifest("customer_addresses_bulk", columns_info)
 
     def _extract_inventory_items(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory items data using DuckDB"""
@@ -389,9 +392,6 @@ class Component(ComponentBase):
                 SELECT * FROM read_json_auto('{temp_json}')
             """)
 
-            # Get table schema for manifest
-            schema_info = self.conn.execute(f"DESCRIBE {table_name}_raw").fetchall()
-
             # Create normalized tables based on endpoint
             if table_name == "orders":
                 self._create_orders_tables(table_name)
@@ -401,7 +401,7 @@ class Component(ComponentBase):
                 self._create_inventory_tables(table_name)
             else:
                 # For simple tables, just export as CSV
-                self._export_simple_table(f"{table_name}_raw", schema_info)
+                self._export_simple_table(f"{table_name}_raw")
 
         finally:
             # Clean up temporary file
@@ -544,48 +544,45 @@ class Component(ComponentBase):
         self._export_table_to_csv("inventory_items", "inventory_items")
         self._export_table_to_csv("inventory_levels", "inventory_levels")
 
-    def _export_simple_table(self, table_name: str, schema_info):
+    def _export_simple_table(self, table_name: str):
         """Export simple table to CSV"""
         self._export_table_to_csv(table_name, table_name)
 
     def _export_table_to_csv(self, output_name: str, table_name: str):
         """Export DuckDB table to CSV with proper types"""
-        table = self.create_out_table_definition(f"{output_name}.csv", incremental=True)
-        output_file = Path(table.full_path)
-
-        # Export to CSV
-        self.conn.execute(f"""
-            COPY {table_name} TO '{output_file}'
-            WITH (FORMAT CSV, HEADER, DELIMITER ',')
-        """)
 
         # Get column information for manifest
-        columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+        table_meta = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
 
         # Create manifest with data types
-        self._create_typed_manifest(output_name, output_file, columns_info)
+        self._create_typed_manifest(output_name, table_meta)
 
-    def _create_typed_manifest(self, table_name: str, output_file: Path, columns_info):
-        """Create manifest with DuckDB detected types"""
-        manifest = {
-            "id": f"in.c-shopify.{table_name}",
-            "name": table_name,
-            "primary_key": self._get_primary_key(table_name),
-            "columns": [col[0] for col in columns_info],
-            "metadata": [{"key": "KBC.createdBy.component.id", "value": "ex-shopify-v2"}],
-            "column_metadata": [],
-        }
+    def _create_typed_manifest(self, table_name: str, table_meta):
+        schema = OrderedDict(
+            {
+                c[0]: ColumnDefinition(
+                    data_types=BaseType(dtype=self.convert_base_types(c[1])),
+                    primary_key=False,
+                )
+                for c in table_meta
+            }  # c[0] is the column name, c[1] is the data type, c[3] is the primary key
+        )
 
-        # Add column type metadata
-        for col_name, col_type, null, key, default, extra in columns_info:
-            # Map DuckDB types to Keboola base types
-            keboola_type = self._map_duckdb_to_keboola_type(col_type)
-            manifest["column_metadata"].append({"key": f"KBC.datatype.basetype.{col_name}", "value": keboola_type})
+        out_table = self.create_out_table_definition(
+            f"{table_name}.csv",
+            schema=schema,
+            primary_key=self._get_primary_key(table_name),
+            # incremental=self.params.destination.incremental,
+            has_header=True,
+        )
 
-        # Write manifest
-        manifest_file = output_file.with_suffix(".csv.manifest")
-        with open(manifest_file, "w", encoding="utf-8") as f:
-            json.dump(manifest, f, indent=2, ensure_ascii=False)
+        try:
+            q = f"COPY {table_name} TO '{out_table.full_path}' (HEADER, DELIMITER ',', FORCE_QUOTE *)"
+            logging.debug(f"Running query: {q}; ")
+            self.conn.execute(q)
+            self.write_manifest(out_table)
+        except duckdb.ConversionException as e:
+            raise UserException(f"Error during query execution: {e}")
 
     def _map_duckdb_to_keboola_type(self, duckdb_type: str) -> str:
         """Map DuckDB types to Keboola base types"""
@@ -624,6 +621,34 @@ class Component(ComponentBase):
             "locations": ["id"],
         }
         return primary_keys.get(table_name, ["id"])
+
+    @staticmethod
+    def convert_base_types(dtype: str) -> SupportedDataTypes:
+        if dtype in [
+            "TINYINT",
+            "SMALLINT",
+            "INTEGER",
+            "BIGINT",
+            "HUGEINT",
+            "UTINYINT",
+            "USMALLINT",
+            "UINTEGER",
+            "UBIGINT",
+            "UHUGEINT",
+        ]:
+            return SupportedDataTypes.INTEGER
+        elif dtype in ["REAL", "DECIMAL"]:
+            return SupportedDataTypes.NUMERIC
+        elif dtype == "DOUBLE":
+            return SupportedDataTypes.FLOAT
+        elif dtype == "BOOLEAN":
+            return SupportedDataTypes.BOOLEAN
+        elif dtype in ["TIMESTAMP", "TIMESTAMP WITH TIME ZONE"]:
+            return SupportedDataTypes.TIMESTAMP
+        elif dtype == "DATE":
+            return SupportedDataTypes.DATE
+        else:
+            return SupportedDataTypes.STRING
 
     # ... ostatní extract metody zůstávají stejné, jen volají _process_with_duckdb
 

@@ -2,6 +2,7 @@ import json
 import logging
 import time
 from collections.abc import Iterator
+from functools import wraps
 from typing import Any
 from urllib.request import urlopen
 
@@ -10,8 +11,32 @@ from keboola.component.exceptions import UserException
 
 from .query_loader import QueryLoader
 
-
 TOTAL_ITEMS_LIMIT: int | None = None  # None for production, count for testing
+
+
+def log_bulk_performance(entity_name: str):
+    """Decorator to log performance metrics for bulk operations"""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            logger = logging.getLogger(__name__)
+            start_time = time.time()
+
+            results = func(*args, **kwargs)
+
+            elapsed_time = time.time() - start_time
+            items_count = len(results) if results else 0
+            items_per_second = items_count / elapsed_time if elapsed_time > 0 else 0
+            logger.info(
+                f"{entity_name.capitalize()} bulk operation completed in {elapsed_time:.2f}s "
+                f"({items_count} items, {items_per_second:.2f} items/s)"
+            )
+            return results
+
+        return wrapper
+
+    return decorator
 
 
 class ShopifyGraphQLClient:
@@ -389,6 +414,7 @@ class ShopifyGraphQLClient:
 
         yield from self._paginate(query, "events", batch_size)
 
+    @log_bulk_performance("products")
     def get_products_bulk(self) -> list[dict[str, Any]]:
         """
         Get all products using Shopify's bulk operations
@@ -440,6 +466,7 @@ class ShopifyGraphQLClient:
                 error = current_op.get("errorCode", "Unknown error")
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
+    @log_bulk_performance("orders")
     def get_orders_bulk(self) -> list[dict[str, Any]]:
         """
         Get all orders using Shopify's bulk operations
@@ -491,6 +518,7 @@ class ShopifyGraphQLClient:
                 error = current_op.get("errorCode", "Unknown error")
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
+    @log_bulk_performance("customers")
     def get_customers_bulk(self) -> list[dict[str, Any]]:
         """
         Get all customers using Shopify's bulk operations

@@ -94,8 +94,16 @@
           "title": "Products",
           "format": "checkbox",
           "default": true,
-          "description": "Get Products data",
+          "description": "Get Products data using bulk operations (recommended)",
           "propertyOrder": 30
+        },
+        "products_legacy": {
+          "type": "boolean",
+          "title": "Products (Legacy)",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get Products data using legacy one-by-one method (slower, use only if needed)",
+          "propertyOrder": 30.5
         },
         "products_drafts": {
           "type": "boolean",
@@ -109,6 +117,35 @@
           },
           "description": "Get drafts of products",
           "propertyOrder": 31
+        },
+        "products_archived": {
+          "type": "boolean",
+          "title": "Product - Archived",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Get archived products",
+          "propertyOrder": 35
+        },
+        "orders": {
+          "type": "boolean",
+          "title": "Orders",
+          "format": "checkbox",
+          "default": true,
+          "description": "Get Orders data using bulk operations (recommended)",
+          "propertyOrder": 40
+        },
+        "orders_legacy": {
+          "type": "boolean",
+          "title": "Orders (Legacy)",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get Orders data using legacy one-by-one method (slower, use only if needed)",
+          "propertyOrder": 40.5
         },
         "product_metafields": {
           "type": "boolean",
@@ -149,27 +186,6 @@
           "description": "Get inventory levels and locations related to products",
           "propertyOrder": 34
         },
-        "products_archived": {
-          "type": "boolean",
-          "title": "Product - Archived",
-          "format": "checkbox",
-          "default": false,
-          "options": {
-            "dependencies": {
-              "products": true
-            }
-          },
-          "description": "Get archived products",
-          "propertyOrder": 35
-        },
-        "orders": {
-          "type": "boolean",
-          "title": "Orders",
-          "format": "checkbox",
-          "default": true,
-          "description": "Get Orders data",
-          "propertyOrder": 40
-        },
         "transactions": {
           "type": "boolean",
           "title": "Order - Transactions",
@@ -188,8 +204,16 @@
           "title": "Customers",
           "format": "checkbox",
           "default": true,
-          "description": "Get Customers data",
+          "description": "Get Customers data using bulk operations (recommended)",
           "propertyOrder": 50
+        },
+        "customers_legacy": {
+          "type": "boolean",
+          "title": "Customers (Legacy)",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get Customers data using legacy one-by-one method (slower, use only if needed)",
+          "propertyOrder": 50.5
         },
         "payments_transactions": {
           "type": "boolean",
@@ -200,6 +224,10 @@
           "propertyOrder": 60
         },
         "events": {
+          "title": "Events",
+          "maxItems": 1,
+          "description": "Download Events",
+          "propertyOrder": 4000,
           "type": "array",
           "items": {
             "type": "object",
@@ -221,6 +249,11 @@
                 "propertyOrder": 700
               },
               "filters": {
+                "title": "Types",
+                "format": "select",
+                "description": "Resource Types",
+                "uniqueItems": true,
+                "propertyOrder": 360,
                 "type": "array",
                 "items": {
                   "enum": [
@@ -235,19 +268,10 @@
                     "ApiPermission"
                   ],
                   "type": "string"
-                },
-                "title": "Types",
-                "format": "select",
-                "description": "Resource Types",
-                "uniqueItems": true,
-                "propertyOrder": 360
+                }
               }
             }
-          },
-          "title": "Events",
-          "maxItems": 1,
-          "description": "Download Events",
-          "propertyOrder": 4000
+          }
         }
       },
       "propertyOrder": 500

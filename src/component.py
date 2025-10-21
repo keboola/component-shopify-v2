@@ -49,20 +49,21 @@ class Component(ComponentBase):
         Process a specific endpoint using DuckDB
         """
         endpoint_methods = {
-            "orders": self._extract_orders,
-            "products": self._extract_products,
-            "products_bulk": self._extract_products_bulk,
-            "customers": self._extract_customers,
-            "customers_bulk": self._extract_customers_bulk,
-            "inventory_items": self._extract_inventory_items,
-            "locations": self._extract_locations,
+            "products": self._extract_products_bulk,
+            "products_legacy": self._extract_products_legacy,
             "products_drafts": self._extract_product_drafts,  # ❌ not working, use extract_products with status: draft query # noqa: E501
+            "products_archived": self._extract_products_archived,  # ❌ not working, use extract_products with status: archived query # noqa: E501
+            "orders": self._extract_orders_bulk,
+            "orders_legacy": self._extract_orders_legacy,
+            "customers": self._extract_customers_bulk,
+            "customers_legacy": self._extract_customers_legacy,
+            "inventory": self._extract_inventory_levels,  # ❌ not working, needs to be examined
+            # ❓❓ IS THIS NEEDED? "inventory_items": self._extract_inventory_items,
+            "transactions": self._extract_transactions,  # ❌ not working, needs to be examined (there is many transaction-related GraphQL endpoints) # noqa: E501
+            # ‼️‼️ THIS IS NEEDED! "payments_transactions": self._extract_payment_transactions,  # ❌ not working, same as above 👆
+            # ❓❓ IS THIS NEEDED? "locations": self._extract_locations,
             "product_metafields": self._extract_product_metafields,  # ❌ not working, use product endpoint, include metafields node # noqa: E501
             "variant_metafields": self._extract_variant_metafields,  # ❌ not working, probably implemented in GetVariantMetafieldsByVariant # noqa: E501
-            "inventory": self._extract_inventory_levels,  # ❌ not working, needs to be examined
-            "products_archived": self._extract_products_archived,  # ❌ not working, use extract_products with status: archived query # noqa: E501
-            "transactions": self._extract_transactions,  # ❌ not working, needs to be examined (there is many transaction-related GraphQL endpoints) # noqa: E501
-            # "payments_transactions": self._extract_payment_transactions,  # ❌ not working, same as above 👆
             "events": self._extract_events,
         }
 
@@ -76,9 +77,9 @@ class Component(ComponentBase):
             self.logger.error(f"Error processing endpoint {endpoint}: {str(e)}")
             raise UserException(f"Failed to process endpoint {endpoint}: {str(e)}")
 
-    def _extract_orders(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract orders data using DuckDB"""
-        self.logger.info("Extracting orders data")
+    def _extract_orders_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract orders data using DuckDB (legacy one-by-one method)"""
+        self.logger.info("Extracting orders data (legacy method)")
 
         # Collect all data
         all_orders = []
@@ -90,14 +91,27 @@ class Component(ComponentBase):
             all_orders.extend(batch)
 
         if all_orders:
-            self._process_with_duckdb("orders", all_orders, params)
+            self._process_with_duckdb("orders_legacy", all_orders, params)
             self.logger.info(f"Successfully extracted {len(all_orders)} orders")
         else:
             self.logger.info("No orders found")
 
-    def _extract_products(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract products data using DuckDB"""
-        self.logger.info("Extracting products data")
+    def _extract_orders_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract orders data using Shopify bulk operations"""
+        self.logger.info("Extracting orders data via bulk operation")
+
+        all_orders = client.get_orders_bulk()
+
+        if all_orders:
+            # Bulk results are already flattened, use simple export
+            self._process_bulk_orders(all_orders)
+            self.logger.info(f"Successfully extracted {len(all_orders)} orders via bulk")
+        else:
+            self.logger.info("No orders found")
+
+    def _extract_products_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract products data using DuckDB (legacy one-by-one method)"""
+        self.logger.info("Extracting products data (legacy method)")
 
         # Collect all data
         all_products = []
@@ -105,7 +119,7 @@ class Component(ComponentBase):
             all_products.extend(batch)
 
         if all_products:
-            self._process_with_duckdb("products", all_products, params)
+            self._process_with_duckdb("products_legacy", all_products, params)
             self.logger.info(f"Successfully extracted {len(all_products)} products")
         else:
             self.logger.info("No products found")
@@ -174,9 +188,84 @@ class Component(ComponentBase):
             columns_info = self.conn.execute("DESCRIBE product_images_bulk").fetchall()
             self._create_typed_manifest("product_images_bulk", columns_info)
 
-    def _extract_customers(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract customers data using DuckDB"""
-        self.logger.info("Extracting customers data")
+    def _process_bulk_orders(self, data: list[dict[str, Any]]):
+        """Process bulk orders data - already flattened by Shopify"""
+        from pathlib import Path
+
+        # Separate records by type
+        orders = [r for r in data if r.get("__typename") == "Order"]
+        line_items = [r for r in data if r.get("__typename") == "LineItem"]
+        shipping_addresses = [r for r in data if r.get("__typename") == "MailingAddress" and r.get("__parentId")]
+        billing_addresses = [r for r in data if r.get("__typename") == "MailingAddress" and not r.get("__parentId")]
+
+        self.logger.info(
+            f"Bulk data: {len(orders)} orders, {len(line_items)} line items, "
+            f"{len(shipping_addresses)} shipping addresses, {len(billing_addresses)} billing addresses"
+        )
+
+        # Process orders
+        if orders:
+            self.conn.execute("DROP TABLE IF EXISTS orders_bulk")
+            self.conn.execute("CREATE TABLE orders_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(orders)])
+
+            table = self.create_out_table_definition("orders_bulk.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(f"COPY orders_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+
+            columns_info = self.conn.execute("DESCRIBE orders_bulk").fetchall()
+            self._create_typed_manifest("orders_bulk", columns_info)
+
+        # Process line items
+        if line_items:
+            self.conn.execute("DROP TABLE IF EXISTS order_line_items_bulk")
+            self.conn.execute(
+                "CREATE TABLE order_line_items_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(line_items)]
+            )
+
+            table = self.create_out_table_definition("order_line_items_bulk.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(f"COPY order_line_items_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+
+            columns_info = self.conn.execute("DESCRIBE order_line_items_bulk").fetchall()
+            self._create_typed_manifest("order_line_items_bulk", columns_info)
+
+        # Process shipping addresses
+        if shipping_addresses:
+            self.conn.execute("DROP TABLE IF EXISTS order_shipping_addresses_bulk")
+            self.conn.execute(
+                "CREATE TABLE order_shipping_addresses_bulk AS SELECT * FROM read_json_auto(?)",
+                [json.dumps(shipping_addresses)],
+            )
+
+            table = self.create_out_table_definition("order_shipping_addresses_bulk.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(
+                f"COPY order_shipping_addresses_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')"
+            )
+
+            columns_info = self.conn.execute("DESCRIBE order_shipping_addresses_bulk").fetchall()
+            self._create_typed_manifest("order_shipping_addresses_bulk", columns_info)
+
+        # Process billing addresses
+        if billing_addresses:
+            self.conn.execute("DROP TABLE IF EXISTS order_billing_addresses_bulk")
+            self.conn.execute(
+                "CREATE TABLE order_billing_addresses_bulk AS SELECT * FROM read_json_auto(?)",
+                [json.dumps(billing_addresses)],
+            )
+
+            table = self.create_out_table_definition("order_billing_addresses_bulk.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(
+                f"COPY order_billing_addresses_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')"
+            )
+
+            columns_info = self.conn.execute("DESCRIBE order_billing_addresses_bulk").fetchall()
+            self._create_typed_manifest("order_billing_addresses_bulk", columns_info)
+
+    def _extract_customers_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract customers data using DuckDB (legacy one-by-one method)"""
+        self.logger.info("Extracting customers data (legacy method)")
 
         # Collect all data
         all_customers = []
@@ -184,7 +273,7 @@ class Component(ComponentBase):
             all_customers.extend(batch)
 
         if all_customers:
-            self._process_with_duckdb("customers", all_customers, params)
+            self._process_with_duckdb("customers_legacy", all_customers, params)
             self.logger.info(f"Successfully extracted {len(all_customers)} customers")
         else:
             self.logger.info("No customers found")
@@ -612,12 +701,25 @@ class Component(ComponentBase):
         """Define primary keys for different tables"""
         primary_keys = {
             "orders": ["id"],
+            "orders_legacy": ["id"],
+            "orders_bulk": ["id"],
             "order_line_items": ["orderId", "lineItemId"],
+            "order_line_items_bulk": ["id"],
+            "order_shipping_addresses_bulk": ["id"],
+            "order_billing_addresses_bulk": ["id"],
             "products": ["id"],
+            "products_legacy": ["id"],
             "product_variants": ["productId", "variantId"],
+            "product_variants_legacy": ["productId", "variantId"],
+            "products_bulk": ["id"],
+            "product_variants_bulk": ["id"],
+            "product_images_bulk": ["id"],
             "inventory_items": ["id"],
             "inventory_levels": ["inventoryItemId", "levelId"],
             "customers": ["id"],
+            "customers_legacy": ["id"],
+            "customers_bulk": ["id"],
+            "customer_addresses_bulk": ["id"],
             "locations": ["id"],
         }
         return primary_keys.get(table_name, ["id"])

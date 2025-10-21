@@ -1,0 +1,101 @@
+mutation {
+  bulkOperationRunQuery(
+    query: """
+    {
+      orders {
+        edges {
+          node {
+            id
+            name
+            email
+            phone
+            createdAt
+            updatedAt
+            processedAt
+            cancelledAt
+            cancelReason
+            totalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            subtotalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            totalTaxSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            totalShippingPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            customer {
+              id
+              firstName
+              lastName
+              email
+              phone
+            }
+            lineItems {
+              edges {
+                node {
+                  id
+                  title
+                  quantity
+                  sku
+                  variant {
+                    id
+                    title
+                    sku
+                    price
+                  }
+                }
+              }
+            }
+            shippingAddress {
+              firstName
+              lastName
+              address1
+              address2
+              city
+              province
+              country
+              zip
+              phone
+            }
+            billingAddress {
+              firstName
+              lastName
+              address1
+              address2
+              city
+              province
+              country
+              zip
+              phone
+            }
+          }
+        }
+      }
+    }
+    """
+  ) {
+    bulkOperation {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

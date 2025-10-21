@@ -48,10 +48,11 @@ class Configuration(BaseModel):
     def validate_endpoints(cls, v):
         valid_endpoints = [
             "orders",
+            "orders_legacy",
             "products",
-            "products_bulk",
+            "products_legacy",
             "customers",
-            "customers_bulk",
+            "customers_legacy",
             "inventory_items",
             "locations",
             "products_drafts",

@@ -1,6 +1,7 @@
 # src/component.py
 import json
 import logging
+import time
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,7 @@ from keboola.component.dao import BaseType, ColumnDefinition, SupportedDataTypes
 from keboola.component.exceptions import UserException
 
 from configuration import Configuration
-from shopify_cli.client import ShopifyGraphQLClient
+from shopify_cli.client import BulkOperationResult, ShopifyGraphQLClient
 
 
 class Component(ComponentBase):
@@ -33,6 +34,7 @@ class Component(ComponentBase):
             store_name=params.store_name,
             api_token=params.api_token,
             api_version=params.api_version,
+            debug=params.debug,
         )
 
         enabled_endpoints = params.enabled_endpoints
@@ -43,7 +45,7 @@ class Component(ComponentBase):
 
         for endpoint in enabled_endpoints:
             if endpoint in products_endpoints and products_endpoints_processed:
-                self.logger.info(f"Skipping already processed product endpoint: {endpoint}")
+                self.logger.info(f"Skipping already processed products endpoint: {endpoint}")
                 continue
             self.logger.info(f"Processing endpoint: {endpoint}")
             self._process_endpoint(client, endpoint, params)
@@ -68,7 +70,7 @@ class Component(ComponentBase):
             "inventory": self._extract_inventory_levels,  # ❌ not working, needs to be examined
             # ❓❓ IS THIS NEEDED? "inventory_items": self._extract_inventory_items,
             "transactions": self._extract_transactions,  # ❌ not working, needs to be examined (there is many transaction-related GraphQL endpoints) # noqa: E501
-            # ‼️‼️ THIS IS NEEDED! "payments_transactions": self._extract_payment_transactions,  # ❌ not working, same as above 👆
+            # ‼️‼️ THIS IS NEEDED! "payments_transactions": self._extract_payment_transactions,  # ❌ not working, same as above 👆 # noqa: E501
             # ❓❓ IS THIS NEEDED? "locations": self._extract_locations,
             "product_metafields": self._extract_product_metafields,  # ❌ not working, use product endpoint, include metafields node # noqa: E501
             "variant_metafields": self._extract_variant_metafields,  # ❌ not working, probably implemented in GetVariantMetafieldsByVariant # noqa: E501
@@ -108,14 +110,18 @@ class Component(ComponentBase):
         """Extract orders data using Shopify bulk operations"""
         self.logger.info("Extracting orders data via bulk operation")
 
-        all_orders = client.get_orders_bulk()
+        # Create temp file path and let client save directly to it
+        file_def = self.create_out_file_definition("orders_temp.jsonl")
+        temp_jsonl = file_def.full_path
 
-        if all_orders:
-            # Bulk results are already flattened, use simple export
-            self._process_bulk_orders(all_orders)
-            self.logger.info(f"Successfully extracted {len(all_orders)} orders via bulk")
+        result = client.get_orders_bulk(temp_jsonl)
+
+        if result.item_count > 0:
+            self._process_bulk_orders(result)
         else:
             self.logger.info("No orders found")
+            # Clean up empty temp file
+            Path(result.file_path).unlink(missing_ok=True)
 
     def _extract_products_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract products data using DuckDB (legacy one-by-one method)"""
@@ -152,34 +158,30 @@ class Component(ComponentBase):
         status_filter = ",".join(statuses)
         self.logger.info(f"Fetching products with statuses: {status_filter}")
 
-        all_products = client.get_products_bulk(status=status_filter)
+        # Create temp file path and let client save directly to it
+        file_def = self.create_out_file_definition("products_temp.jsonl")
+        temp_jsonl = file_def.full_path
 
-        if all_products:
-            self._process_bulk_products(all_products)
-            self.logger.info(f"Successfully extracted {len(all_products)} products total")
+        result = client.get_products_bulk(temp_jsonl, status=status_filter)
+
+        if result.item_count > 0:
+            self._process_bulk_products(result)
         else:
             self.logger.info("No products found")
+            # Clean up empty temp file
+            Path(result.file_path).unlink(missing_ok=True)
 
-    def _process_bulk_products(self, data: list[dict[str, Any]]):
-        """Process bulk products data - already flattened by Shopify
+    def _process_bulk_products(self, bulk_result: BulkOperationResult):
+        """Process bulk products data - keep all data together including nested JSON"""
+        process_start = time.time()
 
-        Args:
-            data: List of product records from bulk operation
-        """
-        from pathlib import Path
+        self.logger.info(f"Processing {bulk_result.item_count} products from {bulk_result.file_path}")
 
-        # Separate records by type
-        products = [r for r in data if r.get("__typename") == "Product"]
-        variants = [r for r in data if r.get("__typename") == "ProductVariant"]
-        images = [r for r in data if r.get("__typename") == "ProductImage"]
+        table_name = "products"
 
-        self.logger.info(f"Bulk data: {len(products)} products, {len(variants)} variants, {len(images)} images")
-
-        # Process products
-        if products:
-            table_name = "products"
+        try:
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(products)])
+            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
@@ -188,11 +190,31 @@ class Component(ComponentBase):
             columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
             self._create_typed_manifest(table_name, columns_info)
 
-        # Process variants
-        if variants:
-            table_name = "product_variants"
+            # Get row count for logging
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            row_count = result_count[0] if result_count else 0
+
+            process_time = time.time() - process_start
+            self.logger.info(
+                f"Products processing complete: {row_count} items in {process_time:.2f}s "
+                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
+                f"process: {process_time:.2f}s)"
+            )
+        finally:
+            # Clean up temp file
+            Path(bulk_result.file_path).unlink(missing_ok=True)
+
+    def _process_bulk_orders(self, bulk_result: BulkOperationResult):
+        """Process bulk orders data - keep all data together including nested JSON"""
+        process_start = time.time()
+
+        self.logger.info(f"Processing {bulk_result.item_count} orders from {bulk_result.file_path}")
+
+        table_name = "orders"
+
+        try:
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(variants)])
+            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
@@ -201,93 +223,19 @@ class Component(ComponentBase):
             columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
             self._create_typed_manifest(table_name, columns_info)
 
-        # Process images
-        if images:
-            table_name = "product_images"
-            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(images)])
+            # Get row count for logging
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            row_count = result_count[0] if result_count else 0
 
-            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
-            output_file = Path(table.full_path)
-            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
-            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-            self._create_typed_manifest(table_name, columns_info)
-
-    def _process_bulk_orders(self, data: list[dict[str, Any]]):
-        """Process bulk orders data - already flattened by Shopify"""
-        from pathlib import Path
-
-        # Separate records by type
-        orders = [r for r in data if r.get("__typename") == "Order"]
-        line_items = [r for r in data if r.get("__typename") == "LineItem"]
-        shipping_addresses = [r for r in data if r.get("__typename") == "MailingAddress" and r.get("__parentId")]
-        billing_addresses = [r for r in data if r.get("__typename") == "MailingAddress" and not r.get("__parentId")]
-
-        self.logger.info(
-            f"Bulk data: {len(orders)} orders, {len(line_items)} line items, "
-            f"{len(shipping_addresses)} shipping addresses, {len(billing_addresses)} billing addresses"
-        )
-
-        # Process orders
-        if orders:
-            self.conn.execute("DROP TABLE IF EXISTS orders_bulk")
-            self.conn.execute("CREATE TABLE orders_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(orders)])
-
-            table = self.create_out_table_definition("orders_bulk.csv", incremental=True)
-            output_file = Path(table.full_path)
-            self.conn.execute(f"COPY orders_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
-            columns_info = self.conn.execute("DESCRIBE orders_bulk").fetchall()
-            self._create_typed_manifest("orders_bulk", columns_info)
-
-        # Process line items
-        if line_items:
-            self.conn.execute("DROP TABLE IF EXISTS order_line_items_bulk")
-            self.conn.execute(
-                "CREATE TABLE order_line_items_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(line_items)]
+            process_time = time.time() - process_start
+            self.logger.info(
+                f"Orders processing complete: {row_count} items in {process_time:.2f}s "
+                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
+                f"process: {process_time:.2f}s)"
             )
-
-            table = self.create_out_table_definition("order_line_items_bulk.csv", incremental=True)
-            output_file = Path(table.full_path)
-            self.conn.execute(f"COPY order_line_items_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
-            columns_info = self.conn.execute("DESCRIBE order_line_items_bulk").fetchall()
-            self._create_typed_manifest("order_line_items_bulk", columns_info)
-
-        # Process shipping addresses
-        if shipping_addresses:
-            self.conn.execute("DROP TABLE IF EXISTS order_shipping_addresses_bulk")
-            self.conn.execute(
-                "CREATE TABLE order_shipping_addresses_bulk AS SELECT * FROM read_json_auto(?)",
-                [json.dumps(shipping_addresses)],
-            )
-
-            table = self.create_out_table_definition("order_shipping_addresses_bulk.csv", incremental=True)
-            output_file = Path(table.full_path)
-            self.conn.execute(
-                f"COPY order_shipping_addresses_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')"
-            )
-
-            columns_info = self.conn.execute("DESCRIBE order_shipping_addresses_bulk").fetchall()
-            self._create_typed_manifest("order_shipping_addresses_bulk", columns_info)
-
-        # Process billing addresses
-        if billing_addresses:
-            self.conn.execute("DROP TABLE IF EXISTS order_billing_addresses_bulk")
-            self.conn.execute(
-                "CREATE TABLE order_billing_addresses_bulk AS SELECT * FROM read_json_auto(?)",
-                [json.dumps(billing_addresses)],
-            )
-
-            table = self.create_out_table_definition("order_billing_addresses_bulk.csv", incremental=True)
-            output_file = Path(table.full_path)
-            self.conn.execute(
-                f"COPY order_billing_addresses_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')"
-            )
-
-            columns_info = self.conn.execute("DESCRIBE order_billing_addresses_bulk").fetchall()
-            self._create_typed_manifest("order_billing_addresses_bulk", columns_info)
+        finally:
+            # Clean up temp file
+            Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _extract_customers_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract customers data using DuckDB (legacy one-by-one method)"""
@@ -308,52 +256,51 @@ class Component(ComponentBase):
         """Extract customers data using Shopify bulk operations"""
         self.logger.info("Extracting customers data via bulk operation")
 
-        all_customers = client.get_customers_bulk()
+        # Create temp file path and let client save directly to it
+        file_def = self.create_out_file_definition("customers_temp.jsonl")
+        temp_jsonl = file_def.full_path
 
-        if all_customers:
-            # Bulk results are already flattened, use simple export
-            self._process_bulk_customers(all_customers)
-            self.logger.info(f"Successfully extracted {len(all_customers)} customers via bulk")
+        result = client.get_customers_bulk(temp_jsonl)
+
+        if result.item_count > 0:
+            self._process_bulk_customers(result)
         else:
             self.logger.info("No customers found")
+            # Clean up empty temp file
+            Path(result.file_path).unlink(missing_ok=True)
 
-    def _process_bulk_customers(self, data: list[dict[str, Any]]):
-        """Process bulk customers data - already flattened by Shopify"""
-        from pathlib import Path
+    def _process_bulk_customers(self, bulk_result: BulkOperationResult):
+        """Process bulk customers data - keep all data together including nested JSON"""
+        process_start = time.time()
 
-        # Separate records by type
-        customers = [r for r in data if r.get("__typename") == "Customer"]
-        addresses = [r for r in data if r.get("__typename") == "MailingAddress"]
+        self.logger.info(f"Processing {bulk_result.item_count} customers from {bulk_result.file_path}")
 
-        self.logger.info(f"Bulk data: {len(customers)} customers, {len(addresses)} addresses")
+        table_name = "customers"
 
-        # Process customers
-        if customers:
-            self.conn.execute("DROP TABLE IF EXISTS customers_bulk")
-            self.conn.execute("CREATE TABLE customers_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(customers)])
+        try:
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
-            table = self.create_out_table_definition("customers_bulk.csv", incremental=True)
+            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY customers_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute("DESCRIBE customers_bulk").fetchall()
-            self._create_typed_manifest("customers_bulk", columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+            self._create_typed_manifest(table_name, columns_info)
 
-        # Process addresses
-        if addresses:
-            self.conn.execute("DROP TABLE IF EXISTS customer_addresses_bulk")
-            self.conn.execute(
-                "CREATE TABLE customer_addresses_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(addresses)]
+            # Get row count for logging
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            row_count = result_count[0] if result_count else 0
+
+            process_time = time.time() - process_start
+            self.logger.info(
+                f"Customers processing complete: {row_count} items in {process_time:.2f}s "
+                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
+                f"process: {process_time:.2f}s)"
             )
-
-            table = self.create_out_table_definition("customer_addresses_bulk.csv", incremental=True)
-            output_file = Path(table.full_path)
-            self.conn.execute(
-                f"COPY customer_addresses_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')"
-            )
-
-            columns_info = self.conn.execute("DESCRIBE customer_addresses_bulk").fetchall()
-            self._create_typed_manifest("customer_addresses_bulk", columns_info)
+        finally:
+            # Clean up temp file
+            Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _extract_inventory_items(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory items data using DuckDB"""
@@ -490,7 +437,8 @@ class Component(ComponentBase):
 
         finally:
             # Clean up temporary file
-            temp_json.unlink()
+            if not self.configuration.parameters.debug:
+                temp_json.unlink()
 
     def _create_orders_tables(self, table_name: str):
         """Create normalized order tables"""
@@ -698,22 +646,12 @@ class Component(ComponentBase):
         primary_keys = {
             "orders": ["id"],
             "orders_legacy": ["id"],
-            "orders_bulk": ["id"],
-            "order_line_items": ["orderId", "lineItemId"],
-            "order_line_items_bulk": ["id"],
-            "order_shipping_addresses_bulk": ["id"],
-            "order_billing_addresses_bulk": ["id"],
             "products": ["id"],
             "products_legacy": ["id"],
-            "product_variants": ["id"],
-            "product_variants_legacy": ["productId", "variantId"],
-            "product_images": ["id"],
-            "inventory_items": ["id"],
-            "inventory_levels": ["inventoryItemId", "levelId"],
             "customers": ["id"],
             "customers_legacy": ["id"],
-            "customers_bulk": ["id"],
-            "customer_addresses_bulk": ["id"],
+            "inventory_items": ["id"],
+            "inventory_levels": ["inventoryItemId", "levelId"],
             "locations": ["id"],
         }
         return primary_keys.get(table_name, ["id"])

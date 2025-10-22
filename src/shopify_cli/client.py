@@ -2,6 +2,7 @@ import json
 import logging
 import time
 from collections.abc import Iterator
+from dataclasses import dataclass
 from functools import wraps
 from typing import Any
 from urllib.request import urlopen
@@ -14,6 +15,16 @@ from .query_loader import QueryLoader
 TOTAL_ITEMS_LIMIT: int | None = None  # None for production, count for testing
 
 
+@dataclass
+class BulkOperationResult:
+    """Result from a bulk operation"""
+
+    file_path: str
+    item_count: int
+    api_wait_time: float  # Time spent waiting for Shopify to process
+    download_time: float  # Time spent downloading the JSONL file
+
+
 def log_bulk_performance(entity_name: str):
     """Decorator to log performance metrics for bulk operations"""
 
@@ -21,18 +32,21 @@ def log_bulk_performance(entity_name: str):
         @wraps(func)
         def wrapper(*args, **kwargs):
             logger = logging.getLogger(__name__)
-            start_time = time.time()
 
-            results = func(*args, **kwargs)
+            result = func(*args, **kwargs)
 
-            elapsed_time = time.time() - start_time
-            items_count = len(results) if results else 0
-            items_per_second = items_count / elapsed_time if elapsed_time > 0 else 0
-            logger.info(
-                f"{entity_name.capitalize()} bulk operation completed in {elapsed_time:.2f}s "
-                f"({items_count} items, {items_per_second:.2f} items/s)"
-            )
-            return results
+            if result:
+                total_time = result.api_wait_time + result.download_time
+                items_per_second = result.item_count / total_time if total_time > 0 else 0
+                logger.info(
+                    f"{entity_name.capitalize()} bulk operation: "
+                    f"API wait {result.api_wait_time:.2f}s, "
+                    f"download {result.download_time:.2f}s, "
+                    f"total {total_time:.2f}s "
+                    f"({result.item_count} items, {items_per_second:.2f} items/s)"
+                )
+
+            return result
 
         return wrapper
 
@@ -44,7 +58,7 @@ class ShopifyGraphQLClient:
     Shopify GraphQL API client for data extraction
     """
 
-    def __init__(self, store_name: str, api_token: str, api_version: str = "2024-01"):
+    def __init__(self, store_name: str, api_token: str, api_version: str = "2024-01", debug: bool = False):
         """
         Initialize Shopify GraphQL client
 
@@ -52,10 +66,12 @@ class ShopifyGraphQLClient:
             store_name: Shopify store name (without .myshopify.com)
             api_token: Shopify Admin API access token
             api_version: Shopify API version
+            debug: Enable debug mode (saves JSONL files)
         """
         self.store_name = store_name
         self.api_token = api_token
         self.api_version = api_version
+        self.debug = debug
         self.logger = logging.getLogger(__name__)
 
         # Initialize query loader
@@ -415,17 +431,20 @@ class ShopifyGraphQLClient:
         yield from self._paginate(query, "events", batch_size)
 
     @log_bulk_performance("products")
-    def get_products_bulk(self, status: str | None = None) -> list[dict[str, Any]]:
+    def get_products_bulk(self, temp_file_path: str, status: str | None = None) -> BulkOperationResult:
         """
         Get all products using Shopify's bulk operations
 
         Args:
-            status: Product status filter - can be single value or comma-separated (e.g., "ACTIVE", "ACTIVE,DRAFT,ARCHIVED")
-                   If None, all products regardless of status will be fetched
+            status: Product status filter - can be single value
+                or comma-separated (e.g., "ACTIVE", "ACTIVE,DRAFT,ARCHIVED")
+                If None, all products regardless of status will be fetched
+            temp_file_path: Path where JSONL results will be saved
 
         Returns:
-            List of all products
+            BulkOperationResult with file path and timing info (item_count will be 0 if no results)
         """
+        api_wait_start = time.time()
         # Build status query filter
         query_filter = f"status:{status}" if status else ""
 
@@ -439,10 +458,7 @@ class ShopifyGraphQLClient:
 
         # Inject the query filter into the GraphQL query string
         if query_filter:
-            mutation = mutation.replace(
-                'products {',
-                f'products(query: "{query_filter}") {{'
-            )
+            mutation = mutation.replace("products {", f'products(query: "{query_filter}") {{')
 
         result = self.execute_query(mutation)
 
@@ -471,27 +487,38 @@ class ShopifyGraphQLClient:
             if status == "COMPLETED":
                 url = current_op.get("url")
                 object_count = current_op.get("objectCount", 0)
-                
-                # If no URL, it means the query returned no results
+                api_wait_time = time.time() - api_wait_start
+
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    return []
+                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                        pass
+                    return BulkOperationResult(
+                        file_path=temp_file_path,
+                        item_count=0,
+                        api_wait_time=api_wait_time,
+                        download_time=0.0,
+                    )
 
                 self.logger.info(f"Downloading results from: {url}")
-                return self._download_bulk_results(url, object_count, "products")
+                return self._download_bulk_results(url, int(object_count), "products", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
                 error = current_op.get("errorCode", "Unknown error")
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
     @log_bulk_performance("orders")
-    def get_orders_bulk(self) -> list[dict[str, Any]]:
+    def get_orders_bulk(self, temp_file_path: str) -> BulkOperationResult:
         """
         Get all orders using Shopify's bulk operations
 
+        Args:
+            temp_file_path: Path where JSONL results will be saved
+
         Returns:
-            List of all orders
+            BulkOperationResult with file path and timing info (item_count will be 0 if no results)
         """
+        api_wait_start = time.time()
         self.logger.info("Starting bulk operation for orders")
 
         # Start bulk operation - load mutation directly
@@ -526,27 +553,38 @@ class ShopifyGraphQLClient:
             if status == "COMPLETED":
                 url = current_op.get("url")
                 object_count = current_op.get("objectCount", 0)
-                
-                # If no URL, it means the query returned no results
+                api_wait_time = time.time() - api_wait_start
+
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    return []
+                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                        pass
+                    return BulkOperationResult(
+                        file_path=temp_file_path,
+                        item_count=0,
+                        api_wait_time=api_wait_time,
+                        download_time=0.0,
+                    )
 
                 self.logger.info(f"Downloading results from: {url}")
-                return self._download_bulk_results(url, object_count, "orders")
+                return self._download_bulk_results(url, int(object_count), "orders", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
                 error = current_op.get("errorCode", "Unknown error")
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
     @log_bulk_performance("customers")
-    def get_customers_bulk(self) -> list[dict[str, Any]]:
+    def get_customers_bulk(self, temp_file_path: str) -> BulkOperationResult:
         """
         Get all customers using Shopify's bulk operations
 
+        Args:
+            temp_file_path: Path where JSONL results will be saved
+
         Returns:
-            List of all customers
+            BulkOperationResult with file path and timing info (item_count will be 0 if no results)
         """
+        api_wait_start = time.time()
         self.logger.info("Starting bulk operation for customers")
 
         # Start bulk operation - load mutation directly
@@ -581,37 +619,63 @@ class ShopifyGraphQLClient:
             if status == "COMPLETED":
                 url = current_op.get("url")
                 object_count = current_op.get("objectCount", 0)
-                
-                # If no URL, it means the query returned no results
+                api_wait_time = time.time() - api_wait_start
+
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    return []
+                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                        pass
+                    return BulkOperationResult(
+                        file_path=temp_file_path,
+                        item_count=0,
+                        api_wait_time=api_wait_time,
+                        download_time=0.0,
+                    )
 
                 self.logger.info(f"Downloading results from: {url}")
-                return self._download_bulk_results(url, object_count, "customers")
+                return self._download_bulk_results(url, int(object_count), "customers", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
                 error = current_op.get("errorCode", "Unknown error")
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
     def _download_bulk_results(
-        self, url: str, expected_count: int, entity_type: str = "products"
-    ) -> list[dict[str, Any]]:
-        """Download and parse JSONL results from bulk operation"""
+        self, url: str, item_count: int, entity_type: str, temp_file_path: str, api_wait_time: float
+    ) -> BulkOperationResult:
+        """
+        Download JSONL results from bulk operation and save to file
+
+        Args:
+            url: URL to download JSONL from
+            item_count: The number of items (for logging/debug)
+            entity_type: Type of entity (for logging/debug)
+            temp_file_path: Path where JSONL will be saved
+            api_wait_time: Time spent waiting for bulk operation to complete
+
+        Returns:
+            BulkOperationResult with file path, item count, and timing info
+        """
+        download_start = time.time()
+
         with urlopen(url) as response:
             data = response.read().decode("utf-8")
 
-        # Save raw JSONL file
-        jsonl_file = f"bulk_{entity_type}_download.jsonl"
-        with open(jsonl_file, "w", encoding="utf-8") as f:
+        with open(temp_file_path, "w", encoding="utf-8") as f:
             f.write(data)
-        self.logger.info(f"Saved bulk results to {jsonl_file}")
 
-        # Parse JSONL (one JSON object per line)
-        items = []
-        for line in data.strip().split("\n"):
-            if line:
-                items.append(json.loads(line))
+        download_time = time.time() - download_start
 
-        self.logger.info(f"Downloaded {len(items)} items from bulk operation (expected: {expected_count})")
-        return items
+        if self.debug:
+            debug_file = f"bulk_{entity_type}_download.jsonl"
+            with open(debug_file, "w", encoding="utf-8") as f:
+                f.write(data)
+            self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
+
+        self.logger.info(f"Downloaded {item_count} items from bulk operation, saved to {temp_file_path}")
+
+        return BulkOperationResult(
+            file_path=temp_file_path,
+            item_count=item_count,
+            api_wait_time=api_wait_time,
+            download_time=download_time,
+        )

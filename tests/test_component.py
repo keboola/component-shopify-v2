@@ -24,22 +24,30 @@ class TestComponent(unittest.TestCase):
         valid_config = {
             "store_name": "test-shop",
             "#api_token": "TEST_TOKEN",
-            "endpoints": ["orders", "products"],
+            "endpoints": {"orders": True, "products": True},
             "batch_size": 50,
         }
 
         config = Configuration(**valid_config)
         self.assertEqual(config.store_name, "test-shop")
         self.assertEqual(config.api_token, "TEST_TOKEN")
-        self.assertEqual(config.endpoints, ["orders", "products"])
+        self.assertTrue(config.endpoints.orders)
+        self.assertTrue(config.endpoints.products)
         self.assertEqual(config.batch_size, 50)
 
-    def test_configuration_invalid_endpoint(self):
-        """Test configuration with invalid endpoint"""
-        invalid_config = {"store_name": "test-shop", "#api_token": "TEST_TOKEN", "endpoints": ["invalid_endpoint"]}
+    def test_configuration_get_enabled_endpoints(self):
+        """Test getting enabled endpoints"""
+        config_data = {
+            "store_name": "test-shop",
+            "#api_token": "TEST_TOKEN",
+            "endpoints": {"orders": True, "products": True, "customers": False},
+        }
 
-        with self.assertRaises(Exception):
-            Configuration(**invalid_config)
+        config = Configuration(**config_data)
+        enabled = config.enabled_endpoints
+        self.assertIn("orders", enabled)
+        self.assertIn("products", enabled)
+        self.assertNotIn("customers", enabled)
 
     def test_configuration_store_name_cleanup(self):
         """Test store name cleanup removes .myshopify.com"""

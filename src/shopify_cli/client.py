@@ -471,13 +471,17 @@ class ShopifyGraphQLClient:
         operation_id = bulk_op.get("id")
         self.logger.info(f"Bulk operation started: {operation_id}")
 
-        # Poll for completion - load query directly
+        # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
         with open(status_file, "r", encoding="utf-8") as f:
             status_query = f.read()
 
+        poll_start = time.time()
         while True:
-            time.sleep(2)  # Poll every 2 seconds
+            elapsed = time.time() - poll_start
+            sleep_interval = 5 if elapsed < 60 else 15
+            time.sleep(sleep_interval)
+
             status_result = self.execute_query(status_query)
             current_op = status_result.get("currentBulkOperation", {})
 
@@ -537,13 +541,17 @@ class ShopifyGraphQLClient:
         operation_id = bulk_op.get("id")
         self.logger.info(f"Bulk operation started: {operation_id}")
 
-        # Poll for completion - load query directly
+        # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
         with open(status_file, "r", encoding="utf-8") as f:
             status_query = f.read()
 
+        poll_start = time.time()
         while True:
-            time.sleep(2)  # Poll every 2 seconds
+            elapsed = time.time() - poll_start
+            sleep_interval = 5 if elapsed < 60 else 15
+            time.sleep(sleep_interval)
+
             status_result = self.execute_query(status_query)
             current_op = status_result.get("currentBulkOperation", {})
 
@@ -603,13 +611,17 @@ class ShopifyGraphQLClient:
         operation_id = bulk_op.get("id")
         self.logger.info(f"Bulk operation started: {operation_id}")
 
-        # Poll for completion - load query directly
+        # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
         with open(status_file, "r", encoding="utf-8") as f:
             status_query = f.read()
 
+        poll_start = time.time()
         while True:
-            time.sleep(2)  # Poll every 2 seconds
+            elapsed = time.time() - poll_start
+            sleep_interval = 5 if elapsed < 60 else 15
+            time.sleep(sleep_interval)
+
             status_result = self.execute_query(status_query)
             current_op = status_result.get("currentBulkOperation", {})
 

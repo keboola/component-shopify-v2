@@ -415,19 +415,34 @@ class ShopifyGraphQLClient:
         yield from self._paginate(query, "events", batch_size)
 
     @log_bulk_performance("products")
-    def get_products_bulk(self) -> list[dict[str, Any]]:
+    def get_products_bulk(self, status: str | None = None) -> list[dict[str, Any]]:
         """
         Get all products using Shopify's bulk operations
+
+        Args:
+            status: Product status filter - can be single value or comma-separated (e.g., "ACTIVE", "ACTIVE,DRAFT,ARCHIVED")
+                   If None, all products regardless of status will be fetched
 
         Returns:
             List of all products
         """
-        self.logger.info("Starting bulk operation for products")
+        # Build status query filter
+        query_filter = f"status:{status}" if status else ""
+
+        log_status = f" with status={status}" if status else ""
+        self.logger.info(f"Starting bulk operation for products{log_status}")
 
         # Start bulk operation - load mutation directly
         mutation_file = self.query_loader.queries_dir / "BulkProducts.graphql"
         with open(mutation_file, "r", encoding="utf-8") as f:
             mutation = f.read()
+
+        # Inject the query filter into the GraphQL query string
+        if query_filter:
+            mutation = mutation.replace(
+                'products {',
+                f'products(query: "{query_filter}") {{'
+            )
 
         result = self.execute_query(mutation)
 
@@ -455,11 +470,14 @@ class ShopifyGraphQLClient:
 
             if status == "COMPLETED":
                 url = current_op.get("url")
+                object_count = current_op.get("objectCount", 0)
+                
+                # If no URL, it means the query returned no results
                 if not url:
-                    raise UserException("Bulk operation completed but no download URL")
+                    self.logger.info("Bulk operation completed with no results (empty dataset)")
+                    return []
 
                 self.logger.info(f"Downloading results from: {url}")
-                object_count = current_op.get("objectCount", 0)
                 return self._download_bulk_results(url, object_count, "products")
 
             elif status in ["FAILED", "CANCELED"]:
@@ -507,11 +525,14 @@ class ShopifyGraphQLClient:
 
             if status == "COMPLETED":
                 url = current_op.get("url")
+                object_count = current_op.get("objectCount", 0)
+                
+                # If no URL, it means the query returned no results
                 if not url:
-                    raise UserException("Bulk operation completed but no download URL")
+                    self.logger.info("Bulk operation completed with no results (empty dataset)")
+                    return []
 
                 self.logger.info(f"Downloading results from: {url}")
-                object_count = current_op.get("objectCount", 0)
                 return self._download_bulk_results(url, object_count, "orders")
 
             elif status in ["FAILED", "CANCELED"]:
@@ -559,11 +580,14 @@ class ShopifyGraphQLClient:
 
             if status == "COMPLETED":
                 url = current_op.get("url")
+                object_count = current_op.get("objectCount", 0)
+                
+                # If no URL, it means the query returned no results
                 if not url:
-                    raise UserException("Bulk operation completed but no download URL")
+                    self.logger.info("Bulk operation completed with no results (empty dataset)")
+                    return []
 
                 self.logger.info(f"Downloading results from: {url}")
-                object_count = current_op.get("objectCount", 0)
                 return self._download_bulk_results(url, object_count, "customers")
 
             elif status in ["FAILED", "CANCELED"]:

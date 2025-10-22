@@ -14,7 +14,7 @@ class Configuration(BaseModel):
     api_version: str = Field(default="2025-10", description="Shopify API version")
     api_token: str = Field(alias="#api_token", description="Shopify Admin API access token")
     loading_options: LoadingOptions = Field(default_factory=LoadingOptions)
-    endpoints: list[str] = Field(default=["orders", "products"], description="List of endpoints to extract data from")
+    endpoints: list[str] = Field(default_factory=list, description="List of endpoints to extract data from")
     batch_size: int = Field(default=50, ge=1, le=250, description="Number of records per batch")
     debug: bool = Field(default=False, description="Enable debug mode")
 

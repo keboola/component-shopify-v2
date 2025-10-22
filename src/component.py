@@ -37,10 +37,17 @@ class Component(ComponentBase):
 
         self.logger.info(f"Starting data extraction for endpoints: {params.endpoints}")
 
-        # Process each endpoint
+        products_endpoints_processed = False
+        products_endpoints = ["products", "products_drafts", "products_archived"]
+
         for endpoint in params.endpoints:
+            if endpoint in products_endpoints and products_endpoints_processed:
+                self.logger.info(f"Skipping already processed product endpoint: {endpoint}")
+                continue
             self.logger.info(f"Processing endpoint: {endpoint}")
             self._process_endpoint(client, endpoint, params)
+            if endpoint in products_endpoints:
+                products_endpoints_processed = True
 
         self.logger.info("Data extraction completed successfully")
 
@@ -50,9 +57,9 @@ class Component(ComponentBase):
         """
         endpoint_methods = {
             "products": self._extract_products_bulk,
+            "products_drafts": self._extract_products_bulk,
+            "products_archived": self._extract_products_bulk,
             "products_legacy": self._extract_products_legacy,
-            "products_drafts": self._extract_product_drafts,  # ❌ not working, use extract_products with status: draft query # noqa: E501
-            "products_archived": self._extract_products_archived,  # ❌ not working, use extract_products with status: archived query # noqa: E501
             "orders": self._extract_orders_bulk,
             "orders_legacy": self._extract_orders_legacy,
             "customers": self._extract_customers_bulk,
@@ -125,20 +132,39 @@ class Component(ComponentBase):
             self.logger.info("No products found")
 
     def _extract_products_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract products data using Shopify bulk operations"""
-        self.logger.info("Extracting products data via bulk operation")
+        """Extract products using Shopify bulk operation with dynamic status filter"""
+        self.logger.info("Extracting products using bulk operation")
 
-        all_products = client.get_products_bulk()
+        # Build status filter based on selected endpoints (all three are independent toggles)
+        statuses = []
+        if "products" in params.endpoints:
+            statuses.append("active")
+        if "products_drafts" in params.endpoints:
+            statuses.append("draft")
+        if "products_archived" in params.endpoints:
+            statuses.append("archived")
+
+        if not statuses:
+            self.logger.warning("No product status selected, skipping products extraction")
+            return
+
+        status_filter = ",".join(statuses)
+        self.logger.info(f"Fetching products with statuses: {status_filter}")
+
+        all_products = client.get_products_bulk(status=status_filter)
 
         if all_products:
-            # Bulk results are already flattened, use simple export
             self._process_bulk_products(all_products)
-            self.logger.info(f"Successfully extracted {len(all_products)} products via bulk")
+            self.logger.info(f"Successfully extracted {len(all_products)} products total")
         else:
             self.logger.info("No products found")
 
     def _process_bulk_products(self, data: list[dict[str, Any]]):
-        """Process bulk products data - already flattened by Shopify"""
+        """Process bulk products data - already flattened by Shopify
+
+        Args:
+            data: List of product records from bulk operation
+        """
         from pathlib import Path
 
         # Separate records by type
@@ -150,43 +176,46 @@ class Component(ComponentBase):
 
         # Process products
         if products:
-            self.conn.execute("DROP TABLE IF EXISTS products_bulk")
-            self.conn.execute("CREATE TABLE products_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(products)])
+            table_name = "products"
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(products)])
 
-            table = self.create_out_table_definition("products_bulk.csv", incremental=True)
+            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY products_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute("DESCRIBE products_bulk").fetchall()
-            self._create_typed_manifest("products_bulk", columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+            self._create_typed_manifest(table_name, columns_info)
 
         # Process variants
         if variants:
-            self.conn.execute("DROP TABLE IF EXISTS product_variants_bulk")
+            table_name = "product_variants"
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             self.conn.execute(
-                "CREATE TABLE product_variants_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(variants)]
+                f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(variants)]
             )
 
-            table = self.create_out_table_definition("product_variants_bulk.csv", incremental=True)
+            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY product_variants_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute("DESCRIBE product_variants_bulk").fetchall()
-            self._create_typed_manifest("product_variants_bulk", columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+            self._create_typed_manifest(table_name, columns_info)
 
         # Process images
         if images:
-            self.conn.execute("DROP TABLE IF EXISTS product_images_bulk")
+            table_name = "product_images"
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             self.conn.execute(
-                "CREATE TABLE product_images_bulk AS SELECT * FROM read_json_auto(?)", [json.dumps(images)]
+                f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(images)]
             )
 
-            table = self.create_out_table_definition("product_images_bulk.csv", incremental=True)
+            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY product_images_bulk TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute("DESCRIBE product_images_bulk").fetchall()
-            self._create_typed_manifest("product_images_bulk", columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+            self._create_typed_manifest(table_name, columns_info)
 
     def _process_bulk_orders(self, data: list[dict[str, Any]]):
         """Process bulk orders data - already flattened by Shopify"""
@@ -355,36 +384,6 @@ class Component(ComponentBase):
             self.logger.info(f"Successfully extracted {len(all_locations)} locations")
         else:
             self.logger.info("No locations found")
-
-    def _extract_product_drafts(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract product drafts data using DuckDB"""
-        self.logger.info("Extracting product drafts data")
-
-        # Collect all data
-        all_product_drafts = []
-        for batch in client.get_product_drafts(batch_size=params.batch_size):
-            all_product_drafts.extend(batch)
-
-        if all_product_drafts:
-            self._process_with_duckdb("product_drafts", all_product_drafts, params)
-            self.logger.info(f"Successfully extracted {len(all_product_drafts)} product drafts")
-        else:
-            self.logger.info("No product drafts found")
-
-    def _extract_products_archived(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract archived products data using DuckDB"""
-        # self.logger.info("Extracting archived products data")
-
-        # # Collect all data
-        # all_archived_products = []
-        # for batch in client.get_archived_products(batch_size=params.batch_size):
-        #     all_archived_products.extend(batch)
-
-        # if all_archived_products:
-        #     self._process_with_duckdb("products_archived", all_archived_products, params)
-        #     self.logger.info(f"Successfully extracted {len(all_archived_products)} archived products")
-        # else:
-        #     self.logger.info("No archived products found")
 
     def _extract_product_metafields(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract product metafields data using DuckDB"""
@@ -709,11 +708,9 @@ class Component(ComponentBase):
             "order_billing_addresses_bulk": ["id"],
             "products": ["id"],
             "products_legacy": ["id"],
-            "product_variants": ["productId", "variantId"],
+            "product_variants": ["id"],
             "product_variants_legacy": ["productId", "variantId"],
-            "products_bulk": ["id"],
-            "product_variants_bulk": ["id"],
-            "product_images_bulk": ["id"],
+            "product_images": ["id"],
             "inventory_items": ["id"],
             "inventory_levels": ["inventoryItemId", "levelId"],
             "customers": ["id"],

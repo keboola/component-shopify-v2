@@ -35,12 +35,13 @@ class Component(ComponentBase):
             api_version=params.api_version,
         )
 
-        self.logger.info(f"Starting data extraction for endpoints: {params.endpoints}")
+        enabled_endpoints = params.enabled_endpoints
+        self.logger.info(f"Starting data extraction for endpoints: {enabled_endpoints}")
 
         products_endpoints_processed = False
         products_endpoints = ["products", "products_drafts", "products_archived"]
 
-        for endpoint in params.endpoints:
+        for endpoint in enabled_endpoints:
             if endpoint in products_endpoints and products_endpoints_processed:
                 self.logger.info(f"Skipping already processed product endpoint: {endpoint}")
                 continue
@@ -137,11 +138,11 @@ class Component(ComponentBase):
 
         # Build status filter based on selected endpoints (all three are independent toggles)
         statuses = []
-        if "products" in params.endpoints:
+        if params.endpoints.products:
             statuses.append("active")
-        if "products_drafts" in params.endpoints:
+        if params.endpoints.products_drafts:
             statuses.append("draft")
-        if "products_archived" in params.endpoints:
+        if params.endpoints.products_archived:
             statuses.append("archived")
 
         if not statuses:
@@ -191,9 +192,7 @@ class Component(ComponentBase):
         if variants:
             table_name = "product_variants"
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(
-                f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(variants)]
-            )
+            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(variants)])
 
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
@@ -206,9 +205,7 @@ class Component(ComponentBase):
         if images:
             table_name = "product_images"
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(
-                f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(images)]
-            )
+            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto(?)", [json.dumps(images)])
 
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)

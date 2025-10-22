@@ -9,12 +9,48 @@ class LoadingOptions(BaseModel):
     date_to: str | None = Field(default=None, description="End date for data extraction (YYYY-MM-DD)")
 
 
+class Endpoints(BaseModel):
+    """Endpoints configuration - boolean flags for each endpoint"""
+
+    products: bool = Field(default=False)
+    products_drafts: bool = Field(default=False)
+    products_archived: bool = Field(default=False)
+    orders: bool = Field(default=False)
+    customers: bool = Field(default=False)
+    inventory: bool = Field(default=False)
+    transactions: bool = Field(default=False)
+    payments_transactions: bool = Field(default=False)
+    product_metafields: bool = Field(default=False)
+    variant_metafields: bool = Field(default=False)
+    events: list[dict] = Field(default_factory=list)
+
+    # not sure whether we need these
+    inventory_items: bool = Field(default=False)
+    locations: bool = Field(default=False)
+
+    # legacy endpoints (downloading items in batches instead of bulk download)
+    products_legacy: bool = Field(default=False)
+    orders_legacy: bool = Field(default=False)
+    customers_legacy: bool = Field(default=False)
+
+    def get_enabled_endpoints(self) -> list[str]:
+        """Get list of enabled endpoint names"""
+        enabled = []
+        for field_name, field_value in self.model_dump().items():
+            if field_name == "events":
+                if field_value:  # If events array is not empty
+                    enabled.append("events")
+            elif field_value is True:
+                enabled.append(field_name)
+        return enabled
+
+
 class Configuration(BaseModel):
     store_name: str = Field(..., description="Shopify store name (without .myshopify.com)")
     api_version: str = Field(default="2025-10", description="Shopify API version")
     api_token: str = Field(alias="#api_token", description="Shopify Admin API access token")
     loading_options: LoadingOptions = Field(default_factory=LoadingOptions)
-    endpoints: list[str] = Field(default_factory=list, description="List of endpoints to extract data from")
+    endpoints: Endpoints = Field(default_factory=Endpoints, description="Endpoints configuration")
     batch_size: int = Field(default=50, ge=1, le=250, description="Number of records per batch")
     debug: bool = Field(default=False, description="Enable debug mode")
 
@@ -44,32 +80,12 @@ class Configuration(BaseModel):
             store_name = store_name[:-14]
         return store_name
 
-    @field_validator("endpoints")
-    def validate_endpoints(cls, v):
-        valid_endpoints = [
-            "orders",
-            "orders_legacy",
-            "products",
-            "products_legacy",
-            "customers",
-            "customers_legacy",
-            "inventory_items",
-            "locations",
-            "products_drafts",
-            "product_metafields",
-            "variant_metafields",
-            "inventory",
-            "products_archived",
-            "transactions",
-            "payments_transactions",
-            "events",
-        ]
-        for endpoint in v:
-            if endpoint not in valid_endpoints:
-                raise UserException(f"Invalid endpoint: {endpoint}. Valid endpoints are: {', '.join(valid_endpoints)}")
-        return v
-
     @property
     def shop_url(self) -> str:
         """Get the full Shopify shop URL"""
         return f"https://{self.store_name}.myshopify.com"
+
+    @property
+    def enabled_endpoints(self) -> list[str]:
+        """Get list of enabled endpoint names"""
+        return self.endpoints.get_enabled_endpoints()

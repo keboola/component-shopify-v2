@@ -1,6 +1,7 @@
 # src/component.py
 import json
 import logging
+import shutil
 import time
 from collections import OrderedDict
 from pathlib import Path
@@ -21,6 +22,8 @@ class Component(ComponentBase):
         self.logger = logging.getLogger(__name__)
         # Inicializace DuckDB
         self.conn = duckdb.connect()
+        self.conn.execute("SET temp_directory='./duckdb_temp'")
+        self.conn.execute("SET preserve_insertion_order=false")
         self.params = Configuration(**self.configuration.parameters)
 
     def run(self):
@@ -201,7 +204,10 @@ class Component(ComponentBase):
                 f"process: {process_time:.2f}s)"
             )
         finally:
-            # Clean up temp file
+            if self.params.debug:
+                debug_file = "bulk_products_download.jsonl"
+                shutil.copy2(bulk_result.file_path, debug_file)
+                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_orders(self, bulk_result: BulkOperationResult):
@@ -234,7 +240,10 @@ class Component(ComponentBase):
                 f"process: {process_time:.2f}s)"
             )
         finally:
-            # Clean up temp file
+            if self.params.debug:
+                debug_file = "bulk_orders_download.jsonl"
+                shutil.copy2(bulk_result.file_path, debug_file)
+                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _extract_customers_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
@@ -299,7 +308,10 @@ class Component(ComponentBase):
                 f"process: {process_time:.2f}s)"
             )
         finally:
-            # Clean up temp file
+            if self.params.debug:
+                debug_file = "bulk_customers_download.jsonl"
+                shutil.copy2(bulk_result.file_path, debug_file)
+                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _extract_inventory_items(self, client: ShopifyGraphQLClient, params: Configuration):

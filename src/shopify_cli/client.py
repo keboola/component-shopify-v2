@@ -670,18 +670,15 @@ class ShopifyGraphQLClient:
         download_start = time.time()
 
         with urlopen(url) as response:
-            data = response.read().decode("utf-8")
-
-        with open(temp_file_path, "w", encoding="utf-8") as f:
-            f.write(data)
+            with open(temp_file_path, "wb") as f:
+                chunk_size = 8192
+                while True:
+                    chunk = response.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
 
         download_time = time.time() - download_start
-
-        if self.debug:
-            debug_file = f"bulk_{entity_type}_download.jsonl"
-            with open(debug_file, "w", encoding="utf-8") as f:
-                f.write(data)
-            self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
 
         self.logger.info(f"Downloaded {item_count} items from bulk operation, saved to {temp_file_path}")
 

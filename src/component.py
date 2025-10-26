@@ -78,7 +78,6 @@ class Component(ComponentBase):
             "customers_legacy": self._extract_customers_legacy,
             "inventory": self._extract_inventory_levels,  # ❌ not working, needs to be examined
             # ❓❓ IS THIS NEEDED? "inventory_items": self._extract_inventory_items,
-            "transactions": self._extract_transactions,  # ❌ not working, needs to be examined (there is many transaction-related GraphQL endpoints) # noqa: E501
             # ‼️‼️ THIS IS NEEDED! "payments_transactions": self._extract_payment_transactions,  # ❌ not working, same as above 👆 # noqa: E501
             # ❓❓ IS THIS NEEDED? "locations": self._extract_locations,
             "product_metafields": self._extract_product_metafields,  # ❌ not working, use product endpoint, include metafields node # noqa: E501
@@ -391,21 +390,6 @@ class Component(ComponentBase):
             self.logger.info(f"Successfully extracted {len(all_inventory_levels)} inventory levels")
         else:
             self.logger.info("No inventory levels found")
-
-    def _extract_transactions(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract transactions data using DuckDB"""
-        self.logger.info("Extracting transactions data")
-
-        # Collect all data
-        all_transactions = []
-        for batch in client.get_transactions(batch_size=params.batch_size):
-            all_transactions.extend(batch)
-
-        if all_transactions:
-            self._process_with_duckdb("transactions", all_transactions, params)
-            self.logger.info(f"Successfully extracted {len(all_transactions)} transactions")
-        else:
-            self.logger.info("No transactions found")
 
     def _extract_events(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract events data using DuckDB"""

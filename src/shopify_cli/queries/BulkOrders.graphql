@@ -83,6 +83,21 @@ mutation {
               zip
               phone
             }
+            transactions {
+              id
+              kind
+              status
+              test
+              amount
+              currency
+              gateway
+              message
+              createdAt
+              processedAt
+              errorCode
+              authorizationCode
+              authorizationExpiresAt
+            }
           }
         }
       }

@@ -38,7 +38,6 @@ class Endpoints(BaseModel):
     orders: bool = Field(default=False)
     customers: bool = Field(default=False)
     inventory: bool = Field(default=False)
-    transactions: bool = Field(default=False)
     payments_transactions: bool = Field(default=False)
     product_metafields: bool = Field(default=False)
     variant_metafields: bool = Field(default=False)

@@ -186,19 +186,6 @@
           "description": "Get inventory levels and locations related to products",
           "propertyOrder": 34
         },
-        "transactions": {
-          "type": "boolean",
-          "title": "Order - Transactions",
-          "format": "checkbox",
-          "default": false,
-          "options": {
-            "dependencies": {
-              "orders": true
-            }
-          },
-          "description": "Get orders transaction",
-          "propertyOrder": 41
-        },
         "customers": {
           "type": "boolean",
           "title": "Customers",

@@ -272,9 +272,40 @@
               }
             }
           }
+        },
+        "custom_queries": {
+          "title": "Custom Bulk Queries",
+          "description": "Execute custom GraphQL bulk operations to download data. Note: Only bulk operation mutations are supported, not regular queries.",
+          "propertyOrder": 5000,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "title": "Bulk Query Setup",
+            "required": [
+              "name",
+              "query"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Query Name",
+                "description": "Name of the custom query. Used for naming the output table (e.g., 'my_products' creates 'my_products.csv').",
+                "propertyOrder": 510
+              },
+              "query": {
+                "type": "string",
+                "title": "GraphQL Bulk Operation Mutation",
+                "format": "textarea",
+                "options": {
+                  "input_height": "300px"
+                },
+                "description": "The GraphQL bulk operation mutation. Must be in format: mutation { bulkOperationRunQuery(query: \"\"\"...\"\"\") { bulkOperation { id status } userErrors { field message } } }. See documentation for examples.",
+                "propertyOrder": 520
+              }
+            }
+          }
         }
-      },
-      "propertyOrder": 500
+      }
     }
   }
 }

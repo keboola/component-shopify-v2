@@ -4,6 +4,26 @@ from keboola.component.exceptions import UserException
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 
+class CustomQuery(BaseModel):
+    """Custom GraphQL bulk operation configuration"""
+
+    name: str = Field(..., description="Query name (used for output table name)")
+    query: str = Field(..., description="GraphQL bulk operation mutation string")
+
+    @field_validator("name")
+    def validate_name(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise UserException("Custom query name cannot be empty")
+        sanitized = v.strip().lower().replace(" ", "_").replace("-", "_")
+        return sanitized
+
+    @field_validator("query")
+    def validate_query(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise UserException("Custom bulk operation query cannot be empty")
+        return v.strip()
+
+
 class LoadingOptions(BaseModel):
     date_since: str | None = Field(default=None, description="Start date for data extraction (YYYY-MM-DD)")
     date_to: str | None = Field(default=None, description="End date for data extraction (YYYY-MM-DD)")
@@ -32,6 +52,7 @@ class Endpoints(BaseModel):
     products_legacy: bool = Field(default=False)
     orders_legacy: bool = Field(default=False)
     customers_legacy: bool = Field(default=False)
+    custom_queries: list[CustomQuery] = Field(default_factory=list, description="Custom GraphQL bulk operations")
 
     def get_enabled_endpoints(self) -> list[str]:
         """Get list of enabled endpoint names"""

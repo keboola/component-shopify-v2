@@ -55,6 +55,12 @@ class Component(ComponentBase):
             if endpoint in products_endpoints:
                 products_endpoints_processed = True
 
+        if params.endpoints.custom_queries:
+            self.logger.info(f"Processing {len(params.endpoints.custom_queries)} custom bulk queries")
+            for custom_query in params.endpoints.custom_queries:
+                self.logger.info(f"Processing custom bulk query: {custom_query.name}")
+                self._process_custom_query(client, custom_query)
+
         self.logger.info("Data extraction completed successfully")
 
     def _process_endpoint(self, client: ShopifyGraphQLClient, endpoint: str, params: Configuration):
@@ -666,7 +672,7 @@ class Component(ComponentBase):
             "inventory_levels": ["inventoryItemId", "levelId"],
             "locations": ["id"],
         }
-        return primary_keys.get(table_name, ["id"])
+        return primary_keys.get(table_name, [])
 
     @staticmethod
     def convert_base_types(dtype: str) -> SupportedDataTypes:
@@ -695,6 +701,67 @@ class Component(ComponentBase):
             return SupportedDataTypes.DATE
         else:
             return SupportedDataTypes.STRING
+
+    def _process_custom_query(self, client: ShopifyGraphQLClient, custom_query):
+        """Process a custom GraphQL bulk query"""
+        self.logger.info(f"Executing custom bulk query: {custom_query.name}")
+
+        file_def = self.create_out_file_definition(f"{custom_query.name}_temp.jsonl")
+        temp_jsonl = file_def.full_path
+
+        result = client.execute_custom_bulk_query(custom_query.query, temp_jsonl)
+
+        if result.item_count > 0:
+            self._process_bulk_custom(result, custom_query.name)
+        else:
+            self.logger.info(f"Custom bulk query '{custom_query.name}' returned no results")
+            Path(result.file_path).unlink(missing_ok=True)
+
+    def _process_bulk_custom(self, bulk_result: BulkOperationResult, table_name: str):
+        """Process bulk custom query data"""
+        process_start = time.time()
+
+        self.logger.info(f"Processing {bulk_result.item_count} items from {bulk_result.file_path}")
+
+        try:
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
+
+            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+
+            select_parts = []
+            for col_name, col_type, *_ in columns_info:
+                if col_type.upper().startswith("STRUCT") or col_type.upper().endswith("[]"):
+                    select_parts.append(f"to_json({col_name}) AS {col_name}")
+                else:
+                    select_parts.append(col_name)
+
+            select_clause = ", ".join(select_parts)
+
+            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(
+                f"COPY (SELECT {select_clause} FROM {table_name}) TO '{output_file}' "
+                "WITH (FORMAT CSV, HEADER, DELIMITER ',', QUOTE '\"')"
+            )
+
+            self._create_typed_manifest(table_name, columns_info)
+
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            row_count = result_count[0] if result_count else 0
+
+            process_time = time.time() - process_start
+            self.logger.info(
+                f"Custom query '{table_name}' processing complete: {row_count} items in {process_time:.2f}s "
+                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
+                f"process: {process_time:.2f}s)"
+            )
+        finally:
+            if self.params.debug:
+                debug_file = f"bulk_{table_name}_download.jsonl"
+                shutil.copy2(bulk_result.file_path, debug_file)
+                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
+            Path(bulk_result.file_path).unlink(missing_ok=True)
 
     # ... ostatní extract metody zůstávají stejné, jen volají _process_with_duckdb
 

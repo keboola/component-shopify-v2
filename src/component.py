@@ -78,7 +78,6 @@ class Component(ComponentBase):
             "customers_legacy": self._extract_customers_legacy,
             "inventory": self._extract_inventory_levels,  # ❌ not working, needs to be examined
             # ❓❓ IS THIS NEEDED? "inventory_items": self._extract_inventory_items,
-            # ‼️‼️ THIS IS NEEDED! "payments_transactions": self._extract_payment_transactions,  # ❌ not working, same as above 👆 # noqa: E501
             # ❓❓ IS THIS NEEDED? "locations": self._extract_locations,
             "product_metafields": self._extract_product_metafields,  # ❌ not working, use product endpoint, include metafields node # noqa: E501
             "variant_metafields": self._extract_variant_metafields,  # ❌ not working, probably implemented in GetVariantMetafieldsByVariant # noqa: E501

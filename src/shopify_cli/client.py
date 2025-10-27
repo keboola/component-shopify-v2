@@ -369,19 +369,6 @@ class ShopifyGraphQLClient:
         )
         yield from self._paginate(query, "products", batch_size)
 
-    def get_payment_transactions(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
-        """
-        Get payment transactions (balance transactions) with pagination
-
-        Args:
-            batch_size: Number of payment transactions per batch
-
-        Yields:
-            List of payment transaction dictionaries
-        """
-        query = self.query_loader.load_query("GetPaymentTransactions")
-        yield from self._paginate(query, "balanceTransactions", batch_size)
-
     def get_events(
         self, batch_size: int = 50, event_types: list[str] | None = None, subject_types: list[str] | None = None
     ) -> Iterator[list[dict[str, Any]]]:

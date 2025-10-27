@@ -202,14 +202,6 @@
           "description": "Get Customers data using legacy one-by-one method (slower, use only if needed)",
           "propertyOrder": 50.5
         },
-        "payments_transactions": {
-          "type": "boolean",
-          "title": "Payments - transactions",
-          "format": "checkbox",
-          "default": true,
-          "description": "Get balance transactions - needs activated Shopify payments",
-          "propertyOrder": 60
-        },
         "events": {
           "title": "Events",
           "maxItems": 1,

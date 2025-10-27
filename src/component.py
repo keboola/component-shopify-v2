@@ -76,7 +76,7 @@ class Component(ComponentBase):
             "orders_legacy": self._extract_orders_legacy,
             "customers": self._extract_customers_bulk,
             "customers_legacy": self._extract_customers_legacy,
-            "inventory": self._extract_inventory_levels,  # ❌ not working, needs to be examined
+            "inventory": self._extract_inventory_levels,
             # ❓❓ IS THIS NEEDED? "inventory_items": self._extract_inventory_items,
             # ❓❓ IS THIS NEEDED? "locations": self._extract_locations,
             "product_metafields": self._extract_product_metafields,  # ❌ not working, use product endpoint, include metafields node # noqa: E501

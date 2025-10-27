@@ -3,45 +3,42 @@ query GetInventoryLevels($first: Int!, $after: String) {
   inventoryItems(first: $first, after: $after) {
     pageInfo {
       hasNextPage
-      hasPreviousPage
-      startCursor
       endCursor
     }
     edges {
       node {
         id
-        available
-        item {
+        sku
+        tracked
+        createdAt
+        updatedAt
+        variant {
           id
+          title
           sku
-          tracked
-          variant {
+          product {
             id
             title
-            sku
-            product {
+            handle
+          }
+        }
+        inventoryLevels(first: 250) {
+          edges {
+            node {
               id
-              title
-              handle
+              quantities(names: ["available"]) {
+                name
+                quantity
+              }
+              location {
+                id
+                name
+                isActive
+              }
+              updatedAt
             }
           }
         }
-        location {
-          id
-          name
-          address {
-            address1
-            address2
-            city
-            province
-            country
-            zip
-            phone
-          }
-          isActive
-          isPrimary
-        }
-        updatedAt
       }
     }
   }

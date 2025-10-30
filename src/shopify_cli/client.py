@@ -405,7 +405,13 @@ class ShopifyGraphQLClient:
         yield from self._paginate(query, "events", batch_size)
 
     @log_bulk_performance("products")
-    def get_products_bulk(self, temp_file_path: str, status: str | None = None) -> BulkOperationResult:
+    def get_products_bulk(
+        self,
+        temp_file_path: str,
+        status: str | None = None,
+        include_product_metafields: bool = False,
+        include_variant_metafields: bool = False,
+    ) -> BulkOperationResult:
         """
         Get all products using Shopify's bulk operations
 
@@ -414,21 +420,48 @@ class ShopifyGraphQLClient:
                 or comma-separated (e.g., "ACTIVE", "ACTIVE,DRAFT,ARCHIVED")
                 If None, all products regardless of status will be fetched
             temp_file_path: Path where JSONL results will be saved
+            include_product_metafields: Whether to include product metafields in the response
+            include_variant_metafields: Whether to include variant metafields in the response
 
         Returns:
             BulkOperationResult with file path and timing info (item_count will be 0 if no results)
         """
         api_wait_start = time.time()
-        # Build status query filter
-        query_filter = f"status:{status}" if status else ""
 
+        query_filter = f"status:{status}" if status else ""
         log_status = f" with status={status}" if status else ""
-        self.logger.info(f"Starting bulk operation for products{log_status}")
+
+        metafields_log = []
+        if include_product_metafields:
+            metafields_log.append("product metafields")
+        if include_variant_metafields:
+            metafields_log.append("variant metafields")
+        log_metafields = f" (including {' & '.join(metafields_log)})" if metafields_log else ""
+
+        self.logger.info(f"Starting bulk operation for products{log_status}{log_metafields}")
 
         # Start bulk operation - load mutation directly
         mutation_file = self.query_loader.queries_dir / "BulkProducts.graphql"
         with open(mutation_file, "r", encoding="utf-8") as f:
             mutation = f.read()
+
+        # Inject product metafields if requested
+        if include_product_metafields:
+            metafields_fragment_file = self.query_loader.queries_dir / "fragments" / "ProductMetafields.graphql"
+            with open(metafields_fragment_file, "r", encoding="utf-8") as f:
+                product_metafields_fragment = f.read()
+            mutation = mutation.replace("__METAFIELDS_PLACEHOLDER__", product_metafields_fragment)
+        else:
+            mutation = mutation.replace("__METAFIELDS_PLACEHOLDER__", "")
+
+        # Inject variant metafields if requested
+        if include_variant_metafields:
+            var_metafields_frag_file = self.query_loader.queries_dir / "fragments" / "VariantMetafields.graphql"
+            with open(var_metafields_frag_file, "r", encoding="utf-8") as f:
+                var_metafields_fragment = f.read()
+            mutation = mutation.replace("__VARIANT_METAFIELDS_PLACEHOLDER__", var_metafields_fragment)
+        else:
+            mutation = mutation.replace("__VARIANT_METAFIELDS_PLACEHOLDER__", "")
 
         # Inject the query filter into the GraphQL query string
         if query_filter:

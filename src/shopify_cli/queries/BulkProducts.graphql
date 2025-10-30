@@ -27,19 +27,7 @@ mutation {
                   price
                   compareAtPrice
                   inventoryQuantity
-                  inventoryItem {
-                    id
-                    inventoryLevels(first: 10) {
-                      edges {
-                        node {
-                          location {
-                            id
-                            name
-                          }
-                        }
-                      }
-                    }
-                  }
+                  __VARIANT_METAFIELDS_PLACEHOLDER__
                 }
               }
             }
@@ -54,6 +42,7 @@ mutation {
                 }
               }
             }
+            __METAFIELDS_PLACEHOLDER__
           }
         }
       }

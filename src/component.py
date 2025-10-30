@@ -77,10 +77,6 @@ class Component(ComponentBase):
             "customers": self._extract_customers_bulk,
             "customers_legacy": self._extract_customers_legacy,
             "inventory": self._extract_inventory_levels,
-            # ❓❓ IS THIS NEEDED? "inventory_items": self._extract_inventory_items,
-            # ❓❓ IS THIS NEEDED? "locations": self._extract_locations,
-            "product_metafields": self._extract_product_metafields,  # ❌ not working, use product endpoint, include metafields node # noqa: E501
-            "variant_metafields": self._extract_variant_metafields,  # ❌ not working, probably implemented in GetVariantMetafieldsByVariant # noqa: E501
             "events": self._extract_events,
         }
 
@@ -169,7 +165,12 @@ class Component(ComponentBase):
         file_def = self.create_out_file_definition("products_temp.jsonl")
         temp_jsonl = file_def.full_path
 
-        result = client.get_products_bulk(temp_jsonl, status=status_filter)
+        result = client.get_products_bulk(
+            temp_jsonl,
+            status=status_filter,
+            include_product_metafields=params.endpoints.product_metafields,
+            include_variant_metafields=params.endpoints.variant_metafields,
+        )
 
         if result.item_count > 0:
             self._process_bulk_products(result)
@@ -344,36 +345,6 @@ class Component(ComponentBase):
             self.logger.info(f"Successfully extracted {len(all_locations)} locations")
         else:
             self.logger.info("No locations found")
-
-    def _extract_product_metafields(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract product metafields data using DuckDB"""
-        self.logger.info("Extracting product metafields data")
-
-        # Collect all data
-        all_product_metafields = []
-        for batch in client.get_product_metafields(batch_size=params.batch_size):
-            all_product_metafields.extend(batch)
-
-        if all_product_metafields:
-            self._process_with_duckdb("product_metafields", all_product_metafields, params)
-            self.logger.info(f"Successfully extracted {len(all_product_metafields)} product metafields")
-        else:
-            self.logger.info("No product metafields found")
-
-    def _extract_variant_metafields(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract variant metafields data using DuckDB"""
-        self.logger.info("Extracting variant metafields data")
-
-        # Collect all data
-        all_variant_metafields = []
-        for batch in client.get_variant_metafields(batch_size=params.batch_size):
-            all_variant_metafields.extend(batch)
-
-        if all_variant_metafields:
-            self._process_with_duckdb("variant_metafields", all_variant_metafields, params)
-            self.logger.info(f"Successfully extracted {len(all_variant_metafields)} variant metafields")
-        else:
-            self.logger.info("No variant metafields found")
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory levels data using DuckDB"""

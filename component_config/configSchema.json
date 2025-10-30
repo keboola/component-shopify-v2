@@ -157,7 +157,7 @@
               "products": true
             }
           },
-          "description": "Get metafields related to products",
+          "description": "Include product metafields in the products bulk download",
           "propertyOrder": 32
         },
         "variant_metafields": {
@@ -170,7 +170,7 @@
               "products": true
             }
           },
-          "description": "Get metafields related to product variants",
+          "description": "Include variant metafields in the products bulk download",
           "propertyOrder": 33
         },
         "inventory": {

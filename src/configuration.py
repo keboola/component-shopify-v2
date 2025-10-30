@@ -35,11 +35,11 @@ class Endpoints(BaseModel):
     products: bool = Field(default=False)
     products_drafts: bool = Field(default=False)
     products_archived: bool = Field(default=False)
+    product_metafields: bool = Field(default=False)
+    variant_metafields: bool = Field(default=False)
     orders: bool = Field(default=False)
     customers: bool = Field(default=False)
     inventory: bool = Field(default=False)
-    product_metafields: bool = Field(default=False)
-    variant_metafields: bool = Field(default=False)
     events: list[dict] = Field(default_factory=list)
 
     # not sure whether we need these

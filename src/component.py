@@ -12,7 +12,7 @@ from keboola.component.base import ComponentBase
 from keboola.component.dao import BaseType, ColumnDefinition, SupportedDataTypes
 from keboola.component.exceptions import UserException
 
-from configuration import Configuration
+from configuration import PRODUCTS_ENDPOINTS, Configuration
 from shopify_cli.client import BulkOperationResult, ShopifyGraphQLClient
 
 
@@ -44,15 +44,14 @@ class Component(ComponentBase):
         self.logger.info(f"Starting data extraction for endpoints: {enabled_endpoints}")
 
         products_endpoints_processed = False
-        products_endpoints = ["products", "products_drafts", "products_archived"]
 
         for endpoint in enabled_endpoints:
-            if endpoint in products_endpoints and products_endpoints_processed:
+            if endpoint in PRODUCTS_ENDPOINTS and products_endpoints_processed:
                 self.logger.info(f"Skipping already processed products endpoint: {endpoint}")
                 continue
             self.logger.info(f"Processing endpoint: {endpoint}")
             self._process_endpoint(client, endpoint, params)
-            if endpoint in products_endpoints:
+            if endpoint in PRODUCTS_ENDPOINTS:
                 products_endpoints_processed = True
 
         if params.events:

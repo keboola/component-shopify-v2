@@ -3,6 +3,9 @@ import logging
 from keboola.component.exceptions import UserException
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+EXCLUDE_FROM_ENDPOINTS = {"product_metafields", "variant_metafields"}
+PRODUCTS_ENDPOINTS = {"products", "products_drafts", "products_archived"}
+
 
 class CustomQuery(BaseModel):
     """Custom GraphQL bulk operation configuration"""
@@ -51,10 +54,10 @@ class Endpoints(BaseModel):
     customers_legacy: bool = Field(default=False)
 
     def get_enabled_endpoints(self) -> list[str]:
-        """Get list of enabled endpoint names"""
+        """Get list of enabled endpoint names (excludes metafield toggles as they're not standalone endpoints)"""
         enabled = []
         for field_name, field_value in self.model_dump().items():
-            if field_value is True:
+            if field_value and field_name not in EXCLUDE_FROM_ENDPOINTS:
                 enabled.append(field_name)
         return enabled
 
@@ -63,12 +66,14 @@ class Configuration(BaseModel):
     store_name: str = Field(..., description="Shopify store name (without .myshopify.com)")
     api_version: str = Field(default="2025-10", description="Shopify API version")
     api_token: str = Field(alias="#api_token", description="Shopify Admin API access token")
-    loading_options: LoadingOptions = Field(default_factory=LoadingOptions)
     endpoints: Endpoints = Field(default_factory=Endpoints, description="Endpoints configuration")
     events: list[dict] = Field(default_factory=list, description="Events configuration")
     custom_queries: list[CustomQuery] = Field(default_factory=list, description="Custom GraphQL bulk operations")
-    batch_size: int = Field(default=50, ge=1, le=250, description="Number of records per batch")
+    loading_options: LoadingOptions = Field(default_factory=LoadingOptions)
     debug: bool = Field(default=False, description="Enable debug mode")
+
+    # keeping as a hidden argument untiil we eventually remove the batch GraphQL endpoints support
+    batch_size: int = Field(default=50, ge=1, le=250, description="Number of records per batch")
 
     def __init__(self, **data):
         try:

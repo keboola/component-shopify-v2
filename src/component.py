@@ -80,7 +80,8 @@ class Component(ComponentBase):
             "orders_legacy": self._extract_orders_legacy,
             "customers": self._extract_customers_bulk,
             "customers_legacy": self._extract_customers_legacy,
-            "inventory": self._extract_inventory_levels,
+            "inventory": self._extract_inventory_bulk,
+            "inventory_legacy": self._extract_inventory_levels,
             "events": self._extract_events,
         }
 
@@ -319,6 +320,56 @@ class Component(ComponentBase):
         finally:
             if self.params.debug:
                 debug_file = "bulk_customers_download.jsonl"
+                shutil.copy2(bulk_result.file_path, debug_file)
+                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
+            Path(bulk_result.file_path).unlink(missing_ok=True)
+
+    def _extract_inventory_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract inventory using Shopify bulk operations"""
+        self.logger.info("Extracting inventory via bulk operation")
+
+        file_def = self.create_out_file_definition("inventory_temp.jsonl")
+        temp_jsonl = file_def.full_path
+
+        result = client.get_inventory_bulk(temp_jsonl)
+
+        if result.item_count > 0:
+            self._process_bulk_inventory(result)
+        else:
+            self.logger.info("No inventory found")
+            Path(result.file_path).unlink(missing_ok=True)
+
+    def _process_bulk_inventory(self, bulk_result: BulkOperationResult):
+        """Process bulk inventory data"""
+        process_start = time.time()
+
+        self.logger.info(f"Processing {bulk_result.item_count} inventory items from {bulk_result.file_path}")
+
+        table_name = "inventory"
+
+        try:
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
+
+            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+
+            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+            self._create_typed_manifest(table_name, columns_info)
+
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            row_count = result_count[0] if result_count else 0
+
+            process_time = time.time() - process_start
+            self.logger.info(
+                f"Inventory processing complete: {row_count} items in {process_time:.2f}s "
+                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
+                f"process: {process_time:.2f}s)"
+            )
+        finally:
+            if self.params.debug:
+                debug_file = "bulk_inventory_download.jsonl"
                 shutil.copy2(bulk_result.file_path, debug_file)
                 self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)

@@ -88,10 +88,13 @@ mutation {
               kind
               status
               test
-              amount
-              currency
+              amountSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
               gateway
-              message
               createdAt
               processedAt
               errorCode

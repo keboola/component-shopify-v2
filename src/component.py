@@ -55,9 +55,13 @@ class Component(ComponentBase):
             if endpoint in products_endpoints:
                 products_endpoints_processed = True
 
-        if params.endpoints.custom_queries:
-            self.logger.info(f"Processing {len(params.endpoints.custom_queries)} custom bulk queries")
-            for custom_query in params.endpoints.custom_queries:
+        if params.events:
+            self.logger.info("Processing events endpoint")
+            self._process_endpoint(client, "events", params)
+
+        if params.custom_queries:
+            self.logger.info(f"Processing {len(params.custom_queries)} custom bulk queries")
+            for custom_query in params.custom_queries:
                 self.logger.info(f"Processing custom bulk query: {custom_query.name}")
                 self._process_custom_query(client, custom_query)
 

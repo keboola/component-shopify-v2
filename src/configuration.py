@@ -40,7 +40,6 @@ class Endpoints(BaseModel):
     orders: bool = Field(default=False)
     customers: bool = Field(default=False)
     inventory: bool = Field(default=False)
-    events: list[dict] = Field(default_factory=list)
 
     # not sure whether we need these
     inventory_items: bool = Field(default=False)
@@ -50,16 +49,12 @@ class Endpoints(BaseModel):
     products_legacy: bool = Field(default=False)
     orders_legacy: bool = Field(default=False)
     customers_legacy: bool = Field(default=False)
-    custom_queries: list[CustomQuery] = Field(default_factory=list, description="Custom GraphQL bulk operations")
 
     def get_enabled_endpoints(self) -> list[str]:
         """Get list of enabled endpoint names"""
         enabled = []
         for field_name, field_value in self.model_dump().items():
-            if field_name == "events":
-                if field_value:  # If events array is not empty
-                    enabled.append("events")
-            elif field_value is True:
+            if field_value is True:
                 enabled.append(field_name)
         return enabled
 
@@ -70,6 +65,8 @@ class Configuration(BaseModel):
     api_token: str = Field(alias="#api_token", description="Shopify Admin API access token")
     loading_options: LoadingOptions = Field(default_factory=LoadingOptions)
     endpoints: Endpoints = Field(default_factory=Endpoints, description="Endpoints configuration")
+    events: list[dict] = Field(default_factory=list, description="Events configuration")
+    custom_queries: list[CustomQuery] = Field(default_factory=list, description="Custom GraphQL bulk operations")
     batch_size: int = Field(default=50, ge=1, le=250, description="Number of records per batch")
     debug: bool = Field(default=False, description="Enable debug mode")
 

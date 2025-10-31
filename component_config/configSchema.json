@@ -29,11 +29,184 @@
       "description": "The API version, gets updated regularly based on the <a href=\"https://shopify.dev/api/usage/versioning#release-schedule\">Shopify release cycle</a>",
       "propertyOrder": 20
     },
+    "endpoints": {
+      "type": "object",
+      "title": "Endpoints",
+      "propertyOrder": 30,
+      "properties": {
+        "products": {
+          "type": "boolean",
+          "title": "Products",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get Products data using bulk operations",
+          "propertyOrder": 40
+        },
+        "products_drafts": {
+          "type": "boolean",
+          "title": "Products – Drafts",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Include draft products",
+          "propertyOrder": 50
+        },
+        "products_archived": {
+          "type": "boolean",
+          "title": "Products – Archived",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Include archived products",
+          "propertyOrder": 60
+        },
+        "product_metafields": {
+          "type": "boolean",
+          "title": "Products – Metafields",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Include product metafields",
+          "propertyOrder": 70
+        },
+        "variant_metafields": {
+          "type": "boolean",
+          "title": "Products – Variant Metafields",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Include variant metafields",
+          "propertyOrder": 80
+        },
+        "customers": {
+          "type": "boolean",
+          "title": "Customers",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get Customers data using bulk operations",
+          "propertyOrder": 90
+        },
+        "orders": {
+          "type": "boolean",
+          "title": "Orders",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get Orders data using bulk operations",
+          "propertyOrder": 100
+        },
+        "inventory": {
+          "type": "boolean",
+          "title": "Inventory",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get inventory levels and locations",
+          "propertyOrder": 110
+        }
+      }
+    },
+    "events": {
+      "title": "Events",
+      "maxItems": 1,
+      "description": "Download Events",
+      "propertyOrder": 120,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "title": "Setup",
+        "required": [
+          "filters",
+          "types"
+        ],
+        "properties": {
+          "types": {
+            "type": "string",
+            "title": "Event Types",
+            "format": "textarea",
+            "options": {
+              "input_height": "100px"
+            },
+            "description": "Comma separated list of required event types. e.g. 'confirmed', 'create', 'destroy'. If omitted all possible types are downloaded.  Different resources generate different types of event. See the docs for a list of possible verbs.",
+            "uniqueItems": true,
+            "propertyOrder": 130
+          },
+          "filters": {
+            "title": "Types",
+            "format": "select",
+            "description": "Resource Types",
+            "uniqueItems": true,
+            "propertyOrder": 140,
+            "type": "array",
+            "items": {
+              "enum": [
+                "Article",
+                "Blog",
+                "Collection",
+                "Comment",
+                "Order",
+                "Page",
+                "PriceRule",
+                "Product",
+                "ApiPermission"
+              ],
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "custom_queries": {
+      "title": "Custom Bulk Queries",
+      "description": "Execute custom GraphQL bulk operations to download data. Note: Only bulk operation mutations are supported, not regular queries.",
+      "propertyOrder": 150,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "title": "Bulk Query Setup",
+        "required": [
+          "name",
+          "query"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Query Name",
+            "description": "Name of the custom query. Used for naming the output table (e.g., 'my_products' creates 'my_products.csv').",
+            "propertyOrder": 160
+          },
+          "query": {
+            "type": "string",
+            "title": "GraphQL Bulk Operation Mutation",
+            "format": "textarea",
+            "options": {
+              "input_height": "300px"
+            },
+            "description": "The GraphQL bulk operation mutation. Must be in format: mutation { bulkOperationRunQuery(query: \"\"\"...\"\"\") { bulkOperation { id status } userErrors { field message } } }. See documentation for examples.",
+            "propertyOrder": 170
+          }
+        }
+      }
+    },
     "loading_options": {
       "type": "object",
       "title": "Loading Options",
       "description": "Data is fetched incrementally based on the last updated datetime. NOTE: Column names longer than 64 characters will be automatically shortened, more in <a href=\"https://github.com/keboola/component-shopify/blob/main/README.md\">documenation.</a>",
-      "propertyOrder": 30,
+      "propertyOrder": 180,
       "format": "grid",
       "required": [
         "incremental_output",
@@ -46,14 +219,14 @@
           "title": "Period start date [including]",
           "default": "1 week ago",
           "description": " Date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, all records are downloaded.",
-          "propertyOrder": 40
+          "propertyOrder": 190
         },
         "date_to": {
           "type": "string",
           "title": "Period end date [excluding]",
           "default": "now",
           "description": " Date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, it is set to the current datetime.",
-          "propertyOrder": 45
+          "propertyOrder": 200
         },
         "fetch_parameter": {
           "enum": [
@@ -64,7 +237,7 @@
           "title": "Fetch parameter",
           "default": "updated_at",
           "description": "Field/parameter to be used for filtering data from API.",
-          "propertyOrder": 50
+          "propertyOrder": 210
         },
         "incremental_output": {
           "enum": [
@@ -81,208 +254,7 @@
             ]
           },
           "description": "If set to Incremental update, the result tables will be updated based on primary key. Full load overwrites the destination table each time. NOTE: If you wish to remove deleted records, this needs to be set to Full load and the Period from attribute empty.",
-          "propertyOrder": 55
-        }
-      }
-    },
-    "endpoints": {
-      "type": "object",
-      "title": "Endpoints",
-      "properties": {
-        "products": {
-          "type": "boolean",
-          "title": "Products",
-          "format": "checkbox",
-          "default": true,
-          "description": "Get Products data using bulk operations (recommended)",
-          "propertyOrder": 30
-        },
-        "products_legacy": {
-          "type": "boolean",
-          "title": "Products (Legacy)",
-          "format": "checkbox",
-          "default": false,
-          "description": "Get Products data using legacy one-by-one method (slower, use only if needed)",
-          "propertyOrder": 30.5
-        },
-        "products_drafts": {
-          "type": "boolean",
-          "title": "Product - Drafts",
-          "format": "checkbox",
-          "default": false,
-          "options": {
-            "dependencies": {
-              "products": true
-            }
-          },
-          "description": "Get drafts of products",
-          "propertyOrder": 31
-        },
-        "products_archived": {
-          "type": "boolean",
-          "title": "Product - Archived",
-          "format": "checkbox",
-          "default": false,
-          "options": {
-            "dependencies": {
-              "products": true
-            }
-          },
-          "description": "Get archived products",
-          "propertyOrder": 35
-        },
-        "orders": {
-          "type": "boolean",
-          "title": "Orders",
-          "format": "checkbox",
-          "default": true,
-          "description": "Get Orders data using bulk operations (recommended)",
-          "propertyOrder": 40
-        },
-        "orders_legacy": {
-          "type": "boolean",
-          "title": "Orders (Legacy)",
-          "format": "checkbox",
-          "default": false,
-          "description": "Get Orders data using legacy one-by-one method (slower, use only if needed)",
-          "propertyOrder": 40.5
-        },
-        "product_metafields": {
-          "type": "boolean",
-          "title": "Product - Metafields",
-          "format": "checkbox",
-          "default": false,
-          "options": {
-            "dependencies": {
-              "products": true
-            }
-          },
-          "description": "Include product metafields in the products bulk download",
-          "propertyOrder": 32
-        },
-        "variant_metafields": {
-          "type": "boolean",
-          "title": "Product - Variant Metafields",
-          "format": "checkbox",
-          "default": false,
-          "options": {
-            "dependencies": {
-              "products": true
-            }
-          },
-          "description": "Include variant metafields in the products bulk download",
-          "propertyOrder": 33
-        },
-        "inventory": {
-          "type": "boolean",
-          "title": "Product - Inventory",
-          "format": "checkbox",
-          "default": true,
-          "options": {
-            "dependencies": {
-              "products": true
-            }
-          },
-          "description": "Get inventory levels and locations related to products",
-          "propertyOrder": 34
-        },
-        "customers": {
-          "type": "boolean",
-          "title": "Customers",
-          "format": "checkbox",
-          "default": true,
-          "description": "Get Customers data using bulk operations (recommended)",
-          "propertyOrder": 50
-        },
-        "customers_legacy": {
-          "type": "boolean",
-          "title": "Customers (Legacy)",
-          "format": "checkbox",
-          "default": false,
-          "description": "Get Customers data using legacy one-by-one method (slower, use only if needed)",
-          "propertyOrder": 50.5
-        },
-        "events": {
-          "title": "Events",
-          "maxItems": 1,
-          "description": "Download Events",
-          "propertyOrder": 4000,
-          "type": "array",
-          "items": {
-            "type": "object",
-            "title": "Setup",
-            "required": [
-              "filters",
-              "types"
-            ],
-            "properties": {
-              "types": {
-                "type": "string",
-                "title": "Event Types",
-                "format": "textarea",
-                "options": {
-                  "input_height": "100px"
-                },
-                "description": "Comma separated list of required event types. e.g. 'confirmed', 'create', 'destroy'. If omitted all possible types are downloaded.  Different resources generate different types of event. See the docs for a list of possible verbs.",
-                "uniqueItems": true,
-                "propertyOrder": 700
-              },
-              "filters": {
-                "title": "Types",
-                "format": "select",
-                "description": "Resource Types",
-                "uniqueItems": true,
-                "propertyOrder": 360,
-                "type": "array",
-                "items": {
-                  "enum": [
-                    "Article",
-                    "Blog",
-                    "Collection",
-                    "Comment",
-                    "Order",
-                    "Page",
-                    "PriceRule",
-                    "Product",
-                    "ApiPermission"
-                  ],
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "custom_queries": {
-          "title": "Custom Bulk Queries",
-          "description": "Execute custom GraphQL bulk operations to download data. Note: Only bulk operation mutations are supported, not regular queries.",
-          "propertyOrder": 5000,
-          "type": "array",
-          "items": {
-            "type": "object",
-            "title": "Bulk Query Setup",
-            "required": [
-              "name",
-              "query"
-            ],
-            "properties": {
-              "name": {
-                "type": "string",
-                "title": "Query Name",
-                "description": "Name of the custom query. Used for naming the output table (e.g., 'my_products' creates 'my_products.csv').",
-                "propertyOrder": 510
-              },
-              "query": {
-                "type": "string",
-                "title": "GraphQL Bulk Operation Mutation",
-                "format": "textarea",
-                "options": {
-                  "input_height": "300px"
-                },
-                "description": "The GraphQL bulk operation mutation. Must be in format: mutation { bulkOperationRunQuery(query: \"\"\"...\"\"\") { bulkOperation { id status } userErrors { field message } } }. See documentation for examples.",
-                "propertyOrder": 520
-              }
-            }
-          }
+          "propertyOrder": 220
         }
       }
     }

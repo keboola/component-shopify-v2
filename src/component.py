@@ -117,17 +117,18 @@ class Component(ComponentBase):
         """Extract orders data using Shopify bulk operations"""
         self.logger.info("Extracting orders data via bulk operation")
 
-        # Create temp file path and let client save directly to it
         file_def = self.create_out_file_definition("orders_temp.jsonl")
         temp_jsonl = file_def.full_path
 
-        result = client.get_orders_bulk(temp_jsonl)
+        result = client.get_orders_bulk(
+            temp_jsonl,
+            include_transactions=params.endpoints.order_transactions,
+        )
 
         if result.item_count > 0:
             self._process_bulk_orders(result)
         else:
             self.logger.info("No orders found")
-            # Clean up empty temp file
             Path(result.file_path).unlink(missing_ok=True)
 
     def _extract_products_legacy(self, client: ShopifyGraphQLClient, params: Configuration):

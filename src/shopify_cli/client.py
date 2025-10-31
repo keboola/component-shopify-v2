@@ -519,23 +519,33 @@ class ShopifyGraphQLClient:
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
     @log_bulk_performance("orders")
-    def get_orders_bulk(self, temp_file_path: str) -> BulkOperationResult:
+    def get_orders_bulk(self, temp_file_path: str, include_transactions: bool = False) -> BulkOperationResult:
         """
         Get all orders using Shopify's bulk operations
 
         Args:
             temp_file_path: Path where JSONL results will be saved
+            include_transactions: Whether to include order transactions in the response
 
         Returns:
             BulkOperationResult with file path and timing info (item_count will be 0 if no results)
         """
         api_wait_start = time.time()
-        self.logger.info("Starting bulk operation for orders")
 
-        # Start bulk operation - load mutation directly
+        transactions_log = " (including transactions)" if include_transactions else ""
+        self.logger.info(f"Starting bulk operation for orders{transactions_log}")
+
         mutation_file = self.query_loader.queries_dir / "BulkOrders.graphql"
         with open(mutation_file, "r", encoding="utf-8") as f:
             mutation = f.read()
+
+        if include_transactions:
+            transactions_fragment_file = self.query_loader.queries_dir / "fragments" / "OrderTransactions.graphql"
+            with open(transactions_fragment_file, "r", encoding="utf-8") as f:
+                transactions_fragment = f.read()
+            mutation = mutation.replace("__TRANSACTIONS_PLACEHOLDER__", transactions_fragment)
+        else:
+            mutation = mutation.replace("__TRANSACTIONS_PLACEHOLDER__", "")
 
         result = self.execute_query(mutation)
 

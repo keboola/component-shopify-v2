@@ -83,24 +83,7 @@ mutation {
               zip
               phone
             }
-            transactions {
-              id
-              kind
-              status
-              test
-              amountSet {
-                shopMoney {
-                  amount
-                  currencyCode
-                }
-              }
-              gateway
-              createdAt
-              processedAt
-              errorCode
-              authorizationCode
-              authorizationExpiresAt
-            }
+            __TRANSACTIONS_PLACEHOLDER__
           }
         }
       }

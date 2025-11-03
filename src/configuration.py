@@ -30,6 +30,8 @@ class CustomQuery(BaseModel):
 class LoadingOptions(BaseModel):
     date_since: str | None = Field(default=None, description="Start date for data extraction (YYYY-MM-DD)")
     date_to: str | None = Field(default=None, description="End date for data extraction (YYYY-MM-DD)")
+    fetch_parameter: str = Field(default="updated_at", description="Field to filter by (updated_at or created_at)")
+    incremental_output: int = Field(default=1, description="Load type: 0=Full Load, 1=Incremental Update")
 
 
 class Endpoints(BaseModel):

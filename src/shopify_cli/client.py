@@ -368,6 +368,9 @@ class ShopifyGraphQLClient:
         status: str | None = None,
         include_product_metafields: bool = False,
         include_variant_metafields: bool = False,
+        date_since: str | None = None,
+        date_to: str | None = None,
+        fetch_parameter: str = "updated_at",
     ) -> BulkOperationResult:
         """
         Get all products using Shopify's bulk operations
@@ -379,14 +382,26 @@ class ShopifyGraphQLClient:
             temp_file_path: Path where JSONL results will be saved
             include_product_metafields: Whether to include product metafields in the response
             include_variant_metafields: Whether to include variant metafields in the response
+            date_since: Start date for filtering (YYYY-MM-DD format)
+            date_to: End date for filtering (YYYY-MM-DD format)
+            fetch_parameter: Field to filter by ('updated_at' or 'created_at')
 
         Returns:
             BulkOperationResult with file path and timing info (item_count will be 0 if no results)
         """
         api_wait_start = time.time()
 
-        query_filter = f"status:{status}" if status else ""
+        filters = []
+        if status:
+            filters.append(f"status:{status}")
+        if date_since:
+            filters.append(f"{fetch_parameter}:>='{date_since}'")
+        if date_to:
+            filters.append(f"{fetch_parameter}:<'{date_to}'")
+
+        query_filter = " AND ".join(filters) if filters else ""
         log_status = f" with status={status}" if status else ""
+        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
 
         metafields_log = []
         if include_product_metafields:
@@ -395,7 +410,7 @@ class ShopifyGraphQLClient:
             metafields_log.append("variant metafields")
         log_metafields = f" (including {' & '.join(metafields_log)})" if metafields_log else ""
 
-        self.logger.info(f"Starting bulk operation for products{log_status}{log_metafields}")
+        self.logger.info(f"Starting bulk operation for products{log_status}{log_dates}{log_metafields}")
 
         # Start bulk operation - load mutation directly
         mutation_file = self.query_loader.queries_dir / "BulkProducts.graphql"
@@ -420,9 +435,10 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__VARIANT_METAFIELDS_PLACEHOLDER__", "")
 
-        # Inject the query filter into the GraphQL query string
         if query_filter:
-            mutation = mutation.replace("products {", f'products(query: "{query_filter}") {{')
+            mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')
+        else:
+            mutation = mutation.replace("__QUERY_FILTER__", "")
 
         result = self.execute_query(mutation)
 
@@ -476,21 +492,39 @@ class ShopifyGraphQLClient:
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
     @log_bulk_performance("orders")
-    def get_orders_bulk(self, temp_file_path: str, include_transactions: bool = False) -> BulkOperationResult:
+    def get_orders_bulk(
+        self,
+        temp_file_path: str,
+        include_transactions: bool = False,
+        date_since: str | None = None,
+        date_to: str | None = None,
+        fetch_parameter: str = "updated_at",
+    ) -> BulkOperationResult:
         """
         Get all orders using Shopify's bulk operations
 
         Args:
             temp_file_path: Path where JSONL results will be saved
             include_transactions: Whether to include order transactions in the response
+            date_since: Start date for filtering (YYYY-MM-DD format)
+            date_to: End date for filtering (YYYY-MM-DD format)
+            fetch_parameter: Field to filter by ('updated_at' or 'created_at')
 
         Returns:
             BulkOperationResult with file path and timing info (item_count will be 0 if no results)
         """
         api_wait_start = time.time()
 
+        filters = []
+        if date_since:
+            filters.append(f"{fetch_parameter}:>='{date_since}'")
+        if date_to:
+            filters.append(f"{fetch_parameter}:<'{date_to}'")
+
+        query_filter = " AND ".join(filters) if filters else ""
         transactions_log = " (including transactions)" if include_transactions else ""
-        self.logger.info(f"Starting bulk operation for orders{transactions_log}")
+        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
+        self.logger.info(f"Starting bulk operation for orders{log_dates}{transactions_log}")
 
         mutation_file = self.query_loader.queries_dir / "BulkOrders.graphql"
         with open(mutation_file, "r", encoding="utf-8") as f:
@@ -503,6 +537,11 @@ class ShopifyGraphQLClient:
             mutation = mutation.replace("__TRANSACTIONS_PLACEHOLDER__", transactions_fragment)
         else:
             mutation = mutation.replace("__TRANSACTIONS_PLACEHOLDER__", "")
+
+        if query_filter:
+            mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')
+        else:
+            mutation = mutation.replace("__QUERY_FILTER__", "")
 
         result = self.execute_query(mutation)
 
@@ -556,23 +595,45 @@ class ShopifyGraphQLClient:
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
     @log_bulk_performance("customers")
-    def get_customers_bulk(self, temp_file_path: str) -> BulkOperationResult:
+    def get_customers_bulk(
+        self,
+        temp_file_path: str,
+        date_since: str | None = None,
+        date_to: str | None = None,
+        fetch_parameter: str = "updated_at",
+    ) -> BulkOperationResult:
         """
         Get all customers using Shopify's bulk operations
 
         Args:
             temp_file_path: Path where JSONL results will be saved
+            date_since: Start date for filtering (YYYY-MM-DD format)
+            date_to: End date for filtering (YYYY-MM-DD format)
+            fetch_parameter: Field to filter by ('updated_at' or 'created_at')
 
         Returns:
             BulkOperationResult with file path and timing info (item_count will be 0 if no results)
         """
         api_wait_start = time.time()
-        self.logger.info("Starting bulk operation for customers")
 
-        # Start bulk operation - load mutation directly
+        filters = []
+        if date_since:
+            filters.append(f"{fetch_parameter}:>='{date_since}'")
+        if date_to:
+            filters.append(f"{fetch_parameter}:<'{date_to}'")
+
+        query_filter = " AND ".join(filters) if filters else ""
+        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
+        self.logger.info(f"Starting bulk operation for customers{log_dates}")
+
         mutation_file = self.query_loader.queries_dir / "BulkCustomers.graphql"
         with open(mutation_file, "r", encoding="utf-8") as f:
             mutation = f.read()
+
+        if query_filter:
+            mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')
+        else:
+            mutation = mutation.replace("__QUERY_FILTER__", "")
 
         result = self.execute_query(mutation)
 
@@ -626,22 +687,45 @@ class ShopifyGraphQLClient:
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
     @log_bulk_performance("inventory")
-    def get_inventory_bulk(self, temp_file_path: str) -> BulkOperationResult:
+    def get_inventory_bulk(
+        self,
+        temp_file_path: str,
+        date_since: str | None = None,
+        date_to: str | None = None,
+        fetch_parameter: str = "updated_at",
+    ) -> BulkOperationResult:
         """
         Get all inventory items and levels using Shopify's bulk operations
 
         Args:
             temp_file_path: Path where JSONL results will be saved
+            date_since: Start date for filtering (YYYY-MM-DD format)
+            date_to: End date for filtering (YYYY-MM-DD format)
+            fetch_parameter: Field to filter by ('updated_at' or 'created_at')
 
         Returns:
             BulkOperationResult with file path and timing info
         """
         api_wait_start = time.time()
-        self.logger.info("Starting bulk operation for inventory")
+
+        filters = []
+        if date_since:
+            filters.append(f"{fetch_parameter}:>='{date_since}'")
+        if date_to:
+            filters.append(f"{fetch_parameter}:<'{date_to}'")
+
+        query_filter = " AND ".join(filters) if filters else ""
+        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
+        self.logger.info(f"Starting bulk operation for inventory{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkInventory.graphql"
         with open(mutation_file, "r", encoding="utf-8") as f:
             mutation = f.read()
+
+        if query_filter:
+            mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')
+        else:
+            mutation = mutation.replace("__QUERY_FILTER__", "")
 
         result = self.execute_query(mutation)
 
@@ -694,22 +778,43 @@ class ShopifyGraphQLClient:
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
     @log_bulk_performance("events")
-    def get_events_bulk(self, temp_file_path: str) -> BulkOperationResult:
+    def get_events_bulk(
+        self,
+        temp_file_path: str,
+        date_since: str | None = None,
+        date_to: str | None = None,
+    ) -> BulkOperationResult:
         """
         Get all events using Shopify's bulk operations
 
         Args:
             temp_file_path: Path where JSONL results will be saved
+            date_since: Start date for filtering (YYYY-MM-DD format)
+            date_to: End date for filtering (YYYY-MM-DD format)
 
         Returns:
             BulkOperationResult with file path and timing info
         """
         api_wait_start = time.time()
-        self.logger.info("Starting bulk operation for events")
+
+        filters = []
+        if date_since:
+            filters.append(f"created_at:>='{date_since}'")
+        if date_to:
+            filters.append(f"created_at:<'{date_to}'")
+
+        query_filter = " AND ".join(filters) if filters else ""
+        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
+        self.logger.info(f"Starting bulk operation for events{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkEvents.graphql"
         with open(mutation_file, "r", encoding="utf-8") as f:
             mutation = f.read()
+
+        if query_filter:
+            mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')
+        else:
+            mutation = mutation.replace("__QUERY_FILTER__", "")
 
         result = self.execute_query(mutation)
 

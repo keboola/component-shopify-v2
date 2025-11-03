@@ -2,7 +2,7 @@ mutation {
   bulkOperationRunQuery(
     query: """
     {
-      customers {
+      customers__QUERY_FILTER__ {
         edges {
           node {
             id

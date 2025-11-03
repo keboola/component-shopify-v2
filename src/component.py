@@ -124,6 +124,9 @@ class Component(ComponentBase):
         result = client.get_orders_bulk(
             temp_jsonl,
             include_transactions=params.endpoints.order_transactions,
+            date_since=params.loading_options.date_since,
+            date_to=params.loading_options.date_to,
+            fetch_parameter=params.loading_options.fetch_parameter,
         )
 
         if result.item_count > 0:
@@ -174,6 +177,9 @@ class Component(ComponentBase):
             status=status_filter,
             include_product_metafields=params.endpoints.product_metafields,
             include_variant_metafields=params.endpoints.variant_metafields,
+            date_since=params.loading_options.date_since,
+            date_to=params.loading_options.date_to,
+            fetch_parameter=params.loading_options.fetch_parameter,
         )
 
         if result.item_count > 0:
@@ -276,7 +282,12 @@ class Component(ComponentBase):
         file_def = self.create_out_file_definition("customers_temp.jsonl")
         temp_jsonl = file_def.full_path
 
-        result = client.get_customers_bulk(temp_jsonl)
+        result = client.get_customers_bulk(
+            temp_jsonl,
+            date_since=params.loading_options.date_since,
+            date_to=params.loading_options.date_to,
+            fetch_parameter=params.loading_options.fetch_parameter,
+        )
 
         if result.item_count > 0:
             self._process_bulk_customers(result)
@@ -327,7 +338,12 @@ class Component(ComponentBase):
         file_def = self.create_out_file_definition("inventory_temp.jsonl")
         temp_jsonl = file_def.full_path
 
-        result = client.get_inventory_bulk(temp_jsonl)
+        result = client.get_inventory_bulk(
+            temp_jsonl,
+            date_since=params.loading_options.date_since,
+            date_to=params.loading_options.date_to,
+            fetch_parameter=params.loading_options.fetch_parameter,
+        )
 
         if result.item_count > 0:
             self._process_bulk_inventory(result)
@@ -457,7 +473,11 @@ class Component(ComponentBase):
         file_def = self.create_out_file_definition("events_temp.jsonl")
         temp_jsonl = file_def.full_path
 
-        result = client.get_events_bulk(temp_jsonl)
+        result = client.get_events_bulk(
+            temp_jsonl,
+            date_since=params.loading_options.date_since,
+            date_to=params.loading_options.date_to,
+        )
 
         if result.item_count > 0:
             self._process_bulk_events(result)

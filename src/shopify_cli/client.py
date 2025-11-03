@@ -292,22 +292,6 @@ class ShopifyGraphQLClient:
         query = self.query_loader.load_query("GetInventoryItems")
         yield from self._paginate(query, "inventoryItems", batch_size)
 
-    def get_locations(self) -> list[dict[str, Any]]:
-        """
-        Get all locations
-
-        Returns:
-            List of location dictionaries
-        """
-        # Load query from external file
-        query = self.query_loader.load_query("GetLocations")
-
-        data = self.execute_query(query)
-        locations_data = data.get("locations", {})
-        edges = locations_data.get("edges", [])
-
-        return [edge["node"] for edge in edges]
-
     def get_product_drafts(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
         Get product drafts with pagination
@@ -772,6 +756,74 @@ class ShopifyGraphQLClient:
 
                 self.logger.info(f"Downloading results from: {url}")
                 return self._download_bulk_results(url, int(object_count), "events", temp_file_path, api_wait_time)
+
+            elif status in ["FAILED", "CANCELED"]:
+                error = current_op.get("errorCode", "Unknown error")
+                raise UserException(f"Bulk operation {status.lower()}: {error}")
+
+    @log_bulk_performance("locations")
+    def get_locations_bulk(self, temp_file_path: str) -> BulkOperationResult:
+        """
+        Get all locations using Shopify's bulk operations
+
+        Args:
+            temp_file_path: Path where JSONL results will be saved
+
+        Returns:
+            BulkOperationResult with file path and timing info
+        """
+        api_wait_start = time.time()
+        self.logger.info("Starting bulk operation for locations")
+
+        mutation_file = self.query_loader.queries_dir / "BulkLocations.graphql"
+        with open(mutation_file, "r", encoding="utf-8") as f:
+            mutation = f.read()
+
+        result = self.execute_query(mutation)
+
+        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
+        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
+
+        if user_errors:
+            raise UserException(f"Bulk operation failed: {user_errors}")
+
+        operation_id = bulk_op.get("id")
+        self.logger.info(f"Bulk operation started: {operation_id}")
+
+        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
+        with open(status_file, "r", encoding="utf-8") as f:
+            status_query = f.read()
+
+        poll_start = time.time()
+        while True:
+            elapsed = time.time() - poll_start
+            sleep_interval = 5 if elapsed < 60 else 15
+            time.sleep(sleep_interval)
+
+            status_result = self.execute_query(status_query)
+            current_op = status_result.get("currentBulkOperation", {})
+
+            status = current_op.get("status")
+            self.logger.info(f"Bulk operation status: {status}")
+
+            if status == "COMPLETED":
+                url = current_op.get("url")
+                object_count = current_op.get("objectCount", 0)
+                api_wait_time = time.time() - api_wait_start
+
+                if not url:
+                    self.logger.info("Bulk operation completed with no results (empty dataset)")
+                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                        pass
+                    return BulkOperationResult(
+                        file_path=temp_file_path,
+                        item_count=0,
+                        api_wait_time=api_wait_time,
+                        download_time=0.0,
+                    )
+
+                self.logger.info(f"Downloading results from: {url}")
+                return self._download_bulk_results(url, int(object_count), "locations", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
                 error = current_op.get("errorCode", "Unknown error")

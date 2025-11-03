@@ -1,0 +1,41 @@
+mutation {
+  bulkOperationRunQuery(
+    query: """
+    {
+      locations {
+        edges {
+          node {
+            id
+            name
+            address {
+              address1
+              address2
+              city
+              province
+              country
+              zip
+              phone
+            }
+            isActive
+            isPrimary
+            isFulfillmentService
+            fulfillmentService {
+              id
+              serviceName
+            }
+          }
+        }
+      }
+    }
+    """
+  ) {
+    bulkOperation {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

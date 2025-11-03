@@ -81,6 +81,7 @@ class Component(ComponentBase):
             "customers_legacy": self._extract_customers_legacy,
             "inventory": self._extract_inventory_bulk,
             "inventory_legacy": self._extract_inventory_levels,
+            "locations": self._extract_locations_bulk,
             "events": self._extract_events,
         }
 
@@ -114,8 +115,8 @@ class Component(ComponentBase):
             self.logger.info("No orders found")
 
     def _extract_orders_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract orders data using Shopify bulk operations"""
-        self.logger.info("Extracting orders data via bulk operation")
+        """Extract orders using Shopify bulk operations"""
+        self.logger.info("Extracting orders using bulk operations")
 
         file_def = self.create_out_file_definition("orders_temp.jsonl")
         temp_jsonl = file_def.full_path
@@ -147,10 +148,9 @@ class Component(ComponentBase):
             self.logger.info("No products found")
 
     def _extract_products_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract products using Shopify bulk operation with dynamic status filter"""
-        self.logger.info("Extracting products using bulk operation")
+        """Extract products using Shopify bulk operations"""
+        self.logger.info("Extracting products using bulk operations")
 
-        # Build status filter based on selected endpoints (all three are independent toggles)
         statuses = []
         if params.endpoints.products:
             statuses.append("active")
@@ -166,7 +166,6 @@ class Component(ComponentBase):
         status_filter = ",".join(statuses)
         self.logger.info(f"Fetching products with statuses: {status_filter}")
 
-        # Create temp file path and let client save directly to it
         file_def = self.create_out_file_definition("products_temp.jsonl")
         temp_jsonl = file_def.full_path
 
@@ -181,7 +180,6 @@ class Component(ComponentBase):
             self._process_bulk_products(result)
         else:
             self.logger.info("No products found")
-            # Clean up empty temp file
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_products(self, bulk_result: BulkOperationResult):
@@ -272,10 +270,9 @@ class Component(ComponentBase):
             self.logger.info("No customers found")
 
     def _extract_customers_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract customers data using Shopify bulk operations"""
-        self.logger.info("Extracting customers data via bulk operation")
+        """Extract customers using Shopify bulk operations"""
+        self.logger.info("Extracting customers using bulk operations")
 
-        # Create temp file path and let client save directly to it
         file_def = self.create_out_file_definition("customers_temp.jsonl")
         temp_jsonl = file_def.full_path
 
@@ -285,7 +282,6 @@ class Component(ComponentBase):
             self._process_bulk_customers(result)
         else:
             self.logger.info("No customers found")
-            # Clean up empty temp file
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_customers(self, bulk_result: BulkOperationResult):
@@ -326,7 +322,7 @@ class Component(ComponentBase):
 
     def _extract_inventory_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory using Shopify bulk operations"""
-        self.logger.info("Extracting inventory via bulk operation")
+        self.logger.info("Extracting inventory using bulk operations")
 
         file_def = self.create_out_file_definition("inventory_temp.jsonl")
         temp_jsonl = file_def.full_path
@@ -389,17 +385,55 @@ class Component(ComponentBase):
         else:
             self.logger.info("No inventory items found")
 
-    def _extract_locations(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract locations data using DuckDB"""
-        self.logger.info("Extracting locations data")
+    def _extract_locations_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract locations using Shopify bulk operations"""
+        self.logger.info("Extracting locations using bulk operations")
 
-        # Collect all data
-        all_locations = client.get_locations()
-        if all_locations:
-            self._process_with_duckdb("locations", all_locations, params)
-            self.logger.info(f"Successfully extracted {len(all_locations)} locations")
+        file_def = self.create_out_file_definition("locations_temp.jsonl")
+        temp_jsonl = file_def.full_path
+
+        result = client.get_locations_bulk(temp_jsonl)
+
+        if result.item_count > 0:
+            self._process_bulk_locations(result)
         else:
             self.logger.info("No locations found")
+            Path(result.file_path).unlink(missing_ok=True)
+
+    def _process_bulk_locations(self, bulk_result: BulkOperationResult):
+        """Process bulk locations data"""
+        process_start = time.time()
+
+        self.logger.info(f"Processing {bulk_result.item_count} locations from {bulk_result.file_path}")
+
+        table_name = "locations"
+
+        try:
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
+
+            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
+            output_file = Path(table.full_path)
+            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+
+            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+            self._create_typed_manifest(table_name, columns_info)
+
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            row_count = result_count[0] if result_count else 0
+
+            process_time = time.time() - process_start
+            self.logger.info(
+                f"Locations processing complete: {row_count} items in {process_time:.2f}s "
+                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
+                f"process: {process_time:.2f}s)"
+            )
+        finally:
+            if self.params.debug:
+                debug_file = "bulk_locations_download.jsonl"
+                shutil.copy2(bulk_result.file_path, debug_file)
+                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
+            Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory levels data using DuckDB"""
@@ -418,7 +452,7 @@ class Component(ComponentBase):
 
     def _extract_events(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract events using Shopify bulk operations"""
-        self.logger.info("Extracting events via bulk operation")
+        self.logger.info("Extracting events using bulk operations")
 
         file_def = self.create_out_file_definition("events_temp.jsonl")
         temp_jsonl = file_def.full_path

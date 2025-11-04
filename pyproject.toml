@@ -2,7 +2,7 @@
 name = "ex-shopify-v2"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = "~=3.13.0"
 dependencies = [
     "freezegun>=1.5.5",
     "keboola-component>=1.6.13",
@@ -14,10 +14,12 @@ dependencies = [
     "requests>=2.31.0",
     "gql>=4.0.0",
     "duckdb>=1.4.0",
+    "dateparser>=1.2.2",
 ]
 
 [dependency-groups]
 dev = [
+    "deptry>=0.23.1",
     "flake8>=7.3.0",
     "ruff>=0.13.3",
 ]

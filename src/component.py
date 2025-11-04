@@ -7,6 +7,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
+import dateparser
 import duckdb
 from keboola.component.base import ComponentBase
 from keboola.component.dao import BaseType, ColumnDefinition, SupportedDataTypes
@@ -25,6 +26,37 @@ class Component(ComponentBase):
         self.conn.execute("SET temp_directory='./duckdb_temp'")
         self.conn.execute("SET preserve_insertion_order=false")
         self.params = Configuration(**self.configuration.parameters)
+
+    def _parse_date_to_iso(self, date_str: str | None) -> str | None:
+        """
+        Parse date string (ISO format or relative like '1 week ago') to ISO format for Shopify API
+
+        Args:
+            date_str: Date string in ISO format (YYYY-MM-DD) or relative format ('1 week ago', 'now', etc.)
+
+        Returns:
+            ISO formatted date string (YYYY-MM-DD) or None if input is None
+        """
+        if not date_str:
+            return None
+
+        date_str = date_str.strip()
+
+        try:
+            # Use dateparser to parse any date format
+            parsed_date = dateparser.parse(date_str)
+
+            if parsed_date is None:
+                raise UserException(
+                    f"Could not parse date '{date_str}'. Please use ISO format (YYYY-MM-DD) or relative format "
+                    "like '1 week ago', 'now', etc."
+                )
+
+            # Return in ISO format (YYYY-MM-DD)
+            return parsed_date.strftime("%Y-%m-%d")
+
+        except Exception as e:
+            raise UserException(f"Invalid date format '{date_str}': {str(e)}")
 
     def run(self):
         """
@@ -102,8 +134,8 @@ class Component(ComponentBase):
         # Collect all data
         all_orders = []
         for batch in client.get_orders(
-            date_since=params.loading_options.date_since,
-            date_to=params.loading_options.date_to,
+            date_since=self._parse_date_to_iso(params.loading_options.date_since),
+            date_to=self._parse_date_to_iso(params.loading_options.date_to),
             batch_size=params.batch_size,
         ):
             all_orders.extend(batch)
@@ -124,8 +156,8 @@ class Component(ComponentBase):
         result = client.get_orders_bulk(
             temp_jsonl,
             include_transactions=params.endpoints.order_transactions,
-            date_since=params.loading_options.date_since,
-            date_to=params.loading_options.date_to,
+            date_since=self._parse_date_to_iso(params.loading_options.date_since),
+            date_to=self._parse_date_to_iso(params.loading_options.date_to),
             fetch_parameter=params.loading_options.fetch_parameter,
         )
 
@@ -177,8 +209,8 @@ class Component(ComponentBase):
             status=status_filter,
             include_product_metafields=params.endpoints.product_metafields,
             include_variant_metafields=params.endpoints.variant_metafields,
-            date_since=params.loading_options.date_since,
-            date_to=params.loading_options.date_to,
+            date_since=self._parse_date_to_iso(params.loading_options.date_since),
+            date_to=self._parse_date_to_iso(params.loading_options.date_to),
             fetch_parameter=params.loading_options.fetch_parameter,
         )
 
@@ -284,8 +316,8 @@ class Component(ComponentBase):
 
         result = client.get_customers_bulk(
             temp_jsonl,
-            date_since=params.loading_options.date_since,
-            date_to=params.loading_options.date_to,
+            date_since=self._parse_date_to_iso(params.loading_options.date_since),
+            date_to=self._parse_date_to_iso(params.loading_options.date_to),
             fetch_parameter=params.loading_options.fetch_parameter,
         )
 
@@ -340,8 +372,8 @@ class Component(ComponentBase):
 
         result = client.get_inventory_bulk(
             temp_jsonl,
-            date_since=params.loading_options.date_since,
-            date_to=params.loading_options.date_to,
+            date_since=self._parse_date_to_iso(params.loading_options.date_since),
+            date_to=self._parse_date_to_iso(params.loading_options.date_to),
             fetch_parameter=params.loading_options.fetch_parameter,
         )
 
@@ -475,8 +507,8 @@ class Component(ComponentBase):
 
         result = client.get_events_bulk(
             temp_jsonl,
-            date_since=params.loading_options.date_since,
-            date_to=params.loading_options.date_to,
+            date_since=self._parse_date_to_iso(params.loading_options.date_since),
+            date_to=self._parse_date_to_iso(params.loading_options.date_to),
         )
 
         if result.item_count > 0:

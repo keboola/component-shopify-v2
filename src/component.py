@@ -2,6 +2,7 @@
 import json
 import logging
 import shutil
+import tempfile
 import time
 from collections import OrderedDict
 from pathlib import Path
@@ -145,8 +146,8 @@ class Component(ComponentBase):
         """Extract orders using Shopify bulk operations"""
         self.logger.info("Extracting orders using bulk operations")
 
-        file_def = self.create_out_file_definition("orders_temp.jsonl")
-        temp_jsonl = file_def.full_path
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+            temp_jsonl = tmp.name
 
         result = client.get_orders_bulk(
             temp_jsonl,
@@ -195,8 +196,8 @@ class Component(ComponentBase):
         status_filter = ",".join(statuses)
         self.logger.info(f"Fetching products with statuses: {status_filter}")
 
-        file_def = self.create_out_file_definition("products_temp.jsonl")
-        temp_jsonl = file_def.full_path
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+            temp_jsonl = tmp.name
 
         result = client.get_products_bulk(
             temp_jsonl,
@@ -302,8 +303,8 @@ class Component(ComponentBase):
         """Extract customers using Shopify bulk operations"""
         self.logger.info("Extracting customers using bulk operations")
 
-        file_def = self.create_out_file_definition("customers_temp.jsonl")
-        temp_jsonl = file_def.full_path
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+            temp_jsonl = tmp.name
 
         result = client.get_customers_bulk(
             temp_jsonl,
@@ -357,8 +358,8 @@ class Component(ComponentBase):
         """Extract inventory using Shopify bulk operations"""
         self.logger.info("Extracting inventory using bulk operations")
 
-        file_def = self.create_out_file_definition("inventory_temp.jsonl")
-        temp_jsonl = file_def.full_path
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+            temp_jsonl = tmp.name
 
         result = client.get_inventory_bulk(
             temp_jsonl,
@@ -426,8 +427,8 @@ class Component(ComponentBase):
         """Extract locations using Shopify bulk operations"""
         self.logger.info("Extracting locations using bulk operations")
 
-        file_def = self.create_out_file_definition("locations_temp.jsonl")
-        temp_jsonl = file_def.full_path
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+            temp_jsonl = tmp.name
 
         result = client.get_locations_bulk(temp_jsonl)
 
@@ -490,8 +491,8 @@ class Component(ComponentBase):
         """Extract events using Shopify bulk operations"""
         self.logger.info("Extracting events using bulk operations")
 
-        file_def = self.create_out_file_definition("events_temp.jsonl")
-        temp_jsonl = file_def.full_path
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+            temp_jsonl = tmp.name
 
         result = client.get_events_bulk(
             temp_jsonl,
@@ -824,8 +825,8 @@ class Component(ComponentBase):
         """Process a custom GraphQL bulk query"""
         self.logger.info(f"Executing custom bulk query: {custom_query.name}")
 
-        file_def = self.create_out_file_definition(f"{custom_query.name}_temp.jsonl")
-        temp_jsonl = file_def.full_path
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+            temp_jsonl = tmp.name
 
         result = client.execute_custom_bulk_query(custom_query.query, temp_jsonl)
 

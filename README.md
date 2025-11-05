@@ -4,19 +4,20 @@ A Keboola component for extracting data from Shopify using GraphQL API. This is 
 
 ## Description
 
-This component extracts data from Shopify stores using the modern GraphQL Admin API. It features a DuckDB-powered data processing engine that automatically normalizes complex nested JSON data into relational tables with proper data types. The component supports comprehensive data extraction across multiple Shopify endpoints with advanced pagination and filtering capabilities.
+This component extracts data from Shopify stores using the modern GraphQL Admin API with bulk operations for efficient data extraction. It features a DuckDB-powered data processing engine that automatically normalizes complex nested JSON data into relational tables with proper data types. The component supports comprehensive data extraction across multiple Shopify endpoints with advanced date filtering and custom query capabilities.
 
 ## Features
 
 | **Feature**             | **Description**                               |
 |-------------------------|-----------------------------------------------|
-| GraphQL API             | Uses modern Shopify GraphQL Admin API         |
+| GraphQL API             | Uses modern Shopify GraphQL Admin API v2025-10 |
+| Bulk Operations         | Efficient bulk data extraction for large datasets |
 | DuckDB Processing       | Advanced data processing with automatic type detection |
 | Data Normalization      | Converts nested JSON into normalized relational tables |
-| Multiple Endpoints      | 12+ supported endpoints including orders, products, customers, inventory |
-| Date Range Filtering    | Filter data by date ranges (orders endpoint)  |
-| Pagination Support      | Handles large datasets with automatic pagination |
-| Batch Processing        | Configurable batch sizes for optimal performance |
+| Multiple Endpoints      | 10+ supported endpoints including orders, products, customers, inventory |
+| Date Range Filtering    | Filter data by date ranges across all bulk operations |
+| Flexible Date Formats   | Supports ISO dates (YYYY-MM-DD) and relative formats ("1 week ago", "now") |
+| Custom Bulk Queries     | Execute custom GraphQL bulk operations |
 | Type Detection          | Automatic data type detection and conversion  |
 | Relational Output       | Normalized tables with proper relationships   |
 | Error Handling          | Comprehensive error handling and logging      |
@@ -25,29 +26,33 @@ This component extracts data from Shopify stores using the modern GraphQL Admin 
 
 - Shopify store with Admin API access
 - Admin API access token with appropriate permissions
-- Python 3.13+
+- Python 3.13
 - DuckDB (automatically installed)
 
 ## Supported Endpoints
 
-The component supports the following Shopify GraphQL endpoints:
+The component supports the following Shopify GraphQL endpoints using **bulk operations** for efficient data extraction:
 
-### Core Endpoints
-- **orders** - Extract order data with line items, customer info, and addresses (supports date filtering)
-- **products** - Extract product data with variants, images, and metafields
+### Core Endpoints (Bulk Operations)
+
+- **products** - Extract active products with variants and metafields
+- **products_drafts** - Extract draft products
+- **products_archived** - Extract archived products
+- **orders** - Extract order data with line items, customer info, and addresses
 - **customers** - Extract customer data with addresses and marketing preferences
-- **inventory_items** - Extract inventory item data with location-specific quantities
-- **locations** - Extract store location information
-
-### Advanced Endpoints
-- **products_drafts** - Extract product drafts and unpublished products
-- **product_metafields** - Extract product-level metafields
-- **variant_metafields** - Extract product variant metafields
 - **inventory** - Extract inventory levels across locations
-- **products_archived** - Extract archived/deleted products
-- **transactions** - Extract financial transactions
-- **payments_transactions** - Extract payment and balance transactions
+- **locations** - Extract store location information
 - **events** - Extract system events and activity logs
+
+### Endpoint Options
+
+- **product_metafields** - Include product-level metafields in products extraction
+- **variant_metafields** - Include product variant metafields in products extraction
+- **order_transactions** - Include transactions in orders extraction
+
+### Custom Queries
+
+The component also supports custom GraphQL bulk operations (mutations), allowing you to execute any custom bulk query against the Shopify API.
 
 ## Configuration
 
@@ -58,13 +63,28 @@ The component supports the following Shopify GraphQL endpoints:
 
 ### Optional Parameters
 
-- **api_version** - Shopify API version (default: "2024-01")
-- **endpoints** - List of endpoints to extract (default: ["orders", "products"])
-  - Valid endpoints: orders, products, customers, inventory_items, locations, products_drafts, product_metafields, variant_metafields, inventory, products_archived, transactions, payments_transactions, events
-- **date_since** - Start date for data extraction (YYYY-MM-DD format)
-- **date_to** - End date for data extraction (YYYY-MM-DD format)
-- **batch_size** - Number of records per batch (1-250, default: 50)
-- **debug** - Enable debug logging (default: false)
+- **api_version** - Shopify API version (default: "2025-10")
+- **endpoints** - Object with boolean flags for each endpoint to enable:
+  - **products** - Extract active products (default: false)
+  - **products_drafts** - Extract draft products (default: false)
+  - **products_archived** - Extract archived products (default: false)
+  - **product_metafields** - Include product metafields (default: false)
+  - **variant_metafields** - Include variant metafields (default: false)
+  - **orders** - Extract orders (default: false)
+  - **order_transactions** - Include order transactions (default: false)
+  - **customers** - Extract customers (default: false)
+  - **inventory** - Extract inventory (default: false)
+  - **locations** - Extract locations (default: false)
+- **loading_options** - Date filtering and loading behavior:
+  - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago")
+  - **date_to** - End date for extraction (ISO format YYYY-MM-DD or relative like "now", "yesterday")
+  - **fetch_parameter** - Field to filter by: "updated_at" or "created_at" (default: "updated_at")
+  - **incremental_output** - Load type: 0=Full Load, 1=Incremental Update (default: 1)
+- **events** - Array of event configurations for events endpoint (default: [])
+- **custom_queries** - Array of custom bulk query configurations:
+  - **name** - Query name (used for output table name)
+  - **query** - GraphQL bulk operation mutation string
+- **debug** - Enable debug logging and save raw JSONL files (default: false)
 
 ### Example Configuration
 
@@ -73,13 +93,31 @@ The component supports the following Shopify GraphQL endpoints:
   "parameters": {
     "#api_token": "your_shopify_admin_api_token_here",
     "store_name": "your-shop-name",
-    "api_version": "2024-01",
-    "endpoints": ["orders", "products", "customers", "inventory_items"],
-    "loading_options": {
-      "date_since": "2024-01-01",
-      "date_to": "2025-10-06"
+    "api_version": "2025-10",
+    "endpoints": {
+      "orders": true,
+      "order_transactions": true,
+      "products": true,
+      "products_drafts": true,
+      "product_metafields": true,
+      "variant_metafields": true,
+      "customers": true,
+      "inventory": true,
+      "locations": true
     },
-    "batch_size": 50,
+    "loading_options": {
+      "date_since": "1 month ago",
+      "date_to": "now",
+      "fetch_parameter": "updated_at",
+      "incremental_output": 1
+    },
+    "events": [],
+    "custom_queries": [
+      {
+        "name": "my_custom_query",
+        "query": "mutation { bulkOperationRunQuery(query: \"\"\"{ products(query: \\\"status:active\\\") { edges { node { id title } } } }\"\"\") { bulkOperation { id status } userErrors { field message } } }"
+      }
+    ],
     "debug": false
   }
 }
@@ -87,33 +125,20 @@ The component supports the following Shopify GraphQL endpoints:
 
 ## Output
 
-The component uses DuckDB to automatically normalize complex JSON data into relational tables with proper data types. Each endpoint generates one or more CSV files:
+The component uses DuckDB to automatically process bulk operation results into CSV tables with proper data types. Each endpoint generates CSV files with all data preserved, including nested JSON structures:
 
-### Normalized Tables
+### Output Tables
 
-#### Orders Endpoint
-- **orders.csv** - Main order information (id, totals, customer data, timestamps)
-- **order_line_items.csv** - Order line items with product/variant details
+#### Bulk Operations (Primary Method)
 
-#### Products Endpoint
-- **products.csv** - Main product information (id, title, description, vendor, etc.)
-- **product_variants.csv** - Product variants with pricing and inventory
-
-#### Inventory Items Endpoint
-- **inventory_items.csv** - Inventory item details with product relationships
-- **inventory_levels.csv** - Location-specific inventory quantities
-
-#### Simple Tables
-- **customers.csv** - Customer data with addresses and preferences
+- **orders.csv** - Orders with all nested data (line items, customer info, transactions as JSON)
+- **products.csv** - Products with all nested data (variants, metafields, images as JSON)
+- **customers.csv** - Customer data with addresses and preferences (nested as JSON)
+- **inventory.csv** - Inventory levels across locations
 - **locations.csv** - Store location information
-- **products_drafts.csv** - Draft product data
-- **product_metafields.csv** - Product metafields
-- **variant_metafields.csv** - Variant metafields
-- **inventory.csv** - Inventory level data
-- **products_archived.csv** - Archived product data
-- **transactions.csv** - Financial transaction data
-- **payments_transactions.csv** - Payment transaction data
 - **events.csv** - System event logs
+- **{custom_query_name}.csv** - Custom query results
+
 
 ### Data Types and Manifests
 
@@ -140,12 +165,14 @@ The component leverages several key technologies:
 ### Data Processing Pipeline
 
 1. **Configuration Validation**: Pydantic models validate input parameters
-2. **GraphQL Query Execution**: Shopify client executes paginated GraphQL queries
-3. **Data Collection**: Raw JSON data is collected in batches
-4. **DuckDB Processing**: Data is loaded into DuckDB for normalization
-5. **Table Generation**: Complex structures are normalized into relational tables
-6. **Type Detection**: DuckDB automatically detects and assigns proper data types
-7. **CSV Export**: Normalized tables are exported as CSV with manifest files
+2. **Date Parsing**: Convert ISO or relative date formats to API-compatible format
+3. **Bulk Operation Initiation**: Shopify client initiates GraphQL bulk operations with filters
+4. **Operation Polling**: Monitor bulk operation status until completion
+5. **JSONL Download**: Download bulk operation results to temporary files
+6. **DuckDB Processing**: Load JSONL data into DuckDB for processing
+7. **Type Detection**: DuckDB automatically detects and assigns proper data types
+8. **CSV Export**: Tables are exported as CSV with typed manifest files
+9. **Cleanup**: Temporary files are removed from system temp directory
 
 ## Dependencies
 
@@ -153,10 +180,9 @@ The component requires the following Python packages:
 
 - `keboola-component>=1.6.13` - Keboola platform integration
 - `pydantic>=2.11.9` - Configuration validation
-- `shopifyapi>=12.7.0` - Shopify API client
 - `duckdb>=1.4.0` - Data processing engine
 - `requests>=2.31.0` - HTTP client
-- `gql>=4.0.0` - GraphQL client utilities
+- `dateparser>=1.2.0` - Flexible date parsing (ISO and relative formats)
 
 Development dependencies:
 - `flake8>=7.3.0` - Code linting

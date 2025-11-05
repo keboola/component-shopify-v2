@@ -23,7 +23,7 @@ class Component(ComponentBase):
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
         self.conn = duckdb.connect()
-        self.conn.execute("SET temp_directory='./duckdb_temp'")
+        self.conn.execute("SET temp_directory='/tmp/duckdb_temp'")
         self.conn.execute("SET preserve_insertion_order=false")
         self.params = Configuration(**self.configuration.parameters)
 

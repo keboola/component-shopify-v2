@@ -15,7 +15,7 @@ class QueryLoader:
     Loads GraphQL queries from external .graphql files
     """
 
-    def __init__(self, queries_dir: str = None):
+    def __init__(self, queries_dir: str | None = None):
         """
         Initialize query loader
 
@@ -23,11 +23,10 @@ class QueryLoader:
             queries_dir: Path to queries directory. If None, uses default location.
         """
         if queries_dir is None:
-            # Get the directory where this file is located
             current_dir = Path(__file__).parent
-            queries_dir = current_dir / "queries"
-
-        self.queries_dir = Path(queries_dir)
+            self.queries_dir = current_dir / "queries"
+        else:
+            self.queries_dir = Path(queries_dir)
         self._queries_cache: dict[str, str] = {}
 
     def load_query(self, query_name: str) -> str:
@@ -54,7 +53,7 @@ class QueryLoader:
         if not query_file.exists():
             raise FileNotFoundError(f"Query file not found: {query_file}")
 
-        with open(query_file, "r", encoding="utf-8") as f:
+        with open(query_file) as f:
             content = f.read()
 
         # Extract the specific query from the file
@@ -85,7 +84,6 @@ class QueryLoader:
         brace_count = 0
 
         for line in lines:
-            # Skip comments
             if line.strip().startswith("#"):
                 continue
 

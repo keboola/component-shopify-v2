@@ -414,13 +414,13 @@ class ShopifyGraphQLClient:
 
         # Start bulk operation - load mutation directly
         mutation_file = self.query_loader.queries_dir / "BulkProducts.graphql"
-        with open(mutation_file, "r", encoding="utf-8") as f:
+        with open(mutation_file) as f:
             mutation = f.read()
 
         # Inject product metafields if requested
         if include_product_metafields:
             metafields_fragment_file = self.query_loader.queries_dir / "fragments" / "ProductMetafields.graphql"
-            with open(metafields_fragment_file, "r", encoding="utf-8") as f:
+            with open(metafields_fragment_file) as f:
                 product_metafields_fragment = f.read()
             mutation = mutation.replace("__METAFIELDS_PLACEHOLDER__", product_metafields_fragment)
         else:
@@ -429,7 +429,7 @@ class ShopifyGraphQLClient:
         # Inject variant metafields if requested
         if include_variant_metafields:
             var_metafields_frag_file = self.query_loader.queries_dir / "fragments" / "VariantMetafields.graphql"
-            with open(var_metafields_frag_file, "r", encoding="utf-8") as f:
+            with open(var_metafields_frag_file) as f:
                 var_metafields_fragment = f.read()
             mutation = mutation.replace("__VARIANT_METAFIELDS_PLACEHOLDER__", var_metafields_fragment)
         else:
@@ -453,7 +453,7 @@ class ShopifyGraphQLClient:
 
         # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file, "r", encoding="utf-8") as f:
+        with open(status_file) as f:
             status_query = f.read()
 
         poll_start = time.time()
@@ -475,7 +475,7 @@ class ShopifyGraphQLClient:
 
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                    with open(temp_file_path, "w") as f:
                         pass
                     return BulkOperationResult(
                         file_path=temp_file_path,
@@ -527,12 +527,12 @@ class ShopifyGraphQLClient:
         self.logger.info(f"Starting bulk operation for orders{log_dates}{transactions_log}")
 
         mutation_file = self.query_loader.queries_dir / "BulkOrders.graphql"
-        with open(mutation_file, "r", encoding="utf-8") as f:
+        with open(mutation_file) as f:
             mutation = f.read()
 
         if include_transactions:
             transactions_fragment_file = self.query_loader.queries_dir / "fragments" / "OrderTransactions.graphql"
-            with open(transactions_fragment_file, "r", encoding="utf-8") as f:
+            with open(transactions_fragment_file) as f:
                 transactions_fragment = f.read()
             mutation = mutation.replace("__TRANSACTIONS_PLACEHOLDER__", transactions_fragment)
         else:
@@ -556,7 +556,7 @@ class ShopifyGraphQLClient:
 
         # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file, "r", encoding="utf-8") as f:
+        with open(status_file) as f:
             status_query = f.read()
 
         poll_start = time.time()
@@ -578,7 +578,7 @@ class ShopifyGraphQLClient:
 
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                    with open(temp_file_path, "w") as f:
                         pass
                     return BulkOperationResult(
                         file_path=temp_file_path,
@@ -627,7 +627,7 @@ class ShopifyGraphQLClient:
         self.logger.info(f"Starting bulk operation for customers{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkCustomers.graphql"
-        with open(mutation_file, "r", encoding="utf-8") as f:
+        with open(mutation_file) as f:
             mutation = f.read()
 
         if query_filter:
@@ -648,7 +648,7 @@ class ShopifyGraphQLClient:
 
         # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file, "r", encoding="utf-8") as f:
+        with open(status_file) as f:
             status_query = f.read()
 
         poll_start = time.time()
@@ -670,7 +670,7 @@ class ShopifyGraphQLClient:
 
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                    with open(temp_file_path, "w") as f:
                         pass
                     return BulkOperationResult(
                         file_path=temp_file_path,
@@ -719,7 +719,7 @@ class ShopifyGraphQLClient:
         self.logger.info(f"Starting bulk operation for inventory{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkInventory.graphql"
-        with open(mutation_file, "r", encoding="utf-8") as f:
+        with open(mutation_file) as f:
             mutation = f.read()
 
         if query_filter:
@@ -739,7 +739,7 @@ class ShopifyGraphQLClient:
         self.logger.info(f"Bulk operation started: {operation_id}")
 
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file, "r", encoding="utf-8") as f:
+        with open(status_file) as f:
             status_query = f.read()
 
         poll_start = time.time()
@@ -761,7 +761,7 @@ class ShopifyGraphQLClient:
 
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                    with open(temp_file_path, "w") as f:
                         pass
                     return BulkOperationResult(
                         file_path=temp_file_path,
@@ -808,7 +808,7 @@ class ShopifyGraphQLClient:
         self.logger.info(f"Starting bulk operation for events{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkEvents.graphql"
-        with open(mutation_file, "r", encoding="utf-8") as f:
+        with open(mutation_file) as f:
             mutation = f.read()
 
         if query_filter:
@@ -828,7 +828,7 @@ class ShopifyGraphQLClient:
         self.logger.info(f"Bulk operation started: {operation_id}")
 
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file, "r", encoding="utf-8") as f:
+        with open(status_file) as f:
             status_query = f.read()
 
         poll_start = time.time()
@@ -850,7 +850,7 @@ class ShopifyGraphQLClient:
 
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                    with open(temp_file_path, "w") as f:
                         pass
                     return BulkOperationResult(
                         file_path=temp_file_path,
@@ -881,7 +881,7 @@ class ShopifyGraphQLClient:
         self.logger.info("Starting bulk operation for locations")
 
         mutation_file = self.query_loader.queries_dir / "BulkLocations.graphql"
-        with open(mutation_file, "r", encoding="utf-8") as f:
+        with open(mutation_file) as f:
             mutation = f.read()
 
         result = self.execute_query(mutation)
@@ -896,7 +896,7 @@ class ShopifyGraphQLClient:
         self.logger.info(f"Bulk operation started: {operation_id}")
 
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file, "r", encoding="utf-8") as f:
+        with open(status_file) as f:
             status_query = f.read()
 
         poll_start = time.time()
@@ -918,7 +918,7 @@ class ShopifyGraphQLClient:
 
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                    with open(temp_file_path, "w") as f:
                         pass
                     return BulkOperationResult(
                         file_path=temp_file_path,
@@ -1000,7 +1000,7 @@ class ShopifyGraphQLClient:
 
         # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file, "r", encoding="utf-8") as f:
+        with open(status_file) as f:
             status_query = f.read()
 
         poll_start = time.time()
@@ -1022,7 +1022,7 @@ class ShopifyGraphQLClient:
 
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    with open(temp_file_path, "w", encoding="utf-8") as f:
+                    with open(temp_file_path, "w") as f:
                         pass
                     return BulkOperationResult(
                         file_path=temp_file_path,

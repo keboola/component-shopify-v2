@@ -21,7 +21,6 @@ class Component(ComponentBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
-        # Inicializace DuckDB
         self.conn = duckdb.connect()
         self.conn.execute("SET temp_directory='./duckdb_temp'")
         self.conn.execute("SET preserve_insertion_order=false")
@@ -43,7 +42,6 @@ class Component(ComponentBase):
         date_str = date_str.strip()
 
         try:
-            # Use dateparser to parse any date format
             parsed_date = dateparser.parse(date_str)
 
             if parsed_date is None:
@@ -52,8 +50,7 @@ class Component(ComponentBase):
                     "like '1 week ago', 'now', etc."
                 )
 
-            # Return in ISO format (YYYY-MM-DD)
-            return parsed_date.strftime("%Y-%m-%d")
+            return parsed_date.strftime(r"%Y-%m-%d")
 
         except Exception as e:
             raise UserException(f"Invalid date format '{date_str}': {str(e)}")
@@ -64,7 +61,6 @@ class Component(ComponentBase):
         """
         params = Configuration(**self.configuration.parameters)
 
-        # Initialize Shopify client
         client = ShopifyGraphQLClient(
             store_name=params.store_name,
             api_token=params.api_token,
@@ -131,7 +127,6 @@ class Component(ComponentBase):
         """Extract orders data using DuckDB (legacy one-by-one method)"""
         self.logger.info("Extracting orders data (legacy method)")
 
-        # Collect all data
         all_orders = []
         for batch in client.get_orders(
             date_since=self._parse_date_to_iso(params.loading_options.date_since),
@@ -171,7 +166,6 @@ class Component(ComponentBase):
         """Extract products data using DuckDB (legacy one-by-one method)"""
         self.logger.info("Extracting products data (legacy method)")
 
-        # Collect all data
         all_products = []
         for batch in client.get_products(batch_size=params.batch_size):
             all_products.extend(batch)
@@ -239,7 +233,6 @@ class Component(ComponentBase):
             columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
             self._create_typed_manifest(table_name, columns_info)
 
-            # Get row count for logging
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
             row_count = result_count[0] if result_count else 0
 
@@ -275,7 +268,6 @@ class Component(ComponentBase):
             columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
             self._create_typed_manifest(table_name, columns_info)
 
-            # Get row count for logging
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
             row_count = result_count[0] if result_count else 0
 
@@ -296,7 +288,6 @@ class Component(ComponentBase):
         """Extract customers data using DuckDB (legacy one-by-one method)"""
         self.logger.info("Extracting customers data (legacy method)")
 
-        # Collect all data
         all_customers = []
         for batch in client.get_customers(batch_size=params.batch_size):
             all_customers.extend(batch)
@@ -346,7 +337,6 @@ class Component(ComponentBase):
             columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
             self._create_typed_manifest(table_name, columns_info)
 
-            # Get row count for logging
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
             row_count = result_count[0] if result_count else 0
 
@@ -422,7 +412,6 @@ class Component(ComponentBase):
         """Extract inventory items data using DuckDB"""
         self.logger.info("Extracting inventory items data")
 
-        # Collect all data
         all_inventory_items = []
         for batch in client.get_inventory_items(batch_size=params.batch_size):
             all_inventory_items.extend(batch)
@@ -487,7 +476,6 @@ class Component(ComponentBase):
         """Extract inventory levels data using DuckDB"""
         self.logger.info("Extracting inventory levels data")
 
-        # Collect all data
         all_inventory_levels = []
         for batch in client.get_inventory_levels(batch_size=params.batch_size):
             all_inventory_levels.extend(batch)
@@ -562,7 +550,7 @@ class Component(ComponentBase):
         # Create temporary JSON file
         file_def = self.create_out_file_definition(f"{table_name}_temp.json")
         temp_json = Path(file_def.full_path)
-        with open(temp_json, "w", encoding="utf-8") as f:
+        with open(temp_json, "w") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
         try:

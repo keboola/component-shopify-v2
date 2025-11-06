@@ -278,8 +278,7 @@ class Component(ComponentBase):
 
             normalized_table = self._normalize_table(table_name)
 
-            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
-            output_file = Path(table.full_path)
+            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             self._export_table_with_manifest(table_name, normalized_table)
@@ -313,8 +312,7 @@ class Component(ComponentBase):
 
             normalized_table = self._normalize_table(table_name)
 
-            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
-            output_file = Path(table.full_path)
+            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             self._export_table_with_manifest(table_name, normalized_table)
@@ -382,8 +380,7 @@ class Component(ComponentBase):
 
             normalized_table = self._normalize_table(table_name)
 
-            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
-            output_file = Path(table.full_path)
+            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             self._export_table_with_manifest(table_name, normalized_table)
@@ -437,8 +434,7 @@ class Component(ComponentBase):
 
             normalized_table = self._normalize_table(table_name)
 
-            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
-            output_file = Path(table.full_path)
+            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             self._export_table_with_manifest(table_name, normalized_table)
@@ -487,8 +483,7 @@ class Component(ComponentBase):
 
             normalized_table = self._normalize_table(table_name)
 
-            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
-            output_file = Path(table.full_path)
+            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             self._export_table_with_manifest(table_name, normalized_table)
@@ -555,8 +550,7 @@ class Component(ComponentBase):
 
             normalized_table = self._normalize_table(table_name)
 
-            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
-            output_file = Path(table.full_path)
+            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             self._export_table_with_manifest(table_name, normalized_table)
@@ -846,8 +840,7 @@ class Component(ComponentBase):
 
             normalized_table = self._normalize_table(table_name)
 
-            table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
-            output_file = Path(table.full_path)
+            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
             self._export_table_with_manifest(table_name, normalized_table)

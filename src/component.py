@@ -26,6 +26,7 @@ class Component(ComponentBase):
         db_path = "debug.duckdb" if self.configuration.parameters.get("debug") else ":memory:"
         self.conn = duckdb.connect(db_path)
         self.conn.execute("SET temp_directory='/tmp/duckdb_temp'")
+        self.conn.execute("SET memory_limit='256MB'")
         self.conn.execute("SET preserve_insertion_order=false")
         self.params = Configuration(**self.configuration.parameters)
 

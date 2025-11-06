@@ -277,10 +277,6 @@ class Component(ComponentBase):
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
             normalized_table = self._normalize_table(table_name)
-
-            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
-            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
             self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
@@ -311,10 +307,6 @@ class Component(ComponentBase):
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
             normalized_table = self._normalize_table(table_name)
-
-            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
-            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
             self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
@@ -379,10 +371,6 @@ class Component(ComponentBase):
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
             normalized_table = self._normalize_table(table_name)
-
-            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
-            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
             self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
@@ -433,10 +421,6 @@ class Component(ComponentBase):
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
             normalized_table = self._normalize_table(table_name)
-
-            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
-            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
             self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
@@ -482,10 +466,6 @@ class Component(ComponentBase):
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
             normalized_table = self._normalize_table(table_name)
-
-            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
-            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
             self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
@@ -549,10 +529,6 @@ class Component(ComponentBase):
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
             normalized_table = self._normalize_table(table_name)
-
-            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
-            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
             self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
@@ -839,10 +815,6 @@ class Component(ComponentBase):
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
             normalized_table = self._normalize_table(table_name)
-
-            output_file = Path(self.tables_out_path) / f"{table_name}.csv"
-            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
-
             self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()

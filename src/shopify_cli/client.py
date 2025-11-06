@@ -401,7 +401,14 @@ class ShopifyGraphQLClient:
 
         query_filter = " AND ".join(filters) if filters else ""
         log_status = f" with status={status}" if status else ""
-        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
+
+        log_dates = ""
+        if date_since and date_to:
+            log_dates = f" from {date_since} to {date_to}"
+        elif date_since:
+            log_dates = f" from {date_since}"
+        elif date_to:
+            log_dates = f" until {date_to}"
 
         metafields_log = []
         if include_product_metafields:
@@ -410,7 +417,7 @@ class ShopifyGraphQLClient:
             metafields_log.append("variant metafields")
         log_metafields = f" (including {' & '.join(metafields_log)})" if metafields_log else ""
 
-        self.logger.info(f"Starting bulk operation for products{log_status}{log_dates}{log_metafields}")
+        self.logger.info(f"Starting bulk operation for products{log_status}{log_metafields}{log_dates}")
 
         # Start bulk operation - load mutation directly
         mutation_file = self.query_loader.queries_dir / "BulkProducts.graphql"
@@ -466,7 +473,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.info(f"Bulk operation status: {status}")
+            self.logger.debug(f"Bulk operation status: {status}")
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -522,9 +529,17 @@ class ShopifyGraphQLClient:
             filters.append(f"{fetch_parameter}:<'{date_to}'")
 
         query_filter = " AND ".join(filters) if filters else ""
-        transactions_log = " (including transactions)" if include_transactions else ""
-        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
-        self.logger.info(f"Starting bulk operation for orders{log_dates}{transactions_log}")
+        log_transactions = " (including transactions)" if include_transactions else ""
+
+        log_dates = ""
+        if date_since and date_to:
+            log_dates = f" from {date_since} to {date_to}"
+        elif date_since:
+            log_dates = f" from {date_since}"
+        elif date_to:
+            log_dates = f" until {date_to}"
+
+        self.logger.info(f"Starting bulk operation for orders{log_transactions}{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkOrders.graphql"
         with open(mutation_file) as f:
@@ -569,7 +584,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.info(f"Bulk operation status: {status}")
+            self.logger.debug(f"Bulk operation status: {status}")
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -623,7 +638,15 @@ class ShopifyGraphQLClient:
             filters.append(f"{fetch_parameter}:<'{date_to}'")
 
         query_filter = " AND ".join(filters) if filters else ""
-        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
+
+        log_dates = ""
+        if date_since and date_to:
+            log_dates = f" from {date_since} to {date_to}"
+        elif date_since:
+            log_dates = f" from {date_since}"
+        elif date_to:
+            log_dates = f" until {date_to}"
+
         self.logger.info(f"Starting bulk operation for customers{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkCustomers.graphql"
@@ -661,7 +684,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.info(f"Bulk operation status: {status}")
+            self.logger.debug(f"Bulk operation status: {status}")
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -715,7 +738,15 @@ class ShopifyGraphQLClient:
             filters.append(f"{fetch_parameter}:<'{date_to}'")
 
         query_filter = " AND ".join(filters) if filters else ""
-        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
+
+        log_dates = ""
+        if date_since and date_to:
+            log_dates = f" from {date_since} to {date_to}"
+        elif date_since:
+            log_dates = f" from {date_since}"
+        elif date_to:
+            log_dates = f" until {date_to}"
+
         self.logger.info(f"Starting bulk operation for inventory{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkInventory.graphql"
@@ -752,7 +783,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.info(f"Bulk operation status: {status}")
+            self.logger.debug(f"Bulk operation status: {status}")
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -804,7 +835,15 @@ class ShopifyGraphQLClient:
             filters.append(f"created_at:<'{date_to}'")
 
         query_filter = " AND ".join(filters) if filters else ""
-        log_dates = f" from {date_since} to {date_to}" if date_since or date_to else ""
+
+        log_dates = ""
+        if date_since and date_to:
+            log_dates = f" from {date_since} to {date_to}"
+        elif date_since:
+            log_dates = f" from {date_since}"
+        elif date_to:
+            log_dates = f" until {date_to}"
+
         self.logger.info(f"Starting bulk operation for events{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkEvents.graphql"
@@ -841,7 +880,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.info(f"Bulk operation status: {status}")
+            self.logger.debug(f"Bulk operation status: {status}")
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -909,7 +948,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.info(f"Bulk operation status: {status}")
+            self.logger.debug(f"Bulk operation status: {status}")
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -1013,7 +1052,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.info(f"Bulk operation status: {status}")
+            self.logger.debug(f"Bulk operation status: {status}")
 
             if status == "COMPLETED":
                 url = current_op.get("url")

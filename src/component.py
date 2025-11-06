@@ -282,8 +282,7 @@ class Component(ComponentBase):
             output_file = Path(table.full_path)
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
-            self._create_typed_manifest(table_name, columns_info, normalized_table)
+            self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
@@ -318,8 +317,7 @@ class Component(ComponentBase):
             output_file = Path(table.full_path)
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
-            self._create_typed_manifest(table_name, columns_info, normalized_table)
+            self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
@@ -388,8 +386,7 @@ class Component(ComponentBase):
             output_file = Path(table.full_path)
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
-            self._create_typed_manifest(table_name, columns_info, normalized_table)
+            self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
@@ -444,8 +441,7 @@ class Component(ComponentBase):
             output_file = Path(table.full_path)
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
-            self._create_typed_manifest(table_name, columns_info, normalized_table)
+            self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
@@ -495,8 +491,7 @@ class Component(ComponentBase):
             output_file = Path(table.full_path)
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
-            self._create_typed_manifest(table_name, columns_info, normalized_table)
+            self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
@@ -564,8 +559,7 @@ class Component(ComponentBase):
             output_file = Path(table.full_path)
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
-            self._create_typed_manifest(table_name, columns_info, normalized_table)
+            self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
@@ -610,7 +604,7 @@ class Component(ComponentBase):
             elif table_name == "inventory_items":
                 self._create_inventory_tables(table_name)
             else:
-                self._export_table_to_csv(f"{table_name}_raw")
+                self._export_table_with_manifest(f"{table_name}_raw")
 
         finally:
             # Clean up temporary file
@@ -665,9 +659,8 @@ class Component(ComponentBase):
             UNNEST(o.lineItems.edges) as t(item)
         """)
 
-        # Export both tables
-        self._export_table_to_csv("orders")
-        self._export_table_to_csv("order_line_items")
+        self._export_table_with_manifest("orders")
+        self._export_table_with_manifest("order_line_items")
 
     def _create_products_tables(self, table_name: str):
         """Create normalized product tables"""
@@ -706,9 +699,8 @@ class Component(ComponentBase):
             UNNEST(p.variants.edges) as t(variant)
         """)
 
-        # Export both tables
-        self._export_table_to_csv("products")
-        self._export_table_to_csv("product_variants")
+        self._export_table_with_manifest("products")
+        self._export_table_with_manifest("product_variants")
 
     def _create_inventory_tables(self, table_name: str):
         """Create normalized inventory tables"""
@@ -750,16 +742,14 @@ class Component(ComponentBase):
             UNNEST(i.inventoryLevels.edges) as t(level)
         """)
 
-        # Export both tables
-        self._export_table_to_csv("inventory_items")
-        self._export_table_to_csv("inventory_levels")
+        self._export_table_with_manifest("inventory_items")
+        self._export_table_with_manifest("inventory_levels")
 
-    def _export_table_to_csv(self, table_name: str):
-        """Export DuckDB table to CSV with proper types"""
-        table_meta = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-        self._create_typed_manifest(table_name, table_meta, table_name)
+    def _export_table_with_manifest(self, table_name: str, normalized_table: str | None = None):
+        if normalized_table is None:
+            normalized_table = table_name
+        table_meta = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
 
-    def _create_typed_manifest(self, table_name: str, table_meta, normalized_table: str):
         schema = OrderedDict(
             {
                 c[0]: ColumnDefinition(
@@ -860,8 +850,7 @@ class Component(ComponentBase):
             output_file = Path(table.full_path)
             self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
-            self._create_typed_manifest(table_name, columns_info, normalized_table)
+            self._export_table_with_manifest(table_name, normalized_table)
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0

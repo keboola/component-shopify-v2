@@ -1,6 +1,7 @@
 # src/component.py
 import json
 import logging
+import re
 import shutil
 import tempfile
 import time
@@ -22,10 +23,57 @@ class Component(ComponentBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
-        self.conn = duckdb.connect()
+        db_path = "debug.duckdb" if self.configuration.parameters.get("debug") else ":memory:"
+        self.conn = duckdb.connect(db_path)
         self.conn.execute("SET temp_directory='/tmp/duckdb_temp'")
         self.conn.execute("SET preserve_insertion_order=false")
         self.params = Configuration(**self.configuration.parameters)
+
+        if self.params.debug:
+            self.logger.debug(f"DuckDB database saved to: {db_path}")
+
+    def _camel_to_snake(self, name: str) -> str:
+        """Convert camelCase to snake_case"""
+        name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+        return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
+
+    def _normalize_table(self, table_name: str) -> str:
+        """
+        Convert all STRUCT and LIST columns to JSON strings with proper double quotes.
+        Rename all columns from camelCase to snake_case.
+        """
+        columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+        select_parts = []
+        needs_conversion = False
+
+        for col_name, col_type, *_ in columns_info:
+            col_type_clean = col_type.strip()
+            snake_name = self._camel_to_snake(col_name)
+
+            if (
+                col_type_clean.startswith("STRUCT(")
+                or col_type_clean.endswith("[]")
+                or "LIST" in col_type_clean.upper()
+            ):
+                select_parts.append(f'json("{col_name}") AS "{snake_name}"')
+                needs_conversion = True
+            else:
+                select_parts.append(f'"{col_name}" AS "{snake_name}"')
+                if col_name != snake_name:
+                    needs_conversion = True
+
+        if not needs_conversion:
+            return table_name
+
+        normalized_table = f"{table_name}_json"
+
+        self.conn.execute(f"DROP TABLE IF EXISTS {normalized_table}")
+        self.conn.execute(f"CREATE TABLE {normalized_table} AS SELECT {', '.join(select_parts)} FROM {table_name}")
+
+        if not self.params.debug:
+            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+
+        return normalized_table
 
     def _parse_date_to_iso(self, date_str: str | None) -> str | None:
         """
@@ -216,7 +264,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_products(self, bulk_result: BulkOperationResult):
-        """Process bulk products data - keep all data together including nested JSON"""
+        """Process bulk products data - convert to JSON and normalize column names"""
         process_start = time.time()
 
         self.logger.info(f"Processing {bulk_result.item_count} products from {bulk_result.file_path}")
@@ -227,14 +275,16 @@ class Component(ComponentBase):
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
+            normalized_table = self._normalize_table(table_name)
+
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-            self._create_typed_manifest(table_name, columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
+            self._create_typed_manifest(table_name, columns_info, normalized_table)
 
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
 
             process_time = time.time() - process_start
@@ -247,11 +297,10 @@ class Component(ComponentBase):
             if self.params.debug:
                 debug_file = "bulk_products_download.jsonl"
                 shutil.copy2(bulk_result.file_path, debug_file)
-                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_orders(self, bulk_result: BulkOperationResult):
-        """Process bulk orders data - keep all data together including nested JSON"""
+        """Process bulk orders data - convert to JSON and normalize column names"""
         process_start = time.time()
 
         self.logger.info(f"Processing {bulk_result.item_count} orders from {bulk_result.file_path}")
@@ -262,14 +311,16 @@ class Component(ComponentBase):
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
+            normalized_table = self._normalize_table(table_name)
+
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-            self._create_typed_manifest(table_name, columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
+            self._create_typed_manifest(table_name, columns_info, normalized_table)
 
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
 
             process_time = time.time() - process_start
@@ -282,7 +333,6 @@ class Component(ComponentBase):
             if self.params.debug:
                 debug_file = "bulk_orders_download.jsonl"
                 shutil.copy2(bulk_result.file_path, debug_file)
-                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _extract_customers_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
@@ -320,7 +370,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_customers(self, bulk_result: BulkOperationResult):
-        """Process bulk customers data - keep all data together including nested JSON"""
+        """Process bulk customers data - convert to JSON and normalize column names"""
         process_start = time.time()
 
         self.logger.info(f"Processing {bulk_result.item_count} customers from {bulk_result.file_path}")
@@ -331,14 +381,16 @@ class Component(ComponentBase):
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
+            normalized_table = self._normalize_table(table_name)
+
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-            self._create_typed_manifest(table_name, columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
+            self._create_typed_manifest(table_name, columns_info, normalized_table)
 
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
 
             process_time = time.time() - process_start
@@ -351,7 +403,6 @@ class Component(ComponentBase):
             if self.params.debug:
                 debug_file = "bulk_customers_download.jsonl"
                 shutil.copy2(bulk_result.file_path, debug_file)
-                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _extract_inventory_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
@@ -375,7 +426,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_inventory(self, bulk_result: BulkOperationResult):
-        """Process bulk inventory data"""
+        """Process bulk inventory data - convert to JSON and normalize column names"""
         process_start = time.time()
 
         self.logger.info(f"Processing {bulk_result.item_count} inventory items from {bulk_result.file_path}")
@@ -386,14 +437,16 @@ class Component(ComponentBase):
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
+            normalized_table = self._normalize_table(table_name)
+
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-            self._create_typed_manifest(table_name, columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
+            self._create_typed_manifest(table_name, columns_info, normalized_table)
 
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
 
             process_time = time.time() - process_start
@@ -406,22 +459,7 @@ class Component(ComponentBase):
             if self.params.debug:
                 debug_file = "bulk_inventory_download.jsonl"
                 shutil.copy2(bulk_result.file_path, debug_file)
-                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
-
-    def _extract_inventory_items(self, client: ShopifyGraphQLClient, params: Configuration):
-        """Extract inventory items data using DuckDB"""
-        self.logger.info("Extracting inventory items data")
-
-        all_inventory_items = []
-        for batch in client.get_inventory_items(batch_size=params.batch_size):
-            all_inventory_items.extend(batch)
-
-        if all_inventory_items:
-            self._process_with_duckdb("inventory_items", all_inventory_items, params)
-            self.logger.info(f"Successfully extracted {len(all_inventory_items)} inventory items")
-        else:
-            self.logger.info("No inventory items found")
 
     def _extract_locations_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract locations using Shopify bulk operations"""
@@ -439,7 +477,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_locations(self, bulk_result: BulkOperationResult):
-        """Process bulk locations data"""
+        """Process bulk locations data - convert to JSON and normalize column names"""
         process_start = time.time()
 
         self.logger.info(f"Processing {bulk_result.item_count} locations from {bulk_result.file_path}")
@@ -450,14 +488,16 @@ class Component(ComponentBase):
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
+            normalized_table = self._normalize_table(table_name)
+
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-            self._create_typed_manifest(table_name, columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
+            self._create_typed_manifest(table_name, columns_info, normalized_table)
 
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
 
             process_time = time.time() - process_start
@@ -470,7 +510,6 @@ class Component(ComponentBase):
             if self.params.debug:
                 debug_file = "bulk_locations_download.jsonl"
                 shutil.copy2(bulk_result.file_path, debug_file)
-                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
@@ -507,7 +546,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_events(self, bulk_result: BulkOperationResult):
-        """Process bulk events data"""
+        """Process bulk events data - convert to JSON and normalize column names"""
         process_start = time.time()
 
         self.logger.info(f"Processing {bulk_result.item_count} events from {bulk_result.file_path}")
@@ -518,14 +557,16 @@ class Component(ComponentBase):
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
+            normalized_table = self._normalize_table(table_name)
+
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(f"COPY {table_name} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
+            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-            self._create_typed_manifest(table_name, columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
+            self._create_typed_manifest(table_name, columns_info, normalized_table)
 
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
 
             process_time = time.time() - process_start
@@ -538,7 +579,6 @@ class Component(ComponentBase):
             if self.params.debug:
                 debug_file = "bulk_events_download.jsonl"
                 shutil.copy2(bulk_result.file_path, debug_file)
-                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _process_with_duckdb(self, table_name: str, data: list[dict[str, Any]], params: Configuration):
@@ -569,8 +609,7 @@ class Component(ComponentBase):
             elif table_name == "inventory_items":
                 self._create_inventory_tables(table_name)
             else:
-                # For simple tables, just export as CSV
-                self._export_simple_table(f"{table_name}_raw")
+                self._export_table_to_csv(f"{table_name}_raw")
 
         finally:
             # Clean up temporary file
@@ -626,8 +665,8 @@ class Component(ComponentBase):
         """)
 
         # Export both tables
-        self._export_table_to_csv("orders", "orders")
-        self._export_table_to_csv("order_line_items", "order_line_items")
+        self._export_table_to_csv("orders")
+        self._export_table_to_csv("order_line_items")
 
     def _create_products_tables(self, table_name: str):
         """Create normalized product tables"""
@@ -667,8 +706,8 @@ class Component(ComponentBase):
         """)
 
         # Export both tables
-        self._export_table_to_csv("products", "products")
-        self._export_table_to_csv("product_variants", "product_variants")
+        self._export_table_to_csv("products")
+        self._export_table_to_csv("product_variants")
 
     def _create_inventory_tables(self, table_name: str):
         """Create normalized inventory tables"""
@@ -711,23 +750,15 @@ class Component(ComponentBase):
         """)
 
         # Export both tables
-        self._export_table_to_csv("inventory_items", "inventory_items")
-        self._export_table_to_csv("inventory_levels", "inventory_levels")
+        self._export_table_to_csv("inventory_items")
+        self._export_table_to_csv("inventory_levels")
 
-    def _export_simple_table(self, table_name: str):
-        """Export simple table to CSV"""
-        self._export_table_to_csv(table_name, table_name)
-
-    def _export_table_to_csv(self, output_name: str, table_name: str):
+    def _export_table_to_csv(self, table_name: str):
         """Export DuckDB table to CSV with proper types"""
-
-        # Get column information for manifest
         table_meta = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+        self._create_typed_manifest(table_name, table_meta, table_name)
 
-        # Create manifest with data types
-        self._create_typed_manifest(output_name, table_meta)
-
-    def _create_typed_manifest(self, table_name: str, table_meta):
+    def _create_typed_manifest(self, table_name: str, table_meta, normalized_table: str):
         schema = OrderedDict(
             {
                 c[0]: ColumnDefinition(
@@ -747,36 +778,12 @@ class Component(ComponentBase):
         )
 
         try:
-            q = f"COPY {table_name} TO '{out_table.full_path}' (HEADER, DELIMITER ',', FORCE_QUOTE *)"
+            q = f"COPY {normalized_table} TO '{out_table.full_path}' (HEADER, DELIMITER ',', FORCE_QUOTE *)"
             logging.debug(f"Running query: {q}; ")
             self.conn.execute(q)
             self.write_manifest(out_table)
         except duckdb.ConversionException as e:
             raise UserException(f"Error during query execution: {e}")
-
-    def _map_duckdb_to_keboola_type(self, duckdb_type: str) -> str:
-        """Map DuckDB types to Keboola base types"""
-        type_mapping = {
-            "VARCHAR": "STRING",
-            "BIGINT": "INTEGER",
-            "INTEGER": "INTEGER",
-            "DOUBLE": "FLOAT",
-            "DECIMAL": "NUMERIC",
-            "BOOLEAN": "BOOLEAN",
-            "DATE": "DATE",
-            "TIMESTAMP": "TIMESTAMP",
-            "TIMESTAMPTZ": "TIMESTAMP",
-        }
-
-        # Handle complex types
-        if duckdb_type.startswith("VARCHAR"):
-            return "STRING"
-        elif duckdb_type.startswith("DECIMAL"):
-            return "NUMERIC"
-        elif duckdb_type.startswith("DOUBLE"):
-            return "FLOAT"
-
-        return type_mapping.get(duckdb_type, "STRING")
 
     def _get_primary_key(self, table_name: str) -> list[str]:
         """Define primary keys for different tables"""
@@ -837,7 +844,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_custom(self, bulk_result: BulkOperationResult, table_name: str):
-        """Process bulk custom query data"""
+        """Process bulk custom query data - convert to JSON and normalize column names"""
         process_start = time.time()
 
         self.logger.info(f"Processing {bulk_result.item_count} items from {bulk_result.file_path}")
@@ -846,27 +853,16 @@ class Component(ComponentBase):
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
 
-            columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
-
-            select_parts = []
-            for col_name, col_type, *_ in columns_info:
-                if col_type.upper().startswith("STRUCT") or col_type.upper().endswith("[]"):
-                    select_parts.append(f"to_json({col_name}) AS {col_name}")
-                else:
-                    select_parts.append(col_name)
-
-            select_clause = ", ".join(select_parts)
+            normalized_table = self._normalize_table(table_name)
 
             table = self.create_out_table_definition(f"{table_name}.csv", incremental=True)
             output_file = Path(table.full_path)
-            self.conn.execute(
-                f"COPY (SELECT {select_clause} FROM {table_name}) TO '{output_file}' "
-                "WITH (FORMAT CSV, HEADER, DELIMITER ',', QUOTE '\"')"
-            )
+            self.conn.execute(f"COPY {normalized_table} TO '{output_file}' WITH (FORMAT CSV, HEADER, DELIMITER ',')")
 
-            self._create_typed_manifest(table_name, columns_info)
+            columns_info = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
+            self._create_typed_manifest(table_name, columns_info, normalized_table)
 
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
 
             process_time = time.time() - process_start
@@ -879,7 +875,6 @@ class Component(ComponentBase):
             if self.params.debug:
                 debug_file = f"bulk_{table_name}_download.jsonl"
                 shutil.copy2(bulk_result.file_path, debug_file)
-                self.logger.info(f"[DEBUG] Saved bulk results to {debug_file}")
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     # ... ostatní extract metody zůstávají stejné, jen volají _process_with_duckdb

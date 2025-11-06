@@ -58,7 +58,7 @@ class ShopifyGraphQLClient:
     Shopify GraphQL API client for data extraction
     """
 
-    def __init__(self, store_name: str, api_token: str, api_version: str = "2024-01", debug: bool = False):
+    def __init__(self, store_name: str, api_token: str, api_version: str, debug: bool):
         """
         Initialize Shopify GraphQL client
 

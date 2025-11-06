@@ -773,7 +773,7 @@ class Component(ComponentBase):
             f"{table_name}.csv",
             schema=schema,
             primary_key=self._get_primary_key(table_name),
-            # incremental=self.params.destination.incremental,
+            incremental=bool(self.params.loading_options.incremental_output),
             has_header=True,
         )
 

@@ -37,24 +37,24 @@ class LoadingOptions(BaseModel):
 class Endpoints(BaseModel):
     """Endpoints configuration - boolean flags for each endpoint"""
 
-    products: bool = Field(default=False)
-    products_drafts: bool = Field(default=False)
-    products_archived: bool = Field(default=False)
-    product_metafields: bool = Field(default=False)
-    variant_metafields: bool = Field(default=False)
-    orders: bool = Field(default=False)
-    order_transactions: bool = Field(default=False)
-    customers: bool = Field(default=False)
-    inventory: bool = Field(default=False)
+    products: bool = False
+    products_drafts: bool = False
+    products_archived: bool = False
+    product_metafields: bool = False
+    variant_metafields: bool = False
+    orders: bool = False
+    order_transactions: bool = False
+    customers: bool = False
+    inventory: bool = False
 
     # not sure whether we need these
-    inventory_items: bool = Field(default=False)
-    locations: bool = Field(default=False)
+    inventory_items: bool = False
+    locations: bool = False
 
     # legacy endpoints (downloading items in batches instead of bulk download)
-    products_legacy: bool = Field(default=False)
-    orders_legacy: bool = Field(default=False)
-    customers_legacy: bool = Field(default=False)
+    products_legacy: bool = False
+    orders_legacy: bool = False
+    customers_legacy: bool = False
 
     def get_enabled_endpoints(self) -> list[str]:
         """Get list of enabled endpoint names (excludes metafield toggles as they're not standalone endpoints)"""

@@ -264,13 +264,13 @@ class Component(ComponentBase):
             self.logger.info("No products found")
             Path(result.file_path).unlink(missing_ok=True)
 
-    def _process_bulk_products(self, bulk_result: BulkOperationResult):
-        """Process bulk products data - convert to JSON and normalize column names"""
+    def _process_bulk_result(self, bulk_result: BulkOperationResult, table_name: str, entity_name: str | None = None):
+        """Generic method to process bulk operation results"""
+        if entity_name is None:
+            entity_name = table_name
         process_start = time.time()
 
-        self.logger.info(f"Processing {bulk_result.item_count} products from {bulk_result.file_path}")
-
-        table_name = "products"
+        self.logger.info(f"Processing {bulk_result.item_count} {entity_name} from {bulk_result.file_path}")
 
         try:
             self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
@@ -284,45 +284,21 @@ class Component(ComponentBase):
 
             process_time = time.time() - process_start
             self.logger.info(
-                f"Products processing complete: {row_count} items in {process_time:.2f}s "
+                f"{entity_name.capitalize()} processing complete: {row_count} items in {process_time:.2f}s "
                 f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
                 f"process: {process_time:.2f}s)"
             )
         finally:
             if self.params.debug:
-                debug_file = "bulk_products_download.jsonl"
+                debug_file = f"bulk_{table_name}_download.jsonl"
                 shutil.copy2(bulk_result.file_path, debug_file)
             Path(bulk_result.file_path).unlink(missing_ok=True)
+
+    def _process_bulk_products(self, bulk_result: BulkOperationResult):
+        self._process_bulk_result(bulk_result, "products")
 
     def _process_bulk_orders(self, bulk_result: BulkOperationResult):
-        """Process bulk orders data - convert to JSON and normalize column names"""
-        process_start = time.time()
-
-        self.logger.info(f"Processing {bulk_result.item_count} orders from {bulk_result.file_path}")
-
-        table_name = "orders"
-
-        try:
-            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
-
-            normalized_table = self._normalize_table(table_name)
-            self._export_table_with_manifest(table_name, normalized_table)
-
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
-            row_count = result_count[0] if result_count else 0
-
-            process_time = time.time() - process_start
-            self.logger.info(
-                f"Orders processing complete: {row_count} items in {process_time:.2f}s "
-                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
-                f"process: {process_time:.2f}s)"
-            )
-        finally:
-            if self.params.debug:
-                debug_file = "bulk_orders_download.jsonl"
-                shutil.copy2(bulk_result.file_path, debug_file)
-            Path(bulk_result.file_path).unlink(missing_ok=True)
+        self._process_bulk_result(bulk_result, "orders")
 
     def _extract_customers_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract customers data using DuckDB (legacy one-by-one method)"""
@@ -359,34 +335,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_customers(self, bulk_result: BulkOperationResult):
-        """Process bulk customers data - convert to JSON and normalize column names"""
-        process_start = time.time()
-
-        self.logger.info(f"Processing {bulk_result.item_count} customers from {bulk_result.file_path}")
-
-        table_name = "customers"
-
-        try:
-            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
-
-            normalized_table = self._normalize_table(table_name)
-            self._export_table_with_manifest(table_name, normalized_table)
-
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
-            row_count = result_count[0] if result_count else 0
-
-            process_time = time.time() - process_start
-            self.logger.info(
-                f"Customers processing complete: {row_count} items in {process_time:.2f}s "
-                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
-                f"process: {process_time:.2f}s)"
-            )
-        finally:
-            if self.params.debug:
-                debug_file = "bulk_customers_download.jsonl"
-                shutil.copy2(bulk_result.file_path, debug_file)
-            Path(bulk_result.file_path).unlink(missing_ok=True)
+        self._process_bulk_result(bulk_result, "customers")
 
     def _extract_inventory_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory using Shopify bulk operations"""
@@ -409,34 +358,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_inventory(self, bulk_result: BulkOperationResult):
-        """Process bulk inventory data - convert to JSON and normalize column names"""
-        process_start = time.time()
-
-        self.logger.info(f"Processing {bulk_result.item_count} inventory items from {bulk_result.file_path}")
-
-        table_name = "inventory"
-
-        try:
-            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
-
-            normalized_table = self._normalize_table(table_name)
-            self._export_table_with_manifest(table_name, normalized_table)
-
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
-            row_count = result_count[0] if result_count else 0
-
-            process_time = time.time() - process_start
-            self.logger.info(
-                f"Inventory processing complete: {row_count} items in {process_time:.2f}s "
-                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
-                f"process: {process_time:.2f}s)"
-            )
-        finally:
-            if self.params.debug:
-                debug_file = "bulk_inventory_download.jsonl"
-                shutil.copy2(bulk_result.file_path, debug_file)
-            Path(bulk_result.file_path).unlink(missing_ok=True)
+        self._process_bulk_result(bulk_result, "inventory", "inventory items")
 
     def _extract_locations_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract locations using Shopify bulk operations"""
@@ -454,34 +376,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_locations(self, bulk_result: BulkOperationResult):
-        """Process bulk locations data - convert to JSON and normalize column names"""
-        process_start = time.time()
-
-        self.logger.info(f"Processing {bulk_result.item_count} locations from {bulk_result.file_path}")
-
-        table_name = "locations"
-
-        try:
-            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
-
-            normalized_table = self._normalize_table(table_name)
-            self._export_table_with_manifest(table_name, normalized_table)
-
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
-            row_count = result_count[0] if result_count else 0
-
-            process_time = time.time() - process_start
-            self.logger.info(
-                f"Locations processing complete: {row_count} items in {process_time:.2f}s "
-                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
-                f"process: {process_time:.2f}s)"
-            )
-        finally:
-            if self.params.debug:
-                debug_file = "bulk_locations_download.jsonl"
-                shutil.copy2(bulk_result.file_path, debug_file)
-            Path(bulk_result.file_path).unlink(missing_ok=True)
+        self._process_bulk_result(bulk_result, "locations")
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory levels data using DuckDB"""
@@ -517,34 +412,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_events(self, bulk_result: BulkOperationResult):
-        """Process bulk events data - convert to JSON and normalize column names"""
-        process_start = time.time()
-
-        self.logger.info(f"Processing {bulk_result.item_count} events from {bulk_result.file_path}")
-
-        table_name = "events"
-
-        try:
-            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
-
-            normalized_table = self._normalize_table(table_name)
-            self._export_table_with_manifest(table_name, normalized_table)
-
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
-            row_count = result_count[0] if result_count else 0
-
-            process_time = time.time() - process_start
-            self.logger.info(
-                f"Events processing complete: {row_count} items in {process_time:.2f}s "
-                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
-                f"process: {process_time:.2f}s)"
-            )
-        finally:
-            if self.params.debug:
-                debug_file = "bulk_events_download.jsonl"
-                shutil.copy2(bulk_result.file_path, debug_file)
-            Path(bulk_result.file_path).unlink(missing_ok=True)
+        self._process_bulk_result(bulk_result, "events")
 
     def _process_with_duckdb(self, table_name: str, data: list[dict[str, Any]], params: Configuration):
         """
@@ -805,32 +673,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_custom(self, bulk_result: BulkOperationResult, table_name: str):
-        """Process bulk custom query data - convert to JSON and normalize column names"""
-        process_start = time.time()
-
-        self.logger.info(f"Processing {bulk_result.item_count} items from {bulk_result.file_path}")
-
-        try:
-            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
-
-            normalized_table = self._normalize_table(table_name)
-            self._export_table_with_manifest(table_name, normalized_table)
-
-            result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
-            row_count = result_count[0] if result_count else 0
-
-            process_time = time.time() - process_start
-            self.logger.info(
-                f"Custom query '{table_name}' processing complete: {row_count} items in {process_time:.2f}s "
-                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
-                f"process: {process_time:.2f}s)"
-            )
-        finally:
-            if self.params.debug:
-                debug_file = f"bulk_{table_name}_download.jsonl"
-                shutil.copy2(bulk_result.file_path, debug_file)
-            Path(bulk_result.file_path).unlink(missing_ok=True)
+        self._process_bulk_result(bulk_result, table_name, f"custom query '{table_name}'")
 
     # ... ostatní extract metody zůstávají stejné, jen volají _process_with_duckdb
 

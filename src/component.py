@@ -43,7 +43,7 @@ class Component(ComponentBase):
         Convert all STRUCT and LIST columns to JSON strings with proper double quotes.
         Rename all columns from camelCase to snake_case.
         """
-        columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+        columns_info = self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()
         select_parts = []
         needs_conversion = False
 
@@ -68,8 +68,8 @@ class Component(ComponentBase):
 
         normalized_table = f"{table_name}_json"
 
-        self.conn.execute(f"DROP TABLE IF EXISTS {normalized_table}")
-        self.conn.execute(f"CREATE TABLE {normalized_table} AS SELECT {', '.join(select_parts)} FROM {table_name}")
+        self.conn.execute(f'DROP TABLE IF EXISTS "{normalized_table}"')
+        self.conn.execute(f'CREATE TABLE "{normalized_table}" AS SELECT {", ".join(select_parts)} FROM "{table_name}"')
 
         return normalized_table
 
@@ -78,7 +78,7 @@ class Component(ComponentBase):
         Decompose JSON columns into separate child tables with proper relationships.
         Arrays become separate rows, objects become separate tables with 1:1 relationship.
         """
-        columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+        columns_info = self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()
         primary_key_col = "id"
 
         for col_name, col_type, *_ in columns_info:
@@ -91,7 +91,7 @@ class Component(ComponentBase):
             self.logger.info(f"Decomposing column: {col_name} ({col_type}) in {table_name}")
 
             sample = self.conn.execute(
-                f"SELECT {col_name} FROM {table_name} WHERE {col_name} IS NOT NULL LIMIT 1"
+                f'SELECT "{col_name}" FROM "{table_name}" WHERE "{col_name}" IS NOT NULL LIMIT 1'
             ).fetchone()
 
             if not sample or not sample[0]:
@@ -110,29 +110,29 @@ class Component(ComponentBase):
         child_table_name = f"{parent_table}_{snake_col_name}"
 
         try:
-            self.conn.execute(f"DROP TABLE IF EXISTS {child_table_name}")
+            self.conn.execute(f'DROP TABLE IF EXISTS "{child_table_name}"')
 
             self.conn.execute(f"""
-                CREATE TABLE {child_table_name} AS
+                CREATE TABLE "{child_table_name}" AS
                 SELECT
-                    {parent_pk} as parent_id,
-                    ROW_NUMBER() OVER (PARTITION BY {parent_pk} ORDER BY (SELECT NULL)) as row_number,
-                    UNNEST({column_name}) as item
-                FROM {parent_table}
-                WHERE {column_name} IS NOT NULL AND len({column_name}) > 0
+                    "{parent_pk}" as parent_id,
+                    ROW_NUMBER() OVER (PARTITION BY "{parent_pk}" ORDER BY (SELECT NULL)) as row_number,
+                    UNNEST("{column_name}") as item
+                FROM "{parent_table}"
+                WHERE "{column_name}" IS NOT NULL AND len("{column_name}") > 0
             """)
 
-            item_columns = self.conn.execute(f"DESCRIBE {child_table_name}").fetchall()
+            item_columns = self.conn.execute(f'DESCRIBE "{child_table_name}"').fetchall()
 
             if any("STRUCT" in str(col[1]) for col in item_columns):
                 flattened_table = f"{child_table_name}_flat"
-                self.conn.execute(f"DROP TABLE IF EXISTS {flattened_table}")
+                self.conn.execute(f'DROP TABLE IF EXISTS "{flattened_table}"')
 
                 struct_cols = []
                 for col in item_columns:
                     if col[0] == "item" and "STRUCT" in str(col[1]):
                         struct_fields = self.conn.execute(
-                            f"SELECT * FROM (SELECT item FROM {child_table_name} LIMIT 1)"
+                            f'SELECT * FROM (SELECT item FROM "{child_table_name}" LIMIT 1)'
                         ).fetchone()
 
                         if struct_fields and struct_fields[0]:
@@ -143,19 +143,19 @@ class Component(ComponentBase):
                 if struct_cols:
                     select_clause = f"parent_id, row_number, {', '.join(struct_cols)}"
                     self.conn.execute(f"""
-                        CREATE TABLE {flattened_table} AS
+                        CREATE TABLE "{flattened_table}" AS
                         SELECT {select_clause}
-                        FROM {child_table_name}
+                        FROM "{child_table_name}"
                     """)
 
-                    self.conn.execute(f"DROP TABLE {child_table_name}")
-                    self.conn.execute(f"ALTER TABLE {flattened_table} RENAME TO {child_table_name}")
+                    self.conn.execute(f'DROP TABLE "{child_table_name}"')
+                    self.conn.execute(f'ALTER TABLE "{flattened_table}" RENAME TO "{child_table_name}"')
 
             normalized_child = self._normalize_table(child_table_name)
             self._export_table_with_manifest(child_table_name, normalized_child)
 
             if not self.params.debug and normalized_child != child_table_name:
-                self.conn.execute(f"DROP TABLE IF EXISTS {child_table_name}")
+                self.conn.execute(f'DROP TABLE IF EXISTS "{child_table_name}"')
 
             self.logger.info(f"Created child table: {child_table_name}")
 
@@ -168,7 +168,7 @@ class Component(ComponentBase):
 
         try:
             sample = self.conn.execute(
-                f"SELECT {column_name} FROM {parent_table} WHERE {column_name} IS NOT NULL LIMIT 1"
+                f'SELECT "{column_name}" FROM "{parent_table}" WHERE "{column_name}" IS NOT NULL LIMIT 1'
             ).fetchone()
 
             if not sample or not sample[0]:
@@ -178,24 +178,24 @@ class Component(ComponentBase):
             if not isinstance(sample_obj, dict):
                 return
 
-            field_selects = [f"{parent_pk} as parent_id"]
+            field_selects = [f'"{parent_pk}" as parent_id']
             for key in sample_obj.keys():
                 snake_key = self._camel_to_snake(key)
-                field_selects.append(f"{column_name}['{key}'] as {snake_key}")
+                field_selects.append(f'"{column_name}"[\'{key}\'] as {snake_key}')
 
-            self.conn.execute(f"DROP TABLE IF EXISTS {child_table_name}")
+            self.conn.execute(f'DROP TABLE IF EXISTS "{child_table_name}"')
             self.conn.execute(f"""
-                CREATE TABLE {child_table_name} AS
+                CREATE TABLE "{child_table_name}" AS
                 SELECT {", ".join(field_selects)}
-                FROM {parent_table}
-                WHERE {column_name} IS NOT NULL
+                FROM "{parent_table}"
+                WHERE "{column_name}" IS NOT NULL
             """)
 
             normalized_child = self._normalize_table(child_table_name)
             self._export_table_with_manifest(child_table_name, normalized_child)
 
             if not self.params.debug and normalized_child != child_table_name:
-                self.conn.execute(f"DROP TABLE IF EXISTS {child_table_name}")
+                self.conn.execute(f'DROP TABLE IF EXISTS "{child_table_name}"')
 
             self.logger.info(f"Created child table: {child_table_name}")
 
@@ -399,15 +399,15 @@ class Component(ComponentBase):
         self.logger.info(f"Processing {bulk_result.item_count} {entity_name} from {bulk_result.file_path}")
 
         try:
-            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-            self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_json_auto('{bulk_result.file_path}')")
+            self.conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+            self.conn.execute(f'CREATE TABLE "{table_name}" AS SELECT * FROM read_json_auto(\'{bulk_result.file_path}\')')
 
             normalized_table = self._normalize_table(table_name)
             self._export_table_with_manifest(table_name, normalized_table)
             self._decompose_json_columns(table_name, normalized_table)
 
             if not self.params.debug:
-                self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+                self.conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
@@ -425,10 +425,10 @@ class Component(ComponentBase):
             Path(bulk_result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_products(self, bulk_result: BulkOperationResult):
-        self._process_bulk_result(bulk_result, "products")
+        self._process_bulk_result(bulk_result, "product")
 
     def _process_bulk_orders(self, bulk_result: BulkOperationResult):
-        self._process_bulk_result(bulk_result, "orders")
+        self._process_bulk_result(bulk_result, "order")
 
     def _extract_customers_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract customers data using DuckDB (legacy one-by-one method)"""
@@ -465,7 +465,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_customers(self, bulk_result: BulkOperationResult):
-        self._process_bulk_result(bulk_result, "customers")
+        self._process_bulk_result(bulk_result, "customer")
 
     def _extract_inventory_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory using Shopify bulk operations"""
@@ -506,7 +506,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_locations(self, bulk_result: BulkOperationResult):
-        self._process_bulk_result(bulk_result, "locations")
+        self._process_bulk_result(bulk_result, "location")
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory levels data using DuckDB"""
@@ -542,7 +542,7 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_events(self, bulk_result: BulkOperationResult):
-        self._process_bulk_result(bulk_result, "events")
+        self._process_bulk_result(bulk_result, "event")
 
     def _process_with_duckdb(self, table_name: str, data: list[dict[str, Any]], params: Configuration):
         """
@@ -747,15 +747,17 @@ class Component(ComponentBase):
     def _get_primary_key(self, table_name: str) -> list[str]:
         """Define primary keys for different tables"""
         primary_keys = {
-            "orders": ["id"],
-            "orders_legacy": ["id"],
-            "products": ["id"],
-            "products_legacy": ["id"],
-            "customers": ["id"],
-            "customers_legacy": ["id"],
-            "inventory_items": ["id"],
-            "inventory_levels": ["inventoryItemId", "levelId"],
-            "locations": ["id"],
+            "order": ["id"],
+            "order_legacy": ["id"],
+            "product": ["id"],
+            "product_legacy": ["id"],
+            "customer": ["id"],
+            "customer_legacy": ["id"],
+            "inventory": ["id"],
+            "inventory_item": ["id"],
+            "inventory_level": ["inventoryItemId", "levelId"],
+            "location": ["id"],
+            "event": ["id"],
         }
 
         if table_name in primary_keys:
@@ -763,11 +765,13 @@ class Component(ComponentBase):
 
         if "_" in table_name:
             try:
-                columns = [col[0] for col in self.conn.execute(f"DESCRIBE {table_name}").fetchall()]
-                if "row_number" in columns:
+                columns = [col[0] for col in self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()]
+                if "parent_id" in columns and "row_number" in columns:
                     return ["parent_id", "row_number"]
-                else:
+                elif "parent_id" in columns:
                     return ["parent_id"]
+                elif "id" in columns:
+                    return ["id"]
             except Exception:
                 pass
 

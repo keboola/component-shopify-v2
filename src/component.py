@@ -71,10 +71,126 @@ class Component(ComponentBase):
         self.conn.execute(f"DROP TABLE IF EXISTS {normalized_table}")
         self.conn.execute(f"CREATE TABLE {normalized_table} AS SELECT {', '.join(select_parts)} FROM {table_name}")
 
-        if not self.params.debug:
-            self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-
         return normalized_table
+
+    def _decompose_json_columns(self, table_name: str, normalized_table: str):
+        """
+        Decompose JSON columns into separate child tables with proper relationships.
+        Arrays become separate rows, objects become separate tables with 1:1 relationship.
+        """
+        columns_info = self.conn.execute(f"DESCRIBE {table_name}").fetchall()
+        primary_key_col = "id"
+
+        for col_name, col_type, *_ in columns_info:
+            col_type_str = str(col_type).upper()
+
+            if not ("STRUCT" in col_type_str or "LIST" in col_type_str or col_type_str.endswith("[]")):
+                continue
+
+            snake_col_name = self._camel_to_snake(col_name)
+            self.logger.info(f"Decomposing column: {col_name} ({col_type}) in {table_name}")
+
+            sample = self.conn.execute(
+                f"SELECT {col_name} FROM {table_name} WHERE {col_name} IS NOT NULL LIMIT 1"
+            ).fetchone()
+
+            if not sample or not sample[0]:
+                self.logger.debug(f"No data found for column {col_name}")
+                continue
+
+            sample_value = sample[0]
+
+            if isinstance(sample_value, list):
+                self._create_array_child_table(table_name, col_name, snake_col_name, primary_key_col)
+            elif isinstance(sample_value, dict):
+                self._create_object_child_table(table_name, col_name, snake_col_name, primary_key_col)
+
+    def _create_array_child_table(self, parent_table: str, column_name: str, snake_col_name: str, parent_pk: str):
+        """Create a child table for array/list JSON columns"""
+        child_table_name = f"{parent_table}_{snake_col_name}"
+
+        try:
+            self.conn.execute(f"DROP TABLE IF EXISTS {child_table_name}")
+
+            self.conn.execute(f"""
+                CREATE TABLE {child_table_name} AS
+                SELECT
+                    {parent_pk} as parent_id,
+                    ROW_NUMBER() OVER (PARTITION BY {parent_pk} ORDER BY (SELECT NULL)) as row_number,
+                    UNNEST({column_name}) as item
+                FROM {parent_table}
+                WHERE {column_name} IS NOT NULL AND len({column_name}) > 0
+            """)
+
+            item_columns = self.conn.execute(f"DESCRIBE {child_table_name}").fetchall()
+
+            if any("STRUCT" in str(col[1]) for col in item_columns):
+                flattened_table = f"{child_table_name}_flat"
+                self.conn.execute(f"DROP TABLE IF EXISTS {flattened_table}")
+
+                struct_cols = []
+                for col in item_columns:
+                    if col[0] == "item" and "STRUCT" in str(col[1]):
+                        struct_fields = self.conn.execute(
+                            f"SELECT * FROM (SELECT item FROM {child_table_name} LIMIT 1)"
+                        ).fetchone()
+
+                        if struct_fields and struct_fields[0]:
+                            for key in struct_fields[0].keys():
+                                snake_key = self._camel_to_snake(key)
+                                struct_cols.append(f"item['{key}'] as {snake_key}")
+
+                if struct_cols:
+                    select_clause = f"parent_id, row_number, {', '.join(struct_cols)}"
+                    self.conn.execute(f"""
+                        CREATE TABLE {flattened_table} AS
+                        SELECT {select_clause}
+                        FROM {child_table_name}
+                    """)
+
+                    self.conn.execute(f"DROP TABLE {child_table_name}")
+                    self.conn.execute(f"ALTER TABLE {flattened_table} RENAME TO {child_table_name}")
+
+            self._export_table_with_manifest(child_table_name)
+            self.logger.info(f"Created child table: {child_table_name}")
+
+        except Exception as e:
+            self.logger.warning(f"Failed to decompose array column {column_name}: {str(e)}")
+
+    def _create_object_child_table(self, parent_table: str, column_name: str, snake_col_name: str, parent_pk: str):
+        """Create a child table for object JSON columns"""
+        child_table_name = f"{parent_table}_{snake_col_name}"
+
+        try:
+            sample = self.conn.execute(
+                f"SELECT {column_name} FROM {parent_table} WHERE {column_name} IS NOT NULL LIMIT 1"
+            ).fetchone()
+
+            if not sample or not sample[0]:
+                return
+
+            sample_obj = sample[0]
+            if not isinstance(sample_obj, dict):
+                return
+
+            field_selects = [f"{parent_pk} as parent_id"]
+            for key in sample_obj.keys():
+                snake_key = self._camel_to_snake(key)
+                field_selects.append(f"{column_name}['{key}'] as {snake_key}")
+
+            self.conn.execute(f"DROP TABLE IF EXISTS {child_table_name}")
+            self.conn.execute(f"""
+                CREATE TABLE {child_table_name} AS
+                SELECT {", ".join(field_selects)}
+                FROM {parent_table}
+                WHERE {column_name} IS NOT NULL
+            """)
+
+            self._export_table_with_manifest(child_table_name)
+            self.logger.info(f"Created child table: {child_table_name}")
+
+        except Exception as e:
+            self.logger.warning(f"Failed to decompose object column {column_name}: {str(e)}")
 
     def _parse_date_to_iso(self, date_str: str | None) -> str | None:
         """
@@ -278,6 +394,10 @@ class Component(ComponentBase):
 
             normalized_table = self._normalize_table(table_name)
             self._export_table_with_manifest(table_name, normalized_table)
+            self._decompose_json_columns(table_name, normalized_table)
+
+            if not self.params.debug:
+                self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
 
             result_count = self.conn.execute(f"SELECT COUNT(*) FROM {normalized_table}").fetchone()
             row_count = result_count[0] if result_count else 0
@@ -627,7 +747,21 @@ class Component(ComponentBase):
             "inventory_levels": ["inventoryItemId", "levelId"],
             "locations": ["id"],
         }
-        return primary_keys.get(table_name, [])
+
+        if table_name in primary_keys:
+            return primary_keys[table_name]
+
+        if "_" in table_name:
+            try:
+                columns = [col[0] for col in self.conn.execute(f"DESCRIBE {table_name}").fetchall()]
+                if "row_number" in columns:
+                    return ["parent_id", "row_number"]
+                else:
+                    return ["parent_id"]
+            except Exception:
+                pass
+
+        return []
 
     @staticmethod
     def convert_base_types(dtype: str) -> SupportedDataTypes:

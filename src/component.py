@@ -151,7 +151,12 @@ class Component(ComponentBase):
                     self.conn.execute(f"DROP TABLE {child_table_name}")
                     self.conn.execute(f"ALTER TABLE {flattened_table} RENAME TO {child_table_name}")
 
-            self._export_table_with_manifest(child_table_name)
+            normalized_child = self._normalize_table(child_table_name)
+            self._export_table_with_manifest(child_table_name, normalized_child)
+
+            if not self.params.debug and normalized_child != child_table_name:
+                self.conn.execute(f"DROP TABLE IF EXISTS {child_table_name}")
+
             self.logger.info(f"Created child table: {child_table_name}")
 
         except Exception as e:
@@ -186,7 +191,12 @@ class Component(ComponentBase):
                 WHERE {column_name} IS NOT NULL
             """)
 
-            self._export_table_with_manifest(child_table_name)
+            normalized_child = self._normalize_table(child_table_name)
+            self._export_table_with_manifest(child_table_name, normalized_child)
+
+            if not self.params.debug and normalized_child != child_table_name:
+                self.conn.execute(f"DROP TABLE IF EXISTS {child_table_name}")
+
             self.logger.info(f"Created child table: {child_table_name}")
 
         except Exception as e:

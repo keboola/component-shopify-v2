@@ -181,7 +181,7 @@ class Component(ComponentBase):
             field_selects = [f'"{parent_pk}" as parent_id']
             for key in sample_obj.keys():
                 snake_key = self._camel_to_snake(key)
-                field_selects.append(f'"{column_name}"[\'{key}\'] as {snake_key}')
+                field_selects.append(f"\"{column_name}\"['{key}'] as {snake_key}")
 
             self.conn.execute(f'DROP TABLE IF EXISTS "{child_table_name}"')
             self.conn.execute(f"""
@@ -400,7 +400,9 @@ class Component(ComponentBase):
 
         try:
             self.conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
-            self.conn.execute(f'CREATE TABLE "{table_name}" AS SELECT * FROM read_json_auto(\'{bulk_result.file_path}\')')
+            self.conn.execute(
+                f"CREATE TABLE \"{table_name}\" AS SELECT * FROM read_json_auto('{bulk_result.file_path}')"
+            )
 
             normalized_table = self._normalize_table(table_name)
             self._export_table_with_manifest(table_name, normalized_table)
@@ -716,8 +718,35 @@ class Component(ComponentBase):
     def _export_table_with_manifest(self, table_name: str, normalized_table: str | None = None):
         if normalized_table is None:
             normalized_table = table_name
-        table_meta = self.conn.execute(f"DESCRIBE {normalized_table}").fetchall()
+        table_meta = self.conn.execute(f'DESCRIBE "{normalized_table}"').fetchall()
 
+        # Check if table has id column and multiple entity types
+        has_id = any(col[0] == "id" for col in table_meta)
+        entity_types = []
+
+        if has_id:
+            try:
+                entity_types_result = self.conn.execute(f"""
+                    SELECT DISTINCT regexp_extract(id, 'gid://shopify/([^/]+)/', 1) as entity_type
+                    FROM "{normalized_table}"
+                    WHERE id IS NOT NULL AND id LIKE 'gid://shopify/%'
+                """).fetchall()
+                entity_types = [et[0] for et in entity_types_result if et[0]]
+            except Exception:
+                pass
+
+        # If multiple entity types, export each separately
+        if len(entity_types) > 1:
+            self.logger.info(f"Splitting {table_name} by entity types: {', '.join(entity_types)}")
+            for entity_type in entity_types:
+                snake_entity = self._camel_to_snake(entity_type)
+                self._export_entity_type(normalized_table, snake_entity, entity_type, table_meta)
+        else:
+            # Single entity type or no entity splitting needed
+            self._export_single_table(table_name, normalized_table, table_meta)
+
+    def _export_entity_type(self, normalized_table: str, entity_name: str, entity_type: str, table_meta: list):
+        """Export a specific entity type from a table with WHERE filter"""
         schema = OrderedDict(
             {
                 c[0]: ColumnDefinition(
@@ -729,6 +758,41 @@ class Component(ComponentBase):
         )
 
         out_table = self.create_out_table_definition(
+            f"{entity_name}.csv",
+            schema=schema,
+            primary_key=self._get_primary_key(entity_name),
+            incremental=bool(self.params.loading_options.incremental_output),
+            has_header=True,
+        )
+
+        try:
+            q = f"""
+                COPY (
+                    SELECT *
+                    FROM \"{normalized_table}\"
+                    WHERE id LIKE 'gid://shopify/{entity_type}/%'
+                ) TO '{out_table.full_path}' (HEADER, DELIMITER ',', FORCE_QUOTE *)
+            """
+            logging.debug(f"Running query: {q}; ")
+            self.conn.execute(q)
+            self.write_manifest(out_table)
+            self.logger.info(f"Exported entity type: {entity_name} ({entity_type})")
+        except duckdb.ConversionException as e:
+            raise UserException(f"Error during query execution: {e}")
+
+    def _export_single_table(self, table_name: str, normalized_table: str, table_meta: list):
+        """Export entire table without entity type filtering"""
+        schema = OrderedDict(
+            {
+                c[0]: ColumnDefinition(
+                    data_types=BaseType(dtype=self.convert_base_types(c[1])),
+                    primary_key=False,
+                )
+                for c in table_meta
+            }
+        )
+
+        out_table = self.create_out_table_definition(
             f"{table_name}.csv",
             schema=schema,
             primary_key=self._get_primary_key(table_name),
@@ -737,7 +801,7 @@ class Component(ComponentBase):
         )
 
         try:
-            q = f"COPY {normalized_table} TO '{out_table.full_path}' (HEADER, DELIMITER ',', FORCE_QUOTE *)"
+            q = f"COPY \"{normalized_table}\" TO '{out_table.full_path}' (HEADER, DELIMITER ',', FORCE_QUOTE *)"
             logging.debug(f"Running query: {q}; ")
             self.conn.execute(q)
             self.write_manifest(out_table)

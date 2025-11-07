@@ -1,0 +1,130 @@
+# Get all customers with pagination
+query GetCustomers($first: Int!, $after: String) {
+  customers(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        firstName
+        lastName
+        email
+        phone
+        createdAt
+        updatedAt
+        emailMarketingConsent {
+          marketingState
+          marketingOptInLevel
+        }
+        defaultAddress {
+          id
+          firstName
+          lastName
+          address1
+          address2
+          city
+          province
+          country
+          zip
+          phone
+          name
+          provinceCode
+          countryCodeV2
+        }
+        addresses {
+          id
+          firstName
+          lastName
+          address1
+          address2
+          city
+          province
+          country
+          zip
+          phone
+          name
+          provinceCode
+          countryCodeV2
+        }
+      }
+    }
+  }
+}
+
+# Get a specific customer by ID
+query GetCustomer($id: ID!) {
+  customer(id: $id) {
+    id
+    firstName
+    lastName
+    email
+    phone
+    createdAt
+    updatedAt
+    acceptsMarketing
+    emailMarketingConsent {
+      marketingState
+      marketingOptInLevel
+    }
+    defaultAddress {
+      id
+      firstName
+      lastName
+      address1
+      address2
+      city
+      province
+      country
+      zip
+      phone
+    }
+    addresses(first: 10) {
+      edges {
+        node {
+          id
+          firstName
+          lastName
+          address1
+          address2
+          city
+          province
+          country
+          zip
+          phone
+        }
+      }
+    }
+    ordersCount
+    totalSpent
+  }
+}
+
+# Search customers
+query SearchCustomers($query: String!, $first: Int!, $after: String) {
+  customers(query: $query, first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        firstName
+        lastName
+        email
+        phone
+        createdAt
+        updatedAt
+        acceptsMarketing
+        ordersCount
+        totalSpent
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+# Get all locations
+query GetLocations {
+  locations(first: 50) {
+    edges {
+      node {
+        id
+        name
+        address {
+          address1
+          address2
+          city
+          province
+          country
+          zip
+          phone
+        }
+        isActive
+        isPrimary
+        isFulfillmentService
+        fulfillmentService {
+          id
+          serviceName
+        }
+      }
+    }
+  }
+}
+
+# Get a specific location by ID
+query GetLocation($id: ID!) {
+  location(id: $id) {
+    id
+    name
+    address {
+      address1
+      address2
+      city
+      province
+      country
+      zip
+      phone
+    }
+    isActive
+    isPrimary
+    isFulfillmentService
+    fulfillmentService {
+      id
+      serviceName
+    }
+  }
+}
+
+# Get locations with inventory levels
+query GetLocationsWithInventory($first: Int!) {
+  locations(first: $first) {
+    edges {
+      node {
+        id
+        name
+        address {
+          address1
+          address2
+          city
+          province
+          country
+          zip
+          phone
+        }
+        isActive
+        isPrimary
+        isFulfillmentService
+        fulfillmentService {
+          id
+          serviceName
+        }
+        inventoryLevels(first: 10) {
+          edges {
+            node {
+              id
+              available
+              item {
+                id
+                sku
+                variant {
+                  id
+                  title
+                  sku
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+mutation {
+  bulkOperationRunQuery(
+    query: """
+    {
+      products__QUERY_FILTER__ {
+        edges {
+          node {
+            id
+            title
+            handle
+            description
+            vendor
+            productType
+            tags
+            status
+            createdAt
+            updatedAt
+            publishedAt
+            totalInventory
+            variants {
+              edges {
+                node {
+                  id
+                  title
+                  sku
+                  barcode
+                  price
+                  compareAtPrice
+                  inventoryQuantity
+                  __VARIANT_METAFIELDS_PLACEHOLDER__
+                }
+              }
+            }
+            images {
+              edges {
+                node {
+                  id
+                  url
+                  altText
+                  width
+                  height
+                }
+              }
+            }
+            __METAFIELDS_PLACEHOLDER__
+          }
+        }
+      }
+    }
+    """
+  ) {
+    bulkOperation {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

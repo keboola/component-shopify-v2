@@ -1,0 +1,55 @@
+mutation {
+  bulkOperationRunQuery(
+    query: """
+    {
+      inventoryItems__QUERY_FILTER__ {
+        edges {
+          node {
+            id
+            sku
+            tracked
+            createdAt
+            updatedAt
+            variant {
+              id
+              title
+              sku
+              product {
+                id
+                title
+                handle
+              }
+            }
+            inventoryLevels {
+              edges {
+                node {
+                  id
+                  quantities(names: ["available"]) {
+                    name
+                    quantity
+                  }
+                  location {
+                    id
+                    name
+                    isActive
+                  }
+                  updatedAt
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+  ) {
+    bulkOperation {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

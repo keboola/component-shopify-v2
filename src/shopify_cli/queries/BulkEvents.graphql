@@ -1,0 +1,31 @@
+mutation {
+  bulkOperationRunQuery(
+    query: """
+    {
+      events__QUERY_FILTER__ {
+        edges {
+          node {
+            id
+            createdAt
+            message
+            action
+            appTitle
+            attributeToApp
+            attributeToUser
+            criticalAlert
+          }
+        }
+      }
+    }
+    """
+  ) {
+    bulkOperation {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

@@ -2,18 +2,301 @@
   "type": "object",
   "title": "extractor configuration",
   "required": [
-    "print_hello"
+    "#api_token",
+    "store_name",
+    "loading_options",
+    "endpoints"
   ],
   "properties": {
-    "print_hello": {
-      "type": "boolean",
-      "title": "Print Hello",
-      "propertyOrder": 1
+    "#api_token": {
+      "type": "string",
+      "title": "Admin API access token",
+      "format": "password",
+      "description": "Admin API access token of your Shopify custom app.",
+      "propertyOrder": 0
     },
-    "debug": {
-      "type": "boolean",
-      "title": "Debug",
-      "propertyOrder": 2
+    "store_name": {
+      "type": "string",
+      "title": "Store name",
+      "description": "Shopify store name found in URL, e.g. [store_name].myshopify.com",
+      "propertyOrder": 10
+    },
+    "api_version": {
+      "type": "string",
+      "title": "API version",
+      "default": "2025-10",
+      "readOnly": true,
+      "description": "The API version, gets updated regularly based on the <a href=\"https://shopify.dev/api/usage/versioning#release-schedule\">Shopify release cycle</a>",
+      "propertyOrder": 20
+    },
+    "endpoints": {
+      "type": "object",
+      "title": "Endpoints",
+      "propertyOrder": 30,
+      "properties": {
+        "products": {
+          "type": "boolean",
+          "title": "Products",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get Products data using bulk operations",
+          "options": {
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkProducts.graphql)"
+          },
+          "propertyOrder": 40
+        },
+        "products_drafts": {
+          "type": "boolean",
+          "title": "Products – Drafts",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Include draft products",
+          "propertyOrder": 50
+        },
+        "products_archived": {
+          "type": "boolean",
+          "title": "Products – Archived",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Include archived products",
+          "propertyOrder": 60
+        },
+        "product_metafields": {
+          "type": "boolean",
+          "title": "Products – Metafields",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            },
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkProducts.graphql) and [the replacement fragment](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/fragments/ProductMetafields.graphql)"
+          },
+          "description": "Include product metafields",
+          "propertyOrder": 70
+        },
+        "variant_metafields": {
+          "type": "boolean",
+          "title": "Products – Variant Metafields",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            },
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkProducts.graphql) and [the replacement fragment](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/fragments/VariantMetafields.graphql)"
+          },
+          "description": "Include variant metafields",
+          "propertyOrder": 80
+        },
+        "customers": {
+          "type": "boolean",
+          "title": "Customers",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get Customers data using bulk operations",
+          "options": {
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkCustomers.graphql)"
+          },
+          "propertyOrder": 90
+        },
+        "orders": {
+          "type": "boolean",
+          "title": "Orders",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get Orders data using bulk operations",
+          "options": {
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkOrders.graphql)"
+          },
+          "propertyOrder": 100
+
+        },
+        "order_transactions": {
+          "type": "boolean",
+          "title": "Orders – Transactions",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "orders": true
+            },
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkOrders.graphql) and [the replacement fragment](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/fragments/OrderTransactions.graphql)"
+          },
+          "description": "Include order transactions",
+          "propertyOrder": 110
+        },
+        "inventory": {
+          "type": "boolean",
+          "title": "Inventory",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get inventory levels",
+          "options": {
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkInventory.graphql)"
+          },
+          "propertyOrder": 120
+        },
+        "locations": {
+          "type": "boolean",
+          "title": "Locations",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get store locations",
+          "options": {
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkCustomers.graphql)"
+          },
+          "propertyOrder": 130
+        }
+      }
+    },
+    "events": {
+      "title": "Events",
+      "maxItems": 1,
+      "description": "Download Events",
+      "propertyOrder": 140,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "title": "Setup",
+        "required": [
+          "filters",
+          "types"
+        ],
+        "properties": {
+          "types": {
+            "type": "string",
+            "title": "Event Types",
+            "format": "textarea",
+            "options": {
+              "input_height": "100px"
+            },
+            "description": "Comma separated list of required event types. e.g. 'confirmed', 'create', 'destroy'. If omitted all possible types are downloaded.  Different resources generate different types of event. See the docs for a list of possible verbs.",
+            "uniqueItems": true,
+            "propertyOrder": 150
+          },
+          "filters": {
+            "title": "Types",
+            "format": "select",
+            "description": "Resource Types",
+            "uniqueItems": true,
+            "propertyOrder": 160,
+            "type": "array",
+            "items": {
+              "enum": [
+                "Article",
+                "Blog",
+                "Collection",
+                "Comment",
+                "Order",
+                "Page",
+                "PriceRule",
+                "Product",
+                "ApiPermission"
+              ],
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "custom_queries": {
+      "title": "Custom Bulk Queries",
+      "description": "Execute custom GraphQL bulk operations to download data. Note: Only bulk operation mutations are supported, not regular queries.",
+      "propertyOrder": 170,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "title": "Bulk Query Setup",
+        "required": [
+          "name",
+          "query"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Query Name",
+            "description": "Name of the custom query. Used for naming the output table (e.g., 'my_products' creates 'my_products.csv').",
+            "propertyOrder": 180
+          },
+          "query": {
+            "type": "string",
+            "title": "GraphQL Bulk Operation Mutation",
+            "format": "textarea",
+            "options": {
+              "input_height": "300px"
+            },
+            "description": "The GraphQL bulk operation mutation. Must be in format: mutation { bulkOperationRunQuery(query: \"\"\"...\"\"\") { bulkOperation { id status } userErrors { field message } } }. See documentation for examples.",
+            "propertyOrder": 190
+          }
+        }
+      }
+    },
+    "loading_options": {
+      "type": "object",
+      "title": "Loading Options",
+      "description": "Data is fetched incrementally based on the last updated datetime. NOTE: Column names longer than 64 characters will be automatically shortened, more in <a href=\"https://github.com/keboola/component-shopify/blob/main/README.md\">documenation.</a>",
+      "propertyOrder": 200,
+      "format": "grid",
+      "required": [
+        "incremental_output",
+        "date_since",
+        "date_to"
+      ],
+      "properties": {
+        "date_since": {
+          "type": "string",
+          "title": "Period start date [including]",
+          "default": "1 week ago",
+          "description": "Date in YYYY-MM-DD format or <a href='https://dateparser.readthedocs.io/' target='_new'>dateparser</a> string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, all records are downloaded.",
+          "propertyOrder": 210
+        },
+        "date_to": {
+          "type": "string",
+          "title": "Period end date [excluding]",
+          "default": "now",
+          "description": "Date in YYYY-MM-DD format or <a href='https://dateparser.readthedocs.io/' target='_new'>dateparser</a> string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, it is set to the current datetime.",
+          "propertyOrder": 220
+        },
+        "fetch_parameter": {
+          "enum": [
+            "updated_at",
+            "created_at"
+          ],
+          "type": "string",
+          "title": "Fetch parameter",
+          "default": "updated_at",
+          "description": "Field/parameter to be used for filtering data from API.",
+          "propertyOrder": 230
+        },
+        "incremental_output": {
+          "enum": [
+            0,
+            1
+          ],
+          "type": "number",
+          "title": "Load type",
+          "default": 1,
+          "options": {
+            "enum_titles": [
+              "Full Load",
+              "Incremental Update"
+            ]
+          },
+          "description": "If set to Incremental update, the result tables will be updated based on primary key. Full load overwrites the destination table each time. NOTE: If you wish to remove deleted records, this needs to be set to Full load and the Period from attribute empty.",
+          "propertyOrder": 240
+        }
+      }
     }
   }
 }

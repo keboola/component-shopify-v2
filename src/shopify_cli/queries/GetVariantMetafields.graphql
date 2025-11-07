@@ -1,0 +1,69 @@
+# Get variant metafields with pagination
+query GetVariantMetafields($first: Int!, $after: String) {
+  metafields(first: $first, after: $after, ownerType: PRODUCT_VARIANT) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      node {
+        id
+        namespace
+        key
+        value
+        type
+        description
+        owner {
+          ... on ProductVariant {
+            id
+            title
+            sku
+            product {
+              id
+              title
+              handle
+            }
+          }
+        }
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}
+
+# Get metafields for a specific product variant
+query GetVariantMetafieldsByVariant($variantId: ID!, $first: Int!, $after: String) {
+  productVariant(id: $variantId) {
+    id
+    title
+    sku
+    product {
+      id
+      title
+      handle
+    }
+    metafields(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+      edges {
+        node {
+          id
+          namespace
+          key
+          value
+          type
+          description
+          createdAt
+          updatedAt
+        }
+      }
+    }
+  }
+}

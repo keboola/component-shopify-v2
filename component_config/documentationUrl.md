@@ -1,1 +1,1 @@
-https://github.com/keboola/cookiecutter-python-component/blob/master/README.md
+https://github.com/keboola/component-shopify-v2/blob/master/README.md

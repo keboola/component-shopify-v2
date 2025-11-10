@@ -202,7 +202,7 @@ Clone this repository, initialize the workspace, and run the component using the
 commands:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-git clone https://github.com/keboola/cookiecutter-python-component ex_shopify_v2
+git clone https://github.com/keboola/component-shopify-v2 ex_shopify_v2
 cd ex_shopify_v2
 docker-compose build
 docker-compose run --rm dev

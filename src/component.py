@@ -5,7 +5,7 @@ import re
 import shutil
 import tempfile
 import time
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +37,20 @@ class Component(ComponentBase):
         """Convert camelCase to snake_case"""
         name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
+
+    def _scan_jsonl_keys(self, jsonl_path: str) -> dict[str, set[str]]:
+        """Scan JSONL file to detect which keys exist for each entity type"""
+        entity_keys = defaultdict(set)
+
+        with open(jsonl_path) as f:
+            for line in f:
+                if obj := json.loads(line):
+                    if entity_id := obj.get("id"):
+                        if match := re.search(r"gid://shopify/([^/]+)/", entity_id):
+                            entity_type = match.group(1)
+                            entity_keys[entity_type].update(obj.keys())
+
+        return entity_keys
 
     def _normalize_table(self, table_name: str) -> str:
         """
@@ -399,13 +413,15 @@ class Component(ComponentBase):
         self.logger.info(f"Processing {bulk_result.item_count} {entity_name} from {bulk_result.file_path}")
 
         try:
+            entity_keys = self._scan_jsonl_keys(bulk_result.file_path)
+
             self.conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
             self.conn.execute(
                 f"CREATE TABLE \"{table_name}\" AS SELECT * FROM read_json_auto('{bulk_result.file_path}')"
             )
 
             normalized_table = self._normalize_table(table_name)
-            self._export_table_with_manifest(table_name, normalized_table)
+            self._export_table_with_manifest(table_name, normalized_table, entity_keys)
             self._decompose_json_columns(table_name, normalized_table)
 
             if not self.params.debug:
@@ -553,20 +569,17 @@ class Component(ComponentBase):
         if not data:
             return
 
-        # Create temporary JSON file
         file_def = self.create_out_file_definition(f"{table_name}_temp.json")
         temp_json = Path(file_def.full_path)
         with open(temp_json, "w") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
         try:
-            # Load JSON data into DuckDB with automatic type detection
             self.conn.execute(f"""
                 CREATE OR REPLACE TABLE {table_name}_raw AS
                 SELECT * FROM read_json_auto('{temp_json}')
             """)
 
-            # Create normalized tables based on endpoint
             if table_name == "orders":
                 self._create_orders_tables(table_name)
             elif table_name == "products":
@@ -577,13 +590,10 @@ class Component(ComponentBase):
                 self._export_table_with_manifest(f"{table_name}_raw")
 
         finally:
-            # Clean up temporary file
             if not self.configuration.parameters.debug:
                 temp_json.unlink()
 
     def _create_orders_tables(self, table_name: str):
-        """Create normalized order tables"""
-        # Main orders table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE orders AS
             SELECT
@@ -612,7 +622,6 @@ class Component(ComponentBase):
             FROM {table_name}_raw
         """)
 
-        # Order line items table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE order_line_items AS
             SELECT
@@ -633,8 +642,6 @@ class Component(ComponentBase):
         self._export_table_with_manifest("order_line_items")
 
     def _create_products_tables(self, table_name: str):
-        """Create normalized product tables"""
-        # Main products table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE products AS
             SELECT
@@ -652,7 +659,6 @@ class Component(ComponentBase):
             FROM {table_name}_raw
         """)
 
-        # Product variants table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE product_variants AS
             SELECT
@@ -673,8 +679,6 @@ class Component(ComponentBase):
         self._export_table_with_manifest("product_variants")
 
     def _create_inventory_tables(self, table_name: str):
-        """Create normalized inventory tables"""
-        # Main inventory items table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE inventory_items AS
             SELECT
@@ -699,7 +703,6 @@ class Component(ComponentBase):
             FROM {table_name}_raw
         """)
 
-        # Inventory levels table
         self.conn.execute(f"""
             CREATE OR REPLACE TABLE inventory_levels AS
             SELECT
@@ -715,12 +718,13 @@ class Component(ComponentBase):
         self._export_table_with_manifest("inventory_items")
         self._export_table_with_manifest("inventory_levels")
 
-    def _export_table_with_manifest(self, table_name: str, normalized_table: str | None = None):
+    def _export_table_with_manifest(
+        self, table_name: str, normalized_table: str | None = None, entity_keys: dict[str, set[str]] | None = None
+    ):
         if normalized_table is None:
             normalized_table = table_name
         table_meta = self.conn.execute(f'DESCRIBE "{normalized_table}"').fetchall()
 
-        # Check if table has id column and multiple entity types
         has_id = any(col[0] == "id" for col in table_meta)
         entity_types = []
 
@@ -735,18 +739,28 @@ class Component(ComponentBase):
             except Exception:
                 pass
 
-        # If multiple entity types, export each separately
         if len(entity_types) > 1:
             self.logger.info(f"Splitting {table_name} by entity types: {', '.join(entity_types)}")
             for entity_type in entity_types:
                 snake_entity = self._camel_to_snake(entity_type)
-                self._export_entity_type(normalized_table, snake_entity, entity_type, table_meta)
+                self._export_entity_type(normalized_table, snake_entity, entity_type, table_meta, entity_keys)
         else:
-            # Single entity type or no entity splitting needed
             self._export_single_table(table_name, normalized_table, table_meta)
 
-    def _export_entity_type(self, normalized_table: str, entity_name: str, entity_type: str, table_meta: list):
-        """Export a specific entity type from a table with WHERE filter"""
+    def _export_entity_type(
+        self,
+        normalized_table: str,
+        entity_name: str,
+        entity_type: str,
+        table_meta: list,
+        entity_keys: dict[str, set[str]] | None,
+    ):
+        if entity_keys and entity_type in entity_keys:
+            jsonl_keys_snake = {self._camel_to_snake(k) for k in entity_keys[entity_type]}
+            valid_columns = [c[0] for c in table_meta if c[0] in jsonl_keys_snake]
+        else:
+            valid_columns = [c[0] for c in table_meta]
+
         schema = OrderedDict(
             {
                 c[0]: ColumnDefinition(
@@ -766,10 +780,11 @@ class Component(ComponentBase):
         )
 
         try:
+            column_list = ", ".join([f'"{col}"' for col in valid_columns])
             q = f"""
                 COPY (
-                    SELECT *
-                    FROM \"{normalized_table}\"
+                    SELECT {column_list}
+                    FROM "{normalized_table}"
                     WHERE id LIKE 'gid://shopify/{entity_type}/%'
                 ) TO '{out_table.full_path}' (HEADER, DELIMITER ',', FORCE_QUOTE *)
             """
@@ -781,7 +796,6 @@ class Component(ComponentBase):
             raise UserException(f"Error during query execution: {e}")
 
     def _export_single_table(self, table_name: str, normalized_table: str, table_meta: list):
-        """Export entire table without entity type filtering"""
         schema = OrderedDict(
             {
                 c[0]: ColumnDefinition(

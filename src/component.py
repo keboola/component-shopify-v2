@@ -373,6 +373,7 @@ class Component(ComponentBase):
         statuses = []
         if params.endpoints.products:
             statuses.append("active")
+            statuses.append("unlisted")
         if params.endpoints.products_drafts:
             statuses.append("draft")
         if params.endpoints.products_archived:

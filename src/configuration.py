@@ -3,7 +3,7 @@ import logging
 from keboola.component.exceptions import UserException
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-PRODUCTS_ENDPOINTS = {"products", "products_drafts", "products_archived"}
+PRODUCTS_ENDPOINTS = {"products", "products_drafts", "products_archived", "products_unlisted"}
 EXCLUDE_FROM_ENDPOINTS = {"product_metafields", "variant_metafields", "order_transactions"}
 
 
@@ -40,6 +40,7 @@ class Endpoints(BaseModel):
     products: bool = False
     products_drafts: bool = False
     products_archived: bool = False
+    products_unlisted: bool = False
     product_metafields: bool = False
     variant_metafields: bool = False
     orders: bool = False

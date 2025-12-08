@@ -35,9 +35,10 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 
 ### Core Endpoints (Bulk Operations)
 
-- **products** - Extract active and unlisted products with variants and metafields
+- **products** - Extract active products with variants and metafields
 - **products_drafts** - Extract draft products
 - **products_archived** - Extract archived products
+- **products_unlisted** - Extract unlisted products
 - **orders** - Extract order data with line items, customer info, and addresses
 - **customers** - Extract customer data with addresses and marketing preferences
 - **inventory** - Extract inventory levels across locations
@@ -65,9 +66,10 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
 
 - **api_version** - Shopify API version (default: "2025-10")
 - **endpoints** - Object with boolean flags for each endpoint to enable:
-  - **products** - Extract active and unlisted products (default: false)
+  - **products** - Extract active products (default: false)
   - **products_drafts** - Extract draft products (default: false)
   - **products_archived** - Extract archived products (default: false)
+  - **products_unlisted** - Extract unlisted products (default: false)
   - **product_metafields** - Include product metafields (default: false)
   - **variant_metafields** - Include variant metafields (default: false)
   - **orders** - Extract orders (default: false)

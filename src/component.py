@@ -292,6 +292,7 @@ class Component(ComponentBase):
             "products": self._extract_products_bulk,
             "products_drafts": self._extract_products_bulk,
             "products_archived": self._extract_products_bulk,
+            "products_unlisted": self._extract_products_bulk,
             "products_legacy": self._extract_products_legacy,
             "orders": self._extract_orders_bulk,
             "orders_legacy": self._extract_orders_legacy,
@@ -373,11 +374,12 @@ class Component(ComponentBase):
         statuses = []
         if params.endpoints.products:
             statuses.append("active")
-            statuses.append("unlisted")
         if params.endpoints.products_drafts:
             statuses.append("draft")
         if params.endpoints.products_archived:
             statuses.append("archived")
+        if params.endpoints.products_unlisted:
+            statuses.append("unlisted")
 
         if not statuses:
             self.logger.warning("No product status selected, skipping products extraction")

@@ -71,6 +71,19 @@
           "description": "Include archived products",
           "propertyOrder": 60
         },
+        "products_unlisted": {
+          "type": "boolean",
+          "title": "Products – Unlisted",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "products": true
+            }
+          },
+          "description": "Include unlisted products",
+          "propertyOrder": 65
+        },
         "product_metafields": {
           "type": "boolean",
           "title": "Products – Metafields",

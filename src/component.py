@@ -836,7 +836,7 @@ class Component(ComponentBase):
             "customer_legacy": ["id"],
             "inventory": ["id"],
             "inventory_item": ["id"],
-            "inventory_level": ["inventoryItemId", "levelId"],
+            "inventory_level": ["__parent_id", "id"],
             "location": ["id"],
             "event": ["id"],
         }

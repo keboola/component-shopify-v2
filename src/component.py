@@ -766,12 +766,12 @@ class Component(ComponentBase):
 
         schema = OrderedDict(
             {
-                c[0]: ColumnDefinition(
+                ("parent_id" if c[0] == "__parent_id" else c[0]): ColumnDefinition(
                     data_types=BaseType(dtype=self.convert_base_types(c[1])),
                     primary_key=False,
                 )
                 for c in table_meta
-            }  # c[0] is the column name, c[1] is the data type, c[3] is the primary key
+            }
         )
 
         out_table = self.create_out_table_definition(
@@ -783,7 +783,14 @@ class Component(ComponentBase):
         )
 
         try:
-            column_list = ", ".join([f'"{col}"' for col in valid_columns])
+            renamed_columns = []
+            for col in valid_columns:
+                if col == "__parent_id":
+                    renamed_columns.append('"__parent_id" AS "parent_id"')
+                else:
+                    renamed_columns.append(f'"{col}"')
+            column_list = ", ".join(renamed_columns)
+
             q = f"""
                 COPY (
                     SELECT {column_list}
@@ -836,7 +843,7 @@ class Component(ComponentBase):
             "customer_legacy": ["id"],
             "inventory": ["id"],
             "inventory_item": ["id"],
-            "inventory_level": ["inventoryItemId", "levelId"],
+            "inventory_level": ["parent_id", "id"],
             "location": ["id"],
             "event": ["id"],
         }

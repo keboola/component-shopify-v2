@@ -28,6 +28,17 @@
       "description": "Client Secret from your Shopify Dev Dashboard app. Used together with Client ID for apps that use short-lived (24h) tokens.",
       "propertyOrder": 2
     },
+    "scopes": {
+      "type": "string",
+      "title": "OAuth Scopes",
+      "description": "Comma-separated list of OAuth scopes to request with the access token (e.g. <code>read_orders,read_products,read_customers</code>). Required for apps using the legacy install flow. Leave empty if scopes are managed in the Shopify Partner Dashboard.",
+      "options": {
+        "dependencies": {
+          "#client_id": true
+        }
+      },
+      "propertyOrder": 3
+    },
     "store_name": {
       "type": "string",
       "title": "Store name",

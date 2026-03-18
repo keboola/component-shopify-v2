@@ -28,10 +28,12 @@ class ShopifyTokenManager:
         store_name: str,
         client_id: str,
         client_secret: str,
+        scopes: str = "",
     ):
         self.store_name = store_name
         self.client_id = client_id
         self.client_secret = client_secret
+        self.scopes = scopes
         self._access_token: str = ""
         self._expires_at: float = 0.0
 
@@ -82,6 +84,8 @@ class ShopifyTokenManager:
             "client_id": self.client_id,
             "client_secret": self.client_secret,
         }
+        if self.scopes:
+            data["scope"] = self.scopes
 
         try:
             response = requests.post(url, data=data, timeout=30)

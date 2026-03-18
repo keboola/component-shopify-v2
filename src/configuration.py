@@ -74,6 +74,9 @@ class Configuration(BaseModel):
     client_secret: str = Field(
         default="", alias="#client_secret", description="Shopify app Client Secret (Dev Dashboard)"
     )
+    scopes: str = Field(
+        default="", description="OAuth scopes to request (comma-separated). Required for legacy install flow apps."
+    )
     endpoints: Endpoints = Field(default_factory=Endpoints, description="Endpoints configuration")
     events: list[dict] = Field(default_factory=list, description="Events configuration")
     custom_queries: list[CustomQuery] = Field(default_factory=list, description="Custom GraphQL bulk operations")

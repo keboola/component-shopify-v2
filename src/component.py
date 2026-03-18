@@ -267,7 +267,6 @@ class Component(ComponentBase):
             store_name=params.store_name,
             client_id=params.client_id,
             client_secret=params.client_secret,
-            scopes=params.scopes,
         )
         access_token = token_manager.get_access_token(state)
 

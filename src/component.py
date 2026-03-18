@@ -16,6 +16,7 @@ from keboola.component.dao import BaseType, ColumnDefinition, SupportedDataTypes
 from keboola.component.exceptions import UserException
 
 from configuration import PRODUCTS_ENDPOINTS, Configuration
+from shopify_cli.auth import ShopifyTokenManager
 from shopify_cli.client import BulkOperationResult, ShopifyGraphQLClient
 
 
@@ -245,15 +246,49 @@ class Component(ComponentBase):
         except Exception as e:
             raise UserException(f"Invalid date format '{date_str}': {str(e)}")
 
+    def _resolve_access_token(self, params: Configuration) -> str:
+        """Resolve the access token based on auth mode.
+
+        For legacy static tokens, returns the token directly.
+        For client credentials (Dev Dashboard apps), exchanges credentials for a short-lived token,
+        using cached token from state if still valid.
+
+        Returns:
+            Valid Shopify Admin API access token.
+        """
+        if not params.uses_client_credentials:
+            self.logger.info("Using static Admin API access token (legacy auth)")
+            return params.api_token
+
+        self.logger.info("Using client credentials authentication (Dev Dashboard app)")
+        state = self.get_state_file() or {}
+
+        token_manager = ShopifyTokenManager(
+            store_name=params.store_name,
+            client_id=params.client_id,
+            client_secret=params.client_secret,
+        )
+        access_token = token_manager.get_access_token(state)
+
+        # Persist token to state for reuse within its validity window
+        token_state = token_manager.get_token_state()
+        state.update(token_state)
+        self.write_state_file(state)
+        self.logger.info("Access token saved to state file")
+
+        return access_token
+
     def run(self):
         """
         Main execution code
         """
         params = Configuration(**self.configuration.parameters)
 
+        api_token = self._resolve_access_token(params)
+
         client = ShopifyGraphQLClient(
             store_name=params.store_name,
-            api_token=params.api_token,
+            api_token=api_token,
             api_version=params.api_version,
             debug=params.debug,
         )

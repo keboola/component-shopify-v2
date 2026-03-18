@@ -2,7 +2,6 @@
   "type": "object",
   "title": "extractor configuration",
   "required": [
-    "#api_token",
     "store_name",
     "loading_options",
     "endpoints"
@@ -12,8 +11,22 @@
       "type": "string",
       "title": "Admin API access token",
       "format": "password",
-      "description": "Admin API access token of your Shopify custom app.",
+      "description": "Admin API access token of your Shopify custom app. Required if Client ID and Client Secret are not provided.",
       "propertyOrder": 0
+    },
+    "#client_id": {
+      "type": "string",
+      "title": "Client ID (Dev Dashboard)",
+      "format": "password",
+      "description": "Client ID from your Shopify Dev Dashboard app. Used together with Client Secret for apps that use short-lived (24h) tokens.",
+      "propertyOrder": 1
+    },
+    "#client_secret": {
+      "type": "string",
+      "title": "Client Secret (Dev Dashboard)",
+      "format": "password",
+      "description": "Client Secret from your Shopify Dev Dashboard app. Used together with Client ID for apps that use short-lived (24h) tokens.",
+      "propertyOrder": 2
     },
     "store_name": {
       "type": "string",

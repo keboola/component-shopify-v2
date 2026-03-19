@@ -2,9 +2,6 @@ version = 1
 revision = 3
 requires-python = "==3.13.*"
 
-[manifest]
-overrides = [{ name = "keboola-vcr", git = "https://github.com/keboola/python-vcr-tests?rev=add-sanitizers-from-component" }]
-
 [[package]]
 name = "aiolimiter"
 version = "1.2.1"
@@ -358,11 +355,15 @@ wheels = [
 
 [[package]]
 name = "keboola-vcr"
-version = "0.0.0"
-source = { git = "https://github.com/keboola/python-vcr-tests?rev=add-sanitizers-from-component#8a4d3ca2a90f87766e591dce09df3ce2a1aa0c9c" }
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "freezegun" },
     { name = "vcrpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6e/f9/a5210a2c85944c1a46fd9d8ae5064443cc7d48100134457d4dead401b10b/keboola_vcr-0.3.0.tar.gz", hash = "sha256:8bd74d010e991c48d1faaf505017a60008720f0ee57bdee6a9546987a502f6bd", size = 29000, upload-time = "2026-03-19T16:19:48.912Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/fd/38fdd367b90cb412b29d6f65646a9d91a78c7c163e3f5700f20d4a90f34a/keboola_vcr-0.3.0-py3-none-any.whl", hash = "sha256:162bb5c844fecc95fb1bc4a1b3054987835be887edda131806793e1b9019f1cc", size = 31641, upload-time = "2026-03-19T16:19:48.047Z" },
 ]
 
 [[package]]

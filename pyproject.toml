@@ -25,10 +25,6 @@ dev = [
     "ruff>=0.15.0",
 ]
 
-[tool.uv]
-override-dependencies = [
-    "keboola-vcr @ git+https://github.com/keboola/python-vcr-tests@add-sanitizers-from-component",
-]
 
 [tool.ruff]
 line-length = 120

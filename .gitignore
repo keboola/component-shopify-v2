@@ -9,4 +9,12 @@ __pycache__/
 venv
 
 # kbc datafolder
-data
+/data
+
+# test secrets (never commit real credentials)
+secrets.json
+tests/secrets.json
+
+# functional test data (generated during recording)
+tests/functional/*/source/data/out/
+tests/functional/*/source/data/in/

@@ -9,15 +9,29 @@ from collections import OrderedDict, defaultdict
 from pathlib import Path
 from typing import Any
 
-import dateparser
 import duckdb
 from keboola.component.base import ComponentBase
 from keboola.component.dao import BaseType, ColumnDefinition, SupportedDataTypes
 from keboola.component.exceptions import UserException
+from keboola.utils.date import parse_datetime_interval
+from keboola.vcr.sanitizers import QueryParamSanitizer
 
 from configuration import PRODUCTS_ENDPOINTS, Configuration
 from shopify_cli.auth import ShopifyTokenManager
 from shopify_cli.client import BulkOperationResult, ShopifyGraphQLClient
+
+# ---------------------------------------------------------------------------
+# VCR sanitizers — auto-discovered by keboola.datadirtest and platform debug jobs.
+# Redacts short-lived GCS signed URL credentials (GoogleAccessId, Signature, Expires)
+# that Shopify returns as bulk operation download links.
+# ---------------------------------------------------------------------------
+
+VCR_SANITIZERS = [
+    QueryParamSanitizer(
+        parameters=["GoogleAccessId", "Expires", "Signature"],
+        replacement="REDACTED",
+    )
+]
 
 
 class Component(ComponentBase):
@@ -217,34 +231,23 @@ class Component(ComponentBase):
         except Exception as e:
             self.logger.warning(f"Failed to decompose object column {column_name}: {str(e)}")
 
-    def _parse_date_to_iso(self, date_str: str | None) -> str | None:
-        """
-        Parse date string (ISO format or relative like '1 week ago') to ISO format for Shopify API
-
-        Args:
-            date_str: Date string in ISO format (YYYY-MM-DD) or relative format ('1 week ago', 'now', etc.)
-
-        Returns:
-            ISO formatted date string (YYYY-MM-DD) or None if input is None
-        """
-        if not date_str:
-            return None
-
-        date_str = date_str.strip()
-
+    def _parse_loading_option_dates(self, date_since: str | None, date_to: str | None) -> tuple[str | None, str | None]:
+        """Parse date_since and date_to using keboola.utils parse_datetime_interval."""
+        if not date_since and not date_to:
+            return None, None
         try:
-            parsed_date = dateparser.parse(date_str)
-
-            if parsed_date is None:
-                raise UserException(
-                    f"Could not parse date '{date_str}'. Please use ISO format (YYYY-MM-DD) or relative format "
-                    "like '1 week ago', 'now', etc."
-                )
-
-            return parsed_date.strftime(r"%Y-%m-%d")
-
+            start, end = parse_datetime_interval(
+                period_from=date_since or "1970-01-01",
+                period_to=date_to or "now",
+                strformat="%Y-%m-%d",
+            )
         except Exception as e:
-            raise UserException(f"Invalid date format '{date_str}': {str(e)}")
+            bad = date_since if date_since else date_to
+            raise UserException(
+                f"Could not parse date '{bad}'. Please use ISO format (YYYY-MM-DD) or relative format "
+                "like '1 week ago', 'now', etc."
+            ) from e
+        return (start if date_since else None), (end if date_to else None)
 
     def _resolve_access_token(self, params: Configuration) -> str:
         """Resolve the access token based on auth mode.
@@ -315,7 +318,7 @@ class Component(ComponentBase):
             self.logger.info(f"Processing {len(params.custom_queries)} custom bulk queries")
             for custom_query in params.custom_queries:
                 self.logger.info(f"Processing custom bulk query: {custom_query.name}")
-                self._process_custom_query(client, custom_query)
+                self._process_custom_query(client, custom_query, params)
 
         self.logger.info("Data extraction completed successfully")
 
@@ -353,10 +356,13 @@ class Component(ComponentBase):
         """Extract orders data using DuckDB (legacy one-by-one method)"""
         self.logger.info("Extracting orders data (legacy method)")
 
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
         all_orders = []
         for batch in client.get_orders(
-            date_since=self._parse_date_to_iso(params.loading_options.date_since),
-            date_to=self._parse_date_to_iso(params.loading_options.date_to),
+            date_since=date_since,
+            date_to=date_to,
             batch_size=params.batch_size,
         ):
             all_orders.extend(batch)
@@ -374,11 +380,14 @@ class Component(ComponentBase):
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
             temp_jsonl = tmp.name
 
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
         result = client.get_orders_bulk(
             temp_jsonl,
             include_transactions=params.endpoints.order_transactions,
-            date_since=self._parse_date_to_iso(params.loading_options.date_since),
-            date_to=self._parse_date_to_iso(params.loading_options.date_to),
+            date_since=date_since,
+            date_to=date_to,
             fetch_parameter=params.loading_options.fetch_parameter,
         )
 
@@ -426,13 +435,16 @@ class Component(ComponentBase):
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
             temp_jsonl = tmp.name
 
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
         result = client.get_products_bulk(
             temp_jsonl,
             status=status_filter,
             include_product_metafields=params.endpoints.product_metafields,
             include_variant_metafields=params.endpoints.variant_metafields,
-            date_since=self._parse_date_to_iso(params.loading_options.date_since),
-            date_to=self._parse_date_to_iso(params.loading_options.date_to),
+            date_since=date_since,
+            date_to=date_to,
             fetch_parameter=params.loading_options.fetch_parameter,
         )
 
@@ -507,10 +519,13 @@ class Component(ComponentBase):
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
             temp_jsonl = tmp.name
 
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
         result = client.get_customers_bulk(
             temp_jsonl,
-            date_since=self._parse_date_to_iso(params.loading_options.date_since),
-            date_to=self._parse_date_to_iso(params.loading_options.date_to),
+            date_since=date_since,
+            date_to=date_to,
             fetch_parameter=params.loading_options.fetch_parameter,
         )
 
@@ -530,10 +545,13 @@ class Component(ComponentBase):
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
             temp_jsonl = tmp.name
 
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
         result = client.get_inventory_bulk(
             temp_jsonl,
-            date_since=self._parse_date_to_iso(params.loading_options.date_since),
-            date_to=self._parse_date_to_iso(params.loading_options.date_to),
+            date_since=date_since,
+            date_to=date_to,
             fetch_parameter=params.loading_options.fetch_parameter,
         )
 
@@ -585,10 +603,13 @@ class Component(ComponentBase):
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
             temp_jsonl = tmp.name
 
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
         result = client.get_events_bulk(
             temp_jsonl,
-            date_since=self._parse_date_to_iso(params.loading_options.date_since),
-            date_to=self._parse_date_to_iso(params.loading_options.date_to),
+            date_since=date_since,
+            date_to=date_to,
         )
 
         if result.item_count > 0:
@@ -928,14 +949,23 @@ class Component(ComponentBase):
         else:
             return SupportedDataTypes.STRING
 
-    def _process_custom_query(self, client: ShopifyGraphQLClient, custom_query):
+    def _process_custom_query(self, client: ShopifyGraphQLClient, custom_query, params: Configuration):
         """Process a custom GraphQL bulk query"""
         self.logger.info(f"Executing custom bulk query: {custom_query.name}")
+
+        query = custom_query.query
+
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
+        query = query.replace("{{ period_start_date }}", date_since or "")
+        query = query.replace("{{ period_end_date }}", date_to or "")
+        query = query.replace("{{ fetch_parameter }}", params.loading_options.fetch_parameter)
 
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
             temp_jsonl = tmp.name
 
-        result = client.execute_custom_bulk_query(custom_query.query, temp_jsonl)
+        result = client.execute_custom_bulk_query(query, temp_jsonl)
 
         if result.item_count > 0:
             self._process_bulk_custom(result, custom_query.name)

@@ -67,10 +67,12 @@ class ShopifyTokenManager:
             Dict with token data suitable for state file storage.
         """
         return {
-            KEY_STATE_TOKEN: json.dumps({
-                "access_token": self._access_token,
-                "expires_at": self._expires_at,
-            }),
+            KEY_STATE_TOKEN: json.dumps(
+                {
+                    "access_token": self._access_token,
+                    "expires_at": self._expires_at,
+                }
+            ),
         }
 
     def _acquire_token(self) -> None:
@@ -94,8 +96,7 @@ class ShopifyTokenManager:
 
             if response.status_code == 404:
                 raise UserException(
-                    f"Shopify store '{self.store_name}' not found. "
-                    "Please verify the store name is correct."
+                    f"Shopify store '{self.store_name}' not found. Please verify the store name is correct."
                 )
 
             response.raise_for_status()
@@ -107,8 +108,7 @@ class ShopifyTokenManager:
             self._expires_at = time.time() + expires_in - 300
 
             logger.info(
-                f"Acquired new access token (expires in {expires_in}s, "
-                f"scope: {token_data.get('scope', 'unknown')})"
+                f"Acquired new access token (expires in {expires_in}s, scope: {token_data.get('scope', 'unknown')})"
             )
 
         except requests.exceptions.ConnectionError as e:

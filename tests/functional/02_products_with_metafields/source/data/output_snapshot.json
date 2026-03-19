@@ -1,0 +1,94 @@
+{
+  "files": {},
+  "hash_algorithm": "sha256",
+  "tables": {
+    "metafield.csv": {
+      "columns": [
+        "id",
+        "description",
+        "created_at",
+        "updated_at",
+        "parent_id",
+        "namespace",
+        "key",
+        "value",
+        "type"
+      ],
+      "hash": "sha256:a95f7b7cf0a4cb53ccfa7e90d59aaa257385bce894b6802813f912f54db753c6",
+      "row_count": 2,
+      "size_bytes": 302
+    },
+    "metafield.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:fd39aaebb596b8f7d877627bc5dbc2491ebb650d9e18743dd7624c30959b1546",
+      "row_count": null,
+      "size_bytes": 3985
+    },
+    "product.csv": {
+      "columns": [
+        "id",
+        "title",
+        "handle",
+        "description",
+        "vendor",
+        "product_type",
+        "tags",
+        "status",
+        "created_at",
+        "updated_at",
+        "published_at",
+        "total_inventory"
+      ],
+      "hash": "sha256:d577f1ac6fbcb9472acc5f4772ad7aeb38855bd5d9d3d795ac868c037e994101",
+      "row_count": 10,
+      "size_bytes": 2181
+    },
+    "product.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:9ae39fe0049f16166ff03622f55b4a0a5da22c1d4adcc32b1c4a9d5c2b0af841",
+      "row_count": null,
+      "size_bytes": 4012
+    },
+    "product_image.csv": {
+      "columns": [
+        "id",
+        "parent_id",
+        "url",
+        "alt_text",
+        "width",
+        "height"
+      ],
+      "hash": "sha256:6f22afda508a857472c578de6cf4ba18a471fa30fe34960ffb005ab3cf7e6c8c",
+      "row_count": 11,
+      "size_bytes": 3413
+    },
+    "product_image.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:fd39aaebb596b8f7d877627bc5dbc2491ebb650d9e18743dd7624c30959b1546",
+      "row_count": null,
+      "size_bytes": 3985
+    },
+    "product_variant.csv": {
+      "columns": [
+        "id",
+        "title",
+        "sku",
+        "barcode",
+        "price",
+        "compare_at_price",
+        "inventory_quantity",
+        "parent_id"
+      ],
+      "hash": "sha256:73590e1c8fda322a772323cabd070207727a2e1ced7120d86b9fcd37901631f2",
+      "row_count": 15,
+      "size_bytes": 1794
+    },
+    "product_variant.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:fd39aaebb596b8f7d877627bc5dbc2491ebb650d9e18743dd7624c30959b1546",
+      "row_count": null,
+      "size_bytes": 3985
+    }
+  },
+  "version": "1.0"
+}

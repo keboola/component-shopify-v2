@@ -1,0 +1,3 @@
+"id","name","address","is_active","is_primary","is_fulfillment_service","fulfillment_service"
+"gid://shopify/Location/95584289053","My Custom Location","{""address1"":""123 Main St"",""address2"":null,""city"":""Toronto"",""province"":""Ontario"",""country"":""Canada"",""zip"":""A1A 1A1"",""phone"":""555-5555""}","true","false","false",
+"gid://shopify/Location/95584256285","Shop location","{""address1"":null,""address2"":null,""city"":null,""province"":null,""country"":""Czech Republic"",""zip"":null,""phone"":null}","true","true","false",

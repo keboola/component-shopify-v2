@@ -1,0 +1,2 @@
+"id","description","created_at","updated_at","parent_id","namespace","key","value","type"
+"gid://shopify/Metafield/31481770377501",,"2024-01-23 15:07:21","2024-01-23 15:07:21","gid://shopify/Product/8982895984925","test_data","snowboard_length","{""value"":159.0,""unit"":""CENTIMETERS""}","dimension"

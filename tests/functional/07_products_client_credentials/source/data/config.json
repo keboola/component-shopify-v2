@@ -1,0 +1,16 @@
+{
+  "parameters": {
+    "#client_id": "DUMMY_CLIENT_ID",
+    "#client_secret": "DUMMY_CLIENT_SECRET",
+    "store_name": "keboola-dummy",
+    "endpoints": {
+      "products": true
+    },
+    "loading_options": {
+      "date_since": "2024-05-01",
+      "date_to": "2025-05-01",
+      "fetch_parameter": "updated_at",
+      "incremental_output": 1
+    }
+  }
+}

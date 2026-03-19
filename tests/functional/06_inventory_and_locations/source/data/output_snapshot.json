@@ -1,0 +1,48 @@
+{
+  "files": {},
+  "hash_algorithm": "sha256",
+  "tables": {
+    "location.csv": {
+      "columns": [
+        "id",
+        "name",
+        "address",
+        "is_active",
+        "is_primary",
+        "is_fulfillment_service",
+        "fulfillment_service"
+      ],
+      "hash": "sha256:6f36fc8daeb60ed077087615af04e7324c378dddf7a3dc9e8473bf30a248890f",
+      "row_count": 3,
+      "size_bytes": 546
+    },
+    "location.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:9ac406da4426209263771b92cf6b925eca3843e2081081724a7b3995f3731f0d",
+      "row_count": null,
+      "size_bytes": 1234
+    },
+    "location_address.csv": {
+      "columns": [
+        "parent_id",
+        "address1",
+        "address2",
+        "city",
+        "province",
+        "country",
+        "zip",
+        "phone"
+      ],
+      "hash": "sha256:7a9f0e2c94f4b44fc4294b13286e30ae6ad5b3497bae692cab5d047d85c7648f",
+      "row_count": 3,
+      "size_bytes": 238
+    },
+    "location_address.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:766282a4628d33aa6693b9be05c9b57e5b63be7d0df8762792d6ba8b4b607fd4",
+      "row_count": null,
+      "size_bytes": 1349
+    }
+  },
+  "version": "1.0"
+}

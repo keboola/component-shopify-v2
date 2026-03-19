@@ -11,21 +11,21 @@
       "type": "string",
       "title": "Admin API access token",
       "format": "password",
-      "description": "Admin API access token of your Shopify custom app. Required if Client ID and Client Secret are not provided.",
+      "description": "Admin API access token of your Shopify legacy custom app. Required if Client ID and Client Secret are not provided.",
       "propertyOrder": 0
     },
     "#client_id": {
       "type": "string",
-      "title": "Client ID (Dev Dashboard)",
+      "title": "Client ID (Dev Dashboard App)",
       "format": "password",
-      "description": "Client ID from your Shopify Dev Dashboard app. Used together with Client Secret for apps that use short-lived (24h) tokens.",
+      "description": "Client ID from your Shopify Dev Dashboard app.",
       "propertyOrder": 1
     },
     "#client_secret": {
       "type": "string",
-      "title": "Client Secret (Dev Dashboard)",
+      "title": "Client Secret (Dev Dashboard App)",
       "format": "password",
-      "description": "Client Secret from your Shopify Dev Dashboard app. Used together with Client ID for apps that use short-lived (24h) tokens.",
+      "description": "Client Secret from your Shopify Dev Dashboard app.",
       "propertyOrder": 2
     },
     "store_name": {

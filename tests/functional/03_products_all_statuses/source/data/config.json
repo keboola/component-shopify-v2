@@ -1,0 +1,18 @@
+{
+  "parameters": {
+    "#api_token": "DUMMY_TOKEN",
+    "store_name": "keboola-dummy",
+    "endpoints": {
+      "products": true,
+      "products_drafts": true,
+      "products_archived": true,
+      "products_unlisted": true
+    },
+    "loading_options": {
+      "date_since": "2024-05-01",
+      "date_to": "2025-05-01",
+      "fetch_parameter": "updated_at",
+      "incremental_output": 0
+    }
+  }
+}

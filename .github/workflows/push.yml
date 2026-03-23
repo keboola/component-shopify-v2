@@ -127,9 +127,9 @@ jobs:
         run: |
           docker load --input /tmp/${{ env.KBC_DEVELOPERPORTAL_APP }}.tar
           docker image ls -a
-          docker run ${{ env.KBC_DEVELOPERPORTAL_APP }}:latest flake8 .
-          echo "Running unit-tests..."
-          docker run ${{ env.KBC_DEVELOPERPORTAL_APP }}:latest python -m unittest discover
+          docker run ${{ env.KBC_DEVELOPERPORTAL_APP }}:latest ruff check
+          echo "Running tests..."
+          docker run ${{ env.KBC_DEVELOPERPORTAL_APP }}:latest python -m pytest tests/ --tb=short -q
 
   tests-kbc:
     name: Run KBC Tests

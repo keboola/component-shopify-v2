@@ -69,7 +69,11 @@ class Endpoints(BaseModel):
 class Configuration(BaseModel):
     store_name: str = Field(..., description="Shopify store name (without .myshopify.com)")
     api_version: str = Field(default="2025-10", description="Shopify API version")
-    api_token: str = Field(alias="#api_token", description="Shopify Admin API access token")
+    api_token: str = Field(default="", alias="#api_token", description="Shopify Admin API access token")
+    client_id: str = Field(default="", alias="#client_id", description="Shopify app Client ID (Dev Dashboard)")
+    client_secret: str = Field(
+        default="", alias="#client_secret", description="Shopify app Client Secret (Dev Dashboard)"
+    )
     endpoints: Endpoints = Field(default_factory=Endpoints, description="Endpoints configuration")
     events: list[dict] = Field(default_factory=list, description="Events configuration")
     custom_queries: list[CustomQuery] = Field(default_factory=list, description="Custom GraphQL bulk operations")
@@ -89,11 +93,23 @@ class Configuration(BaseModel):
         if self.debug:
             logging.debug("Component will run in Debug mode")
 
+        # Validate that at least one auth method is provided
+        if not self.api_token and not self.uses_client_credentials:
+            raise UserException(
+                "Authentication not configured. Provide either an Admin API access token (#api_token) "
+                "or Client ID and Client Secret (#client_id + #client_secret) for Dev Dashboard apps."
+            )
+
+    @property
+    def uses_client_credentials(self) -> bool:
+        """Check if the configuration uses client credentials auth (Dev Dashboard apps)."""
+        return bool(self.client_id and self.client_secret)
+
     @field_validator("api_token")
     def validate_api_token(cls, v):
-        if not v or len(v.strip()) == 0:
-            raise UserException("API token cannot be empty")
-        return v.strip()
+        if v:
+            return v.strip()
+        return v
 
     @field_validator("store_name")
     def validate_store_name(cls, v):

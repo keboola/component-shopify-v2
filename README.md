@@ -186,9 +186,6 @@ The component requires the following Python packages:
 - `requests>=2.31.0` - HTTP client
 - `dateparser>=1.2.0` - Flexible date parsing (ISO and relative formats)
 
-Development dependencies:
-- `flake8>=7.3.0` - Code linting
-
 Development
 -----------
 

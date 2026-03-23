@@ -1,0 +1,163 @@
+[
+  {
+    "name": "01_products_api_token",
+    "description": "Extract active products using static API token",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "products": true
+        },
+        "loading_options": {
+          "date_since": "2024-05-01",
+          "date_to": "2025-05-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "02_products_with_metafields",
+    "description": "Extract active products with product and variant metafields",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "products": true,
+          "product_metafields": true,
+          "variant_metafields": true
+        },
+        "loading_options": {
+          "date_since": "2024-05-01",
+          "date_to": "2025-05-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "03_products_all_statuses",
+    "description": "Extract products in all statuses (active, draft, archived, unlisted)",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "products": true,
+          "products_drafts": true,
+          "products_archived": true,
+          "products_unlisted": true
+        },
+        "loading_options": {
+          "date_since": "2024-05-01",
+          "date_to": "2025-05-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 0
+        }
+      }
+    }
+  },
+  {
+    "name": "04_orders_api_token",
+    "description": "Extract orders using static API token",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true
+        },
+        "loading_options": {
+          "date_since": "2020-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "05_orders_with_transactions",
+    "description": "Extract orders including transaction details",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true,
+          "order_transactions": true
+        },
+        "loading_options": {
+          "date_since": "2020-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "created_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "06_inventory_and_locations",
+    "description": "Extract inventory items and locations",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "inventory": true,
+          "locations": true
+        },
+        "loading_options": {
+          "date_since": "2024-05-01",
+          "date_to": "2025-05-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "07_products_client_credentials",
+    "description": "Extract active products using Dev Dashboard client credentials auth",
+    "config": {
+      "parameters": {
+        "#client_id": "DUMMY_CLIENT_ID",
+        "#client_secret": "DUMMY_CLIENT_SECRET",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "products": true
+        },
+        "loading_options": {
+          "date_since": "2024-05-01",
+          "date_to": "2025-05-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "08_orders_client_credentials",
+    "description": "Extract orders using Dev Dashboard client credentials auth",
+    "config": {
+      "parameters": {
+        "#client_id": "DUMMY_CLIENT_ID",
+        "#client_secret": "DUMMY_CLIENT_SECRET",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true
+        },
+        "loading_options": {
+          "date_since": "2020-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  }
+]

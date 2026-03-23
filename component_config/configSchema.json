@@ -2,7 +2,6 @@
   "type": "object",
   "title": "extractor configuration",
   "required": [
-    "#api_token",
     "store_name",
     "loading_options",
     "endpoints"
@@ -12,8 +11,22 @@
       "type": "string",
       "title": "Admin API access token",
       "format": "password",
-      "description": "Admin API access token of your Shopify custom app.",
+      "description": "Admin API access token of your Shopify legacy custom app. Required if Client ID and Client Secret are not provided.",
       "propertyOrder": 0
+    },
+    "#client_id": {
+      "type": "string",
+      "title": "Client ID (Dev Dashboard App)",
+      "format": "password",
+      "description": "Client ID from your Shopify Dev Dashboard app.",
+      "propertyOrder": 1
+    },
+    "#client_secret": {
+      "type": "string",
+      "title": "Client Secret (Dev Dashboard App)",
+      "format": "password",
+      "description": "Client Secret from your Shopify Dev Dashboard app.",
+      "propertyOrder": 2
     },
     "store_name": {
       "type": "string",
@@ -249,7 +262,7 @@
             "options": {
               "input_height": "300px"
             },
-            "description": "The GraphQL bulk operation mutation. Must be in format: mutation { bulkOperationRunQuery(query: \"\"\"...\"\"\") { bulkOperation { id status } userErrors { field message } } }. See documentation for examples.",
+            "description": "The GraphQL bulk operation mutation. Must be in format: mutation { bulkOperationRunQuery(query: \"\"\"...\"\"\") { bulkOperation { id status } userErrors { field message } } }.\nYou can use these placeholders to inject values from <b>Loading Options</b>:\n<ul>\n  <li><code>{{ period_start_date }}</code> — Period start date (from <em>Period start date</em> field, e.g. <code>2026-03-12</code>)</li>\n  <li><code>{{ period_end_date }}</code> — Period end date (from <em>Period end date</em> field, e.g. <code>2026-03-19</code>)</li>\n  <li><code>{{ fetch_parameter }}</code> — Fetch parameter field (e.g. <code>created_at</code> or <code>updated_at</code>)</li>\n</ul>\nExample filter: <code>orders(query: \"{{ fetch_parameter }}:&gt;='{{ period_start_date }}' AND {{ fetch_parameter }}:&lt;'{{ period_end_date }}'\")</code>",
             "propertyOrder": 190
           }
         }

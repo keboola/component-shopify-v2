@@ -1,11 +1,49 @@
 import os
 import unittest
+from unittest import mock
 
-import mock
 from freezegun import freeze_time
 
 from component import Component
 from configuration import Configuration
+
+
+class TestParseLoadingOptionDates(unittest.TestCase):
+    def setUp(self):
+        with (
+            mock.patch.dict(os.environ, {"KBC_DATADIR": "/tmp"}),
+            mock.patch("component.Component.__init__", return_value=None),
+        ):
+            self.comp = Component.__new__(Component)
+
+    @freeze_time("2026-03-19")
+    def test_both_none_returns_none_tuple(self):
+        result = self.comp._parse_loading_option_dates(None, None)
+        self.assertEqual(result, (None, None))
+
+    @freeze_time("2026-03-19")
+    def test_absolute_dates(self):
+        start, end = self.comp._parse_loading_option_dates("2026-03-12", "2026-03-19")
+        self.assertEqual(start, "2026-03-12")
+        self.assertEqual(end, "2026-03-19")
+
+    @freeze_time("2026-03-19")
+    def test_relative_date_since(self):
+        start, end = self.comp._parse_loading_option_dates("1 week ago", "now")
+        self.assertEqual(start, "2026-03-12")
+        self.assertEqual(end, "2026-03-19")
+
+    @freeze_time("2026-03-19")
+    def test_only_date_since_set(self):
+        start, end = self.comp._parse_loading_option_dates("2026-01-01", None)
+        self.assertEqual(start, "2026-01-01")
+        self.assertIsNone(end)
+
+    @freeze_time("2026-03-19")
+    def test_only_date_to_set(self):
+        start, end = self.comp._parse_loading_option_dates(None, "2026-03-19")
+        self.assertIsNone(start)
+        self.assertEqual(end, "2026-03-19")
 
 
 class TestComponent(unittest.TestCase):

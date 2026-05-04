@@ -10,6 +10,10 @@ mutation {
             tracked
             createdAt
             updatedAt
+            unitCost {
+              amount
+              currencyCode
+            }
             variant {
               id
               title

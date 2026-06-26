@@ -20,6 +20,10 @@ from configuration import PRODUCTS_ENDPOINTS, Configuration
 from shopify_cli.auth import ShopifyTokenManager
 from shopify_cli.client import BulkOperationResult, ShopifyGraphQLClient
 
+# Maximum nesting depth for JSON column decomposition.
+# Level 0 = top-level table children, level 1 = grandchildren, etc.
+MAX_DECOMPOSITION_DEPTH = 3
+
 # ---------------------------------------------------------------------------
 # VCR sanitizers — auto-discovered by keboola.datadirtest and platform debug jobs.
 # Redacts short-lived GCS signed URL credentials (GoogleAccessId, Signature, Expires)
@@ -102,11 +106,16 @@ class Component(ComponentBase):
 
         return normalized_table
 
-    def _decompose_json_columns(self, table_name: str, normalized_table: str):
+    def _decompose_json_columns(self, table_name: str, normalized_table: str, depth: int = 0):
         """
         Decompose JSON columns into separate child tables with proper relationships.
         Arrays become separate rows, objects become separate tables with 1:1 relationship.
+        Recurses into child tables up to MAX_DECOMPOSITION_DEPTH.
         """
+        if depth >= MAX_DECOMPOSITION_DEPTH:
+            self.logger.debug(f"Skipping decomposition of {table_name}: max depth {MAX_DECOMPOSITION_DEPTH} reached")
+            return
+
         columns_info = self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()
         primary_key_col = "id"
 
@@ -130,11 +139,13 @@ class Component(ComponentBase):
             sample_value = sample[0]
 
             if isinstance(sample_value, list):
-                self._create_array_child_table(table_name, col_name, snake_col_name, primary_key_col)
+                self._create_array_child_table(table_name, col_name, snake_col_name, primary_key_col, depth)
             elif isinstance(sample_value, dict):
-                self._create_object_child_table(table_name, col_name, snake_col_name, primary_key_col)
+                self._create_object_child_table(table_name, col_name, snake_col_name, primary_key_col, depth)
 
-    def _create_array_child_table(self, parent_table: str, column_name: str, snake_col_name: str, parent_pk: str):
+    def _create_array_child_table(
+        self, parent_table: str, column_name: str, snake_col_name: str, parent_pk: str, depth: int = 0
+    ):
         """Create a child table for array/list JSON columns"""
         child_table_name = f"{parent_table}_{snake_col_name}"
 
@@ -182,6 +193,7 @@ class Component(ComponentBase):
 
             normalized_child = self._normalize_table(child_table_name)
             self._export_table_with_manifest(child_table_name, normalized_child)
+            self._decompose_json_columns(child_table_name, normalized_child, depth + 1)
 
             if not self.params.debug and normalized_child != child_table_name:
                 self.conn.execute(f'DROP TABLE IF EXISTS "{child_table_name}"')
@@ -191,7 +203,9 @@ class Component(ComponentBase):
         except Exception as e:
             self.logger.warning(f"Failed to decompose array column {column_name}: {str(e)}")
 
-    def _create_object_child_table(self, parent_table: str, column_name: str, snake_col_name: str, parent_pk: str):
+    def _create_object_child_table(
+        self, parent_table: str, column_name: str, snake_col_name: str, parent_pk: str, depth: int = 0
+    ):
         """Create a child table for object JSON columns"""
         child_table_name = f"{parent_table}_{snake_col_name}"
 
@@ -222,6 +236,7 @@ class Component(ComponentBase):
 
             normalized_child = self._normalize_table(child_table_name)
             self._export_table_with_manifest(child_table_name, normalized_child)
+            self._decompose_json_columns(child_table_name, normalized_child, depth + 1)
 
             if not self.params.debug and normalized_child != child_table_name:
                 self.conn.execute(f'DROP TABLE IF EXISTS "{child_table_name}"')
@@ -386,6 +401,7 @@ class Component(ComponentBase):
         result = client.get_orders_bulk(
             temp_jsonl,
             include_transactions=params.endpoints.order_transactions,
+            include_refunds=params.endpoints.order_refunds,
             date_since=date_since,
             date_to=date_to,
             fetch_parameter=params.loading_options.fetch_parameter,
@@ -902,6 +918,12 @@ class Component(ComponentBase):
             "inventory_level": ["parent_id", "id"],
             "location": ["id"],
             "event": ["id"],
+            # Refund tables (from order decomposition)
+            "order_refunds": ["parent_id", "id"],
+            "order_refunds_order_adjustments": ["parent_id", "id"],
+            "order_refunds_transactions": ["parent_id", "id"],
+            # Refund entity tables (from bulk JSONL entity splitting)
+            "refund_line_item": ["parent_id", "id"],
         }
 
         if table_name in primary_keys:

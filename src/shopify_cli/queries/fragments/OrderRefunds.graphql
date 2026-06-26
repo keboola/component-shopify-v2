@@ -1,0 +1,142 @@
+refunds {
+  id
+  createdAt
+  updatedAt
+  note
+  totalRefundedSet {
+    shopMoney {
+      amount
+      currencyCode
+    }
+    presentmentMoney {
+      amount
+      currencyCode
+    }
+  }
+  return {
+    id
+  }
+  staffMember {
+    id
+  }
+  refundLineItems {
+    edges {
+      node {
+        lineItem {
+          id
+        }
+        quantity
+        restockType
+        subtotalSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {
+            amount
+            currencyCode
+          }
+        }
+        totalTaxSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {
+            amount
+            currencyCode
+          }
+        }
+        priceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {
+            amount
+            currencyCode
+          }
+        }
+        location {
+          id
+        }
+      }
+    }
+  }
+  orderAdjustments {
+    id
+    reason
+    amountSet {
+      shopMoney {
+        amount
+        currencyCode
+      }
+      presentmentMoney {
+        amount
+        currencyCode
+      }
+    }
+    taxAmountSet {
+      shopMoney {
+        amount
+        currencyCode
+      }
+      presentmentMoney {
+        amount
+        currencyCode
+      }
+    }
+  }
+  refundShippingLines {
+    edges {
+      node {
+        shippingLine {
+          id
+        }
+        subtotalAmountSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {
+            amount
+            currencyCode
+          }
+        }
+        taxAmountSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {
+            amount
+            currencyCode
+          }
+        }
+      }
+    }
+  }
+  transactions {
+    id
+    kind
+    status
+    test
+    amountSet {
+      shopMoney {
+        amount
+        currencyCode
+      }
+      presentmentMoney {
+        amount
+        currencyCode
+      }
+    }
+    gateway
+    formattedGateway
+    createdAt
+    processedAt
+    errorCode
+    authorizationCode
+    authorizationExpiresAt
+  }
+}

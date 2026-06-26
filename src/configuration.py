@@ -4,7 +4,7 @@ from keboola.component.exceptions import UserException
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 PRODUCTS_ENDPOINTS = {"products", "products_drafts", "products_archived", "products_unlisted"}
-EXCLUDE_FROM_ENDPOINTS = {"product_metafields", "variant_metafields", "order_transactions"}
+EXCLUDE_FROM_ENDPOINTS = {"product_metafields", "variant_metafields", "order_transactions", "order_refunds"}
 
 
 class CustomQuery(BaseModel):
@@ -45,6 +45,7 @@ class Endpoints(BaseModel):
     variant_metafields: bool = False
     orders: bool = False
     order_transactions: bool = False
+    order_refunds: bool = False
     customers: bool = False
     inventory: bool = False
 

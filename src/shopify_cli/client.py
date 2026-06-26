@@ -503,6 +503,7 @@ class ShopifyGraphQLClient:
         self,
         temp_file_path: str,
         include_transactions: bool = False,
+        include_refunds: bool = False,
         date_since: str | None = None,
         date_to: str | None = None,
         fetch_parameter: str = "updated_at",
@@ -513,6 +514,7 @@ class ShopifyGraphQLClient:
         Args:
             temp_file_path: Path where JSONL results will be saved
             include_transactions: Whether to include order transactions in the response
+            include_refunds: Whether to include order refunds in the response
             date_since: Start date for filtering (YYYY-MM-DD format)
             date_to: End date for filtering (YYYY-MM-DD format)
             fetch_parameter: Field to filter by ('updated_at' or 'created_at')
@@ -552,6 +554,14 @@ class ShopifyGraphQLClient:
             mutation = mutation.replace("__TRANSACTIONS_PLACEHOLDER__", transactions_fragment)
         else:
             mutation = mutation.replace("__TRANSACTIONS_PLACEHOLDER__", "")
+
+        if include_refunds:
+            refunds_fragment_file = self.query_loader.queries_dir / "fragments" / "OrderRefunds.graphql"
+            with open(refunds_fragment_file) as f:
+                refunds_fragment = f.read()
+            mutation = mutation.replace("__REFUNDS_PLACEHOLDER__", refunds_fragment)
+        else:
+            mutation = mutation.replace("__REFUNDS_PLACEHOLDER__", "")
 
         if query_filter:
             mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')

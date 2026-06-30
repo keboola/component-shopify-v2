@@ -338,6 +338,7 @@ class Component(ComponentBase):
             "customers_legacy": self._extract_customers_legacy,
             "inventory": self._extract_inventory_bulk,
             "inventory_legacy": self._extract_inventory_levels,
+            "collections": self._extract_collections_bulk,
             "locations": self._extract_locations_bulk,
             "events": self._extract_events,
         }
@@ -581,6 +582,32 @@ class Component(ComponentBase):
 
     def _process_bulk_locations(self, bulk_result: BulkOperationResult):
         self._process_bulk_result(bulk_result, "location")
+
+    def _extract_collections_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract collections using Shopify bulk operations"""
+        self.logger.info("Extracting collections using bulk operations")
+
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+            temp_jsonl = tmp.name
+
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
+        result = client.get_collections_bulk(
+            temp_jsonl,
+            date_since=date_since,
+            date_to=date_to,
+            fetch_parameter=params.loading_options.fetch_parameter,
+        )
+
+        if result.item_count > 0:
+            self._process_bulk_collections(result)
+        else:
+            self.logger.info("No collections found")
+            Path(result.file_path).unlink(missing_ok=True)
+
+    def _process_bulk_collections(self, bulk_result: BulkOperationResult):
+        self._process_bulk_result(bulk_result, "collection")
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory levels data using DuckDB"""
@@ -906,6 +933,7 @@ class Component(ComponentBase):
             "inventory": ["id"],
             "inventory_item": ["id"],
             "inventory_level": ["parent_id", "id"],
+            "collection": ["id"],
             "location": ["id"],
             "event": ["id"],
         }

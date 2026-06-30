@@ -1,0 +1,134 @@
+{
+  "_metadata": {
+    "freeze_time": "2026-06-30T12:00:00",
+    "keboola_vcr_version": "0.0.0",
+    "recorded_at": "2026-06-30T12:00:00.000000+00:00"
+  },
+  "interactions": [
+    {
+      "request": {
+        "body": "grant_type=client_credentials&client_id=REDACTED&client_secret=REDACTED",
+        "headers": {
+          "Accept": [
+            "*/*"
+          ],
+          "Content-Length": [
+            "125"
+          ],
+          "Content-Type": [
+            "application/x-www-form-urlencoded"
+          ]
+        },
+        "method": "POST",
+        "uri": "https://keboola-dummy.myshopify.com/admin/oauth/access_token"
+      },
+      "response": {
+        "body": {
+          "string": "{\"access_token\": \"REDACTED\", \"scope\": \"read_products,read_orders\", \"expires_in\": 86400}"
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "content-length": [
+            "100"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        }
+      }
+    },
+    {
+      "request": {
+        "body": "{\"query\": \"mutation {\\n  bulkOperationRunQuery(\\n    query: \\\"\\\"\\\"\\n    {\\n      collections(query: \\\"updated_at:>='2024-01-01' AND updated_at:<'2025-01-01'\\\") {\\n        edges {\\n          node {\\n            id\\n            title\\n            handle\\n            descriptionHtml\\n            sortOrder\\n            templateSuffix\\n            updatedAt\\n            productsCount {\\n              count\\n            }\\n            ruleSet {\\n              appliedDisjunctively\\n              rules {\\n                column\\n                condition\\n                relation\\n              }\\n            }\\n            products {\\n              edges {\\n                node {\\n                  id\\n                }\\n              }\\n            }\\n          }\\n        }\\n      }\\n    }\\n    \\\"\\\"\\\"\\n  ) {\\n    bulkOperation {\\n      id\\n      status\\n    }\\n    userErrors {\\n      field\\n      message\\n    }\\n  }\\n}\\n\", \"variables\": null, \"operationName\": null}",
+        "headers": {
+          "Accept": [
+            "application/json"
+          ],
+          "Content-Length": [
+            "972"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+      },
+      "response": {
+        "body": {
+          "string": "{\"data\": {\"bulkOperationRunQuery\": {\"bulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\", \"status\": \"CREATED\"}, \"userErrors\": []}}, \"extensions\": {\"cost\": {\"requestedQueryCost\": 10, \"actualQueryCost\": 10, \"throttleStatus\": {\"maximumAvailable\": 2000.0, \"currentlyAvailable\": 1990, \"restoreRate\": 100.0}}}}"
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        }
+      }
+    },
+    {
+      "request": {
+        "body": "{\"query\": \"query {\\n  currentBulkOperation {\\n    id\\n    status\\n    errorCode\\n    createdAt\\n    completedAt\\n    objectCount\\n    fileSize\\n    url\\n    partialDataUrl\\n  }\\n}\\n\", \"variables\": null, \"operationName\": null}",
+        "headers": {
+          "Accept": [
+            "application/json"
+          ],
+          "Content-Length": [
+            "225"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+      },
+      "response": {
+        "body": {
+          "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-06-30T12:00:00Z\", \"completedAt\": \"2026-06-30T12:00:01Z\", \"objectCount\": \"5\", \"fileSize\": \"898\", \"url\": \"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/collections-test-final?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-collections-test.jsonl%22%3B+filename%2A%3DUTF-8%27%27bulk-collections-test.jsonl&response-content-type=application%2Fjsonl\", \"partialDataUrl\": null}}, \"extensions\": {\"cost\": {\"requestedQueryCost\": 1, \"actualQueryCost\": 1, \"throttleStatus\": {\"maximumAvailable\": 2000.0, \"currentlyAvailable\": 1999, \"restoreRate\": 100.0}}}}"
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        }
+      }
+    },
+    {
+      "request": {
+        "body": null,
+        "headers": {},
+        "method": "GET",
+        "uri": "https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/collections-test-final?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-collections-test.jsonl%22%3B+filename%2A%3DUTF-8%27%27bulk-collections-test.jsonl&response-content-type=application%2Fjsonl"
+      },
+      "response": {
+        "body": {
+          "string": "{\"id\": \"gid://shopify/Collection/1001\", \"title\": \"Smart Sale\", \"handle\": \"smart-sale\", \"descriptionHtml\": \"<p>Smart collection</p>\", \"sortOrder\": \"BEST_SELLING\", \"templateSuffix\": null, \"updatedAt\": \"2024-06-01T10:00:00Z\", \"productsCount\": {\"count\": 2}, \"ruleSet\": {\"appliedDisjunctively\": true, \"rules\": [{\"column\": \"TAG\", \"condition\": \"sale\", \"relation\": \"EQUALS\"}]}}\n{\"id\": \"gid://shopify/Product/2001\", \"__parentId\": \"gid://shopify/Collection/1001\"}\n{\"id\": \"gid://shopify/Product/2002\", \"__parentId\": \"gid://shopify/Collection/1001\"}\n{\"id\": \"gid://shopify/Collection/1002\", \"title\": \"Custom Summer\", \"handle\": \"custom-summer\", \"descriptionHtml\": \"<p>Custom collection</p>\", \"sortOrder\": \"MANUAL\", \"templateSuffix\": \"custom\", \"updatedAt\": \"2024-07-15T14:30:00Z\", \"productsCount\": {\"count\": 1}, \"ruleSet\": null}\n{\"id\": \"gid://shopify/Product/2003\", \"__parentId\": \"gid://shopify/Collection/1002\"}\n"
+        },
+        "headers": {
+          "Content-Length": [
+            "898"
+          ],
+          "Content-Type": [
+            "application/jsonl"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

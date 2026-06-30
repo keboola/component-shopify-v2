@@ -48,6 +48,8 @@ class Endpoints(BaseModel):
     customers: bool = False
     inventory: bool = False
 
+    collections: bool = False
+
     # not sure whether we need these
     inventory_items: bool = False
     locations: bool = False

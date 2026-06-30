@@ -1,0 +1,48 @@
+mutation {
+  bulkOperationRunQuery(
+    query: """
+    {
+      collections__QUERY_FILTER__ {
+        edges {
+          node {
+            id
+            title
+            handle
+            descriptionHtml
+            sortOrder
+            templateSuffix
+            updatedAt
+            productsCount {
+              count
+            }
+            ruleSet {
+              appliedDisjunctively
+              rules {
+                column
+                condition
+                relation
+              }
+            }
+            products {
+              edges {
+                node {
+                  id
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+  ) {
+    bulkOperation {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

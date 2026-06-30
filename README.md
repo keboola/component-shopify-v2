@@ -14,7 +14,7 @@ This component extracts data from Shopify stores using the modern GraphQL Admin 
 | Bulk Operations         | Efficient bulk data extraction for large datasets |
 | DuckDB Processing       | Advanced data processing with automatic type detection |
 | Data Normalization      | Converts nested JSON into normalized relational tables |
-| Multiple Endpoints      | 10+ supported endpoints including orders, products, customers, inventory |
+| Multiple Endpoints      | 11+ supported endpoints including orders, products, customers, collections, inventory |
 | Date Range Filtering    | Filter data by date ranges across all bulk operations |
 | Flexible Date Formats   | Supports ISO dates (YYYY-MM-DD) and relative formats ("1 week ago", "now") |
 | Custom Bulk Queries     | Execute custom GraphQL bulk operations |
@@ -42,6 +42,7 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 - **orders** - Extract order data with line items, customer info, and addresses
 - **customers** - Extract customer data with addresses and marketing preferences
 - **inventory** - Extract inventory levels across locations
+- **collections** - Extract product collections (custom and smart collections with products)
 - **locations** - Extract store location information
 - **events** - Extract system events and activity logs
 
@@ -76,6 +77,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
   - **order_transactions** - Include order transactions (default: false)
   - **customers** - Extract customers (default: false)
   - **inventory** - Extract inventory (default: false)
+  - **collections** - Extract collections (default: false)
   - **locations** - Extract locations (default: false)
 - **loading_options** - Date filtering and loading behavior:
   - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago")
@@ -105,6 +107,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
       "variant_metafields": true,
       "customers": true,
       "inventory": true,
+      "collections": true,
       "locations": true
     },
     "loading_options": {
@@ -137,6 +140,10 @@ The component uses DuckDB to automatically process bulk operation results into C
 - **products.csv** - Products with all nested data (variants, metafields, images as JSON)
 - **customers.csv** - Customer data with addresses and preferences (nested as JSON)
 - **inventory.csv** - Inventory levels across locations
+- **collection.csv** - Collections with columns: `id`, `title`, `handle`, `description_html`, `sort_order`, `template_suffix`, `updated_at`, `products_count` (JSON), `rule_set` (JSON)
+- **collection_rule_set.csv** - Rule sets for smart collections with columns: `parent_id`, `applied_disjunctively`, `rules` (JSON string — smart-collection rules are kept as a single JSON column, not exploded into separate rows)
+- **collection_products_count.csv** - Product counts per collection with columns: `parent_id`, `count`
+- **product.csv** - Collection→product mapping with columns: `id` (product GID), `parent_id` (collection GID)
 - **locations.csv** - Store location information
 - **events.csv** - System event logs
 - **{custom_query_name}.csv** - Custom query results

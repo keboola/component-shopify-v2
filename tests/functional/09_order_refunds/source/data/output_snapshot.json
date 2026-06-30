@@ -1,0 +1,140 @@
+{
+  "files": {},
+  "hash_algorithm": "sha256",
+  "tables": {
+    "refund.csv": {
+      "columns": [
+        "id",
+        "order_id",
+        "created_at",
+        "updated_at",
+        "note",
+        "total_refunded_shop_amount",
+        "total_refunded_shop_currency",
+        "total_refunded_presentment_amount",
+        "total_refunded_presentment_currency"
+      ],
+      "hash": "sha256:b799d78de2b034aec531f70364583a1ad3bbcc00a6d2e14d0fe6e8f0b9bdb87e",
+      "row_count": 2,
+      "size_bytes": 454
+    },
+    "refund.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:4b0bc05a6ab6d7a9547b51322270a69e2b63d5c4de1c395514a22f671789c72f",
+      "row_count": null,
+      "size_bytes": 989
+    },
+    "refund_line_item.csv": {
+      "columns": [
+        "id",
+        "refund_id",
+        "order_id",
+        "line_item_id",
+        "quantity",
+        "restock_type",
+        "subtotal_shop_amount",
+        "subtotal_shop_currency",
+        "subtotal_presentment_amount",
+        "subtotal_presentment_currency",
+        "total_tax_shop_amount",
+        "total_tax_shop_currency",
+        "total_tax_presentment_amount",
+        "total_tax_presentment_currency",
+        "price_shop_amount",
+        "price_shop_currency",
+        "price_presentment_amount",
+        "price_presentment_currency",
+        "location_id"
+      ],
+      "hash": "sha256:e673dea9fb4350932df67c0fcc14325d14cbdeb07bdc383e3df5754cb01eadf6",
+      "row_count": 2,
+      "size_bytes": 873
+    },
+    "refund_line_item.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:18aabc6201e3f28b4edf8316472c0088f5dfe0cb0467c35c5d384f52cc98f53a",
+      "row_count": null,
+      "size_bytes": 1931
+    },
+    "refund_order_adjustment.csv": {
+      "columns": [
+        "id",
+        "refund_id",
+        "order_id",
+        "reason",
+        "amount_shop_amount",
+        "amount_shop_currency",
+        "amount_presentment_amount",
+        "amount_presentment_currency",
+        "tax_amount_shop_amount",
+        "tax_amount_shop_currency",
+        "tax_amount_presentment_amount",
+        "tax_amount_presentment_currency"
+      ],
+      "hash": "sha256:9078906d5a94387ab623c10a0ea21322661d1e87b1b6938e3ce712ba9a505441",
+      "row_count": 1,
+      "size_bytes": 426
+    },
+    "refund_order_adjustment.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:c2d70a3899d3088ad8da4b66751c99e5c67f5b4304f5ff7e0e2ad04867f36299",
+      "row_count": null,
+      "size_bytes": 1279
+    },
+    "refund_shipping_line.csv": {
+      "columns": [
+        "refund_id",
+        "order_id",
+        "shipping_line_id",
+        "subtotal_shop_amount",
+        "subtotal_shop_currency",
+        "subtotal_presentment_amount",
+        "subtotal_presentment_currency",
+        "tax_amount_shop_amount",
+        "tax_amount_shop_currency",
+        "tax_amount_presentment_amount",
+        "tax_amount_presentment_currency"
+      ],
+      "hash": "sha256:c0086ac3763118281e391a09614eb3cc2490a4d02a669bbd2faac7456fff6ced",
+      "row_count": 1,
+      "size_bytes": 413
+    },
+    "refund_shipping_line.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:c467def4e94fd16d8e1b83fec49ae289467e16fcb3f70bde9ef370a108cc5024",
+      "row_count": null,
+      "size_bytes": 1241
+    },
+    "refund_transaction.csv": {
+      "columns": [
+        "id",
+        "refund_id",
+        "order_id",
+        "kind",
+        "status",
+        "test",
+        "amount_shop_amount",
+        "amount_shop_currency",
+        "amount_presentment_amount",
+        "amount_presentment_currency",
+        "gateway",
+        "formatted_gateway",
+        "created_at",
+        "processed_at",
+        "error_code",
+        "authorization_code",
+        "authorization_expires_at"
+      ],
+      "hash": "sha256:6394d8d0182cbd93383766440e80349a88bfd185a6a2678b9413be02aad51484",
+      "row_count": 2,
+      "size_bytes": 721
+    },
+    "refund_transaction.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:ac859104ae54ddd29215718c06c84488bd5a134544d5c1d8f0949096fe75c089",
+      "row_count": null,
+      "size_bytes": 1654
+    }
+  },
+  "version": "1.0"
+}

@@ -45,6 +45,10 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 - **locations** - Extract store location information
 - **events** - Extract system events and activity logs
 
+### Paginated Endpoints
+
+- **order_refunds** - Extract order refund data (refund line items, order adjustments, shipping refunds, transactions) using paginated GraphQL. Requires the **orders** toggle to be enabled. Each refund amount includes both shop and presentment currency.
+
 ### Endpoint Options
 
 - **product_metafields** - Include product-level metafields in products extraction
@@ -74,6 +78,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
   - **variant_metafields** - Include variant metafields (default: false)
   - **orders** - Extract orders (default: false)
   - **order_transactions** - Include order transactions (default: false)
+  - **order_refunds** - Extract order refunds (default: false, requires orders: true)
   - **customers** - Extract customers (default: false)
   - **inventory** - Extract inventory (default: false)
   - **locations** - Extract locations (default: false)
@@ -99,6 +104,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
     "endpoints": {
       "orders": true,
       "order_transactions": true,
+      "order_refunds": true,
       "products": true,
       "products_drafts": true,
       "product_metafields": true,
@@ -140,6 +146,18 @@ The component uses DuckDB to automatically process bulk operation results into C
 - **locations.csv** - Store location information
 - **events.csv** - System event logs
 - **{custom_query_name}.csv** - Custom query results
+
+#### Paginated Extraction (Order Refunds)
+
+The `order_refunds` endpoint uses paginated GraphQL (not bulk operations) and writes 5 flat tables directly:
+
+- **refund.csv** - Refund header with total refunded amounts (shop + presentment currency)
+- **refund_line_item.csv** - Individual refunded line items with subtotal, tax, and price (shop + presentment)
+- **refund_order_adjustment.csv** - Order-level adjustments (e.g. `REFUND_DISCREPANCY`) with amount and tax
+- **refund_shipping_line.csv** - Refunded shipping lines with subtotal and tax amounts
+- **refund_transaction.csv** - Payment transactions (kind, status, gateway, amounts)
+
+All child tables carry `refund_id` and `order_id` foreign keys. Primary keys use stable Shopify GIDs.
 
 
 ### Data Types and Manifests

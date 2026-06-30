@@ -1,0 +1,3 @@
+"id","refund_id","order_id","kind","status","test","amount_shop_amount","amount_shop_currency","amount_presentment_amount","amount_presentment_currency","gateway","formatted_gateway","created_at","processed_at","error_code","authorization_code","authorization_expires_at"
+"gid://shopify/OrderTransaction/2001","gid://shopify/Refund/7001","gid://shopify/Order/6001","REFUND","SUCCESS","False","45.50","CZK","1.89","EUR","shopify_payments","Shopify Payments","2024-03-15T10:30:00Z","2024-03-15T10:30:05Z","","AUTH123",""
+"gid://shopify/OrderTransaction/2002","gid://shopify/Refund/7001","gid://shopify/Order/6001","REFUND","PENDING","False","5.00","CZK","0.21","EUR","manual","Manual","2024-03-15T10:31:00Z","","","",""

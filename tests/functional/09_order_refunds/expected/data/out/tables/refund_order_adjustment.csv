@@ -1,0 +1,2 @@
+"id","refund_id","order_id","reason","amount_shop_amount","amount_shop_currency","amount_presentment_amount","amount_presentment_currency","tax_amount_shop_amount","tax_amount_shop_currency","tax_amount_presentment_amount","tax_amount_presentment_currency"
+"gid://shopify/OrderAdjustment/3001","gid://shopify/Refund/7001","gid://shopify/Order/6001","REFUND_DISCREPANCY","-2.00","CZK","-0.08","EUR","0.00","CZK","0.00","EUR"

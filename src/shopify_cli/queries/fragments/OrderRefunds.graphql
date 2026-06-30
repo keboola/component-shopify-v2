@@ -22,6 +22,7 @@ refunds {
   refundLineItems {
     edges {
       node {
+        id
         lineItem {
           id
         }
@@ -64,26 +65,30 @@ refunds {
     }
   }
   orderAdjustments {
-    id
-    reason
-    amountSet {
-      shopMoney {
-        amount
-        currencyCode
-      }
-      presentmentMoney {
-        amount
-        currencyCode
-      }
-    }
-    taxAmountSet {
-      shopMoney {
-        amount
-        currencyCode
-      }
-      presentmentMoney {
-        amount
-        currencyCode
+    edges {
+      node {
+        id
+        reason
+        amountSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {
+            amount
+            currencyCode
+          }
+        }
+        taxAmountSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {
+            amount
+            currencyCode
+          }
+        }
       }
     }
   }
@@ -117,26 +122,30 @@ refunds {
     }
   }
   transactions {
-    id
-    kind
-    status
-    test
-    amountSet {
-      shopMoney {
-        amount
-        currencyCode
-      }
-      presentmentMoney {
-        amount
-        currencyCode
+    edges {
+      node {
+        id
+        kind
+        status
+        test
+        amountSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {
+            amount
+            currencyCode
+          }
+        }
+        gateway
+        formattedGateway
+        createdAt
+        processedAt
+        errorCode
+        authorizationCode
+        authorizationExpiresAt
       }
     }
-    gateway
-    formattedGateway
-    createdAt
-    processedAt
-    errorCode
-    authorizationCode
-    authorizationExpiresAt
   }
 }

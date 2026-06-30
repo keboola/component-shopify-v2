@@ -464,8 +464,6 @@ class Component(ComponentBase):
             "created_at": r.get("createdAt"),
             "updated_at": r.get("updatedAt"),
             "note": r.get("note"),
-            "return_id": (r.get("return") or {}).get("id"),
-            "staff_member_id": (r.get("staffMember") or {}).get("id"),
         }
         row.update(self._extract_money(r.get("totalRefundedSet"), "total_refunded"))
         return row

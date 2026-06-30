@@ -22,12 +22,6 @@ query GetOrderRefunds($first: Int!, $after: String, $query: String) {
               currencyCode
             }
           }
-          return {
-            id
-          }
-          staffMember {
-            id
-          }
           refundLineItems(first: 250) {
             edges {
               node {

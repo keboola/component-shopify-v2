@@ -84,7 +84,6 @@ mutation {
               phone
             }
             __TRANSACTIONS_PLACEHOLDER__
-            __REFUNDS_PLACEHOLDER__
           }
         }
       }

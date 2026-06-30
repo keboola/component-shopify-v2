@@ -253,6 +253,78 @@ class ShopifyGraphQLClient:
 
         yield from self._paginate(query, "orders", batch_size)
 
+    def get_order_refunds(
+        self,
+        date_since: str | None = None,
+        date_to: str | None = None,
+        batch_size: int = 50,
+        fetch_parameter: str = "updated_at",
+    ) -> Iterator[list[dict[str, Any]]]:
+        """
+        Get order refunds using paginated GraphQL.
+
+        Pages through orders filtered by date window, extracts refunds from each order.
+        Returns raw order nodes (with nested refunds) — the component flattens them into
+        5 output tables.
+
+        Args:
+            date_since: Start date for filtering (YYYY-MM-DD)
+            date_to: End date for filtering (YYYY-MM-DD)
+            batch_size: Number of orders per page
+            fetch_parameter: Field to filter by ('updated_at' or 'created_at')
+
+        Yields:
+            Batches of order dicts, each containing a 'refunds' list.
+        """
+        query = self.query_loader.load_query("GetOrderRefunds")
+
+        date_conditions = []
+        if date_since:
+            date_conditions.append(f"{fetch_parameter}:>='{date_since}'")
+        if date_to:
+            date_conditions.append(f"{fetch_parameter}:<'{date_to}'")
+        date_filter = " AND ".join(date_conditions)
+
+        if date_filter:
+            query = query.replace(
+                "query GetOrderRefunds($first: Int!, $after: String, $query: String)",
+                "query GetOrderRefunds($first: Int!, $after: String)",
+            )
+            query = query.replace(
+                "orders(first: $first, after: $after, query: $query, sortKey: UPDATED_AT)",
+                f'orders(first: $first, after: $after, query: "{date_filter}", sortKey: UPDATED_AT)',
+            )
+        else:
+            query = query.replace(
+                "query GetOrderRefunds($first: Int!, $after: String, $query: String)",
+                "query GetOrderRefunds($first: Int!, $after: String)",
+            )
+            query = query.replace(
+                "orders(first: $first, after: $after, query: $query, sortKey: UPDATED_AT)",
+                "orders(first: $first, after: $after, sortKey: UPDATED_AT)",
+            )
+
+        for batch in self._paginate(query, "orders", batch_size):
+            orders_with_refunds = [order for order in batch if order.get("refunds")]
+            if orders_with_refunds:
+                for order in orders_with_refunds:
+                    self._check_nested_pagination_overflow(order)
+                yield orders_with_refunds
+
+    def _check_nested_pagination_overflow(self, order: dict[str, Any]) -> None:
+        """Log warnings if any nested refund connections have more pages than fetched."""
+        order_id = order.get("id", "unknown")
+        for refund in order.get("refunds", []):
+            refund_id = refund.get("id", "unknown")
+            for connection_name in ("refundLineItems", "orderAdjustments", "refundShippingLines", "transactions"):
+                connection = refund.get(connection_name, {})
+                page_info = connection.get("pageInfo", {})
+                if page_info.get("hasNextPage"):
+                    self.logger.warning(
+                        f"Refund {refund_id} on order {order_id} has more {connection_name} "
+                        f"than the single-page limit. Some records may be missing."
+                    )
+
     def get_products(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
         Get products with pagination
@@ -503,7 +575,6 @@ class ShopifyGraphQLClient:
         self,
         temp_file_path: str,
         include_transactions: bool = False,
-        include_refunds: bool = False,
         date_since: str | None = None,
         date_to: str | None = None,
         fetch_parameter: str = "updated_at",
@@ -514,7 +585,6 @@ class ShopifyGraphQLClient:
         Args:
             temp_file_path: Path where JSONL results will be saved
             include_transactions: Whether to include order transactions in the response
-            include_refunds: Whether to include order refunds in the response
             date_since: Start date for filtering (YYYY-MM-DD format)
             date_to: End date for filtering (YYYY-MM-DD format)
             fetch_parameter: Field to filter by ('updated_at' or 'created_at')
@@ -554,14 +624,6 @@ class ShopifyGraphQLClient:
             mutation = mutation.replace("__TRANSACTIONS_PLACEHOLDER__", transactions_fragment)
         else:
             mutation = mutation.replace("__TRANSACTIONS_PLACEHOLDER__", "")
-
-        if include_refunds:
-            refunds_fragment_file = self.query_loader.queries_dir / "fragments" / "OrderRefunds.graphql"
-            with open(refunds_fragment_file) as f:
-                refunds_fragment = f.read()
-            mutation = mutation.replace("__REFUNDS_PLACEHOLDER__", refunds_fragment)
-        else:
-            mutation = mutation.replace("__REFUNDS_PLACEHOLDER__", "")
 
         if query_filter:
             mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')

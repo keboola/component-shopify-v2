@@ -50,6 +50,7 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 
 - **product_metafields** - Include product-level metafields in products extraction
 - **variant_metafields** - Include product variant metafields in products extraction
+- **collection_metafields** - Include collection-level metafields in collections extraction
 - **order_transactions** - Include transactions in orders extraction
 
 ### Custom Queries
@@ -78,6 +79,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
   - **customers** - Extract customers (default: false)
   - **inventory** - Extract inventory (default: false)
   - **collections** - Extract collections (default: false)
+  - **collection_metafields** - Include collection metafields (default: false)
   - **locations** - Extract locations (default: false)
 - **loading_options** - Date filtering and loading behavior:
   - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago")
@@ -108,6 +110,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
       "customers": true,
       "inventory": true,
       "collections": true,
+      "collection_metafields": true,
       "locations": true
     },
     "loading_options": {
@@ -144,6 +147,7 @@ The component uses DuckDB to automatically process bulk operation results into C
 - **collection_rule_set.csv** - Rule sets for smart collections with columns: `parent_id`, `applied_disjunctively`, `rules` (JSON string — smart-collection rules are kept as a single JSON column, not exploded into separate rows)
 - **collection_products_count.csv** - Product counts per collection with columns: `parent_id`, `count`
 - **product.csv** - Collection→product mapping with columns: `id` (product GID), `parent_id` (collection GID)
+- **collection_metafield.csv** - Collection metafields (when `collection_metafields` is enabled) with columns: `id`, `parent_id` (collection GID), `namespace`, `key`, `value`, `type`, `description`, `created_at`, `updated_at`. Kept in a distinct table (not the generic `metafield` table used by product metafields) so collection metafields are not merged with product metafields.
 - **locations.csv** - Store location information
 - **events.csv** - System event logs
 - **{custom_query_name}.csv** - Custom query results

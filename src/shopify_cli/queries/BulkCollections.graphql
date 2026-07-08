@@ -30,6 +30,7 @@ mutation {
                 }
               }
             }
+            __COLLECTION_METAFIELDS_PLACEHOLDER__
           }
         }
       }

@@ -909,6 +909,7 @@ class ShopifyGraphQLClient:
     def get_collections_bulk(
         self,
         temp_file_path: str,
+        include_metafields: bool = False,
         date_since: str | None = None,
         date_to: str | None = None,
         fetch_parameter: str = "updated_at",
@@ -918,6 +919,7 @@ class ShopifyGraphQLClient:
 
         Args:
             temp_file_path: Path where JSONL results will be saved
+            include_metafields: Whether to include collection metafields in the response
             date_since: Start date for filtering (YYYY-MM-DD format)
             date_to: End date for filtering (YYYY-MM-DD format)
             fetch_parameter: Field to filter by ('updated_at' or 'created_at')
@@ -943,11 +945,22 @@ class ShopifyGraphQLClient:
         elif date_to:
             log_dates = f" until {date_to}"
 
-        self.logger.info(f"Starting bulk operation for collections{log_dates}")
+        log_metafields = " (including collection metafields)" if include_metafields else ""
+
+        self.logger.info(f"Starting bulk operation for collections{log_metafields}{log_dates}")
 
         mutation_file = self.query_loader.queries_dir / "BulkCollections.graphql"
         with open(mutation_file) as f:
             mutation = f.read()
+
+        # Inject collection metafields if requested
+        if include_metafields:
+            metafields_fragment_file = self.query_loader.queries_dir / "fragments" / "CollectionMetafields.graphql"
+            with open(metafields_fragment_file) as f:
+                collection_metafields_fragment = f.read()
+            mutation = mutation.replace("__COLLECTION_METAFIELDS_PLACEHOLDER__", collection_metafields_fragment)
+        else:
+            mutation = mutation.replace("__COLLECTION_METAFIELDS_PLACEHOLDER__", "")
 
         if query_filter:
             mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')

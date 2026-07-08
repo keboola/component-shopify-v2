@@ -455,7 +455,13 @@ class Component(ComponentBase):
             self.logger.info("No products found")
             Path(result.file_path).unlink(missing_ok=True)
 
-    def _process_bulk_result(self, bulk_result: BulkOperationResult, table_name: str, entity_name: str | None = None):
+    def _process_bulk_result(
+        self,
+        bulk_result: BulkOperationResult,
+        table_name: str,
+        entity_name: str | None = None,
+        entity_name_overrides: dict[str, str] | None = None,
+    ):
         """Generic method to process bulk operation results"""
         if entity_name is None:
             entity_name = table_name
@@ -472,7 +478,7 @@ class Component(ComponentBase):
             )
 
             normalized_table = self._normalize_table(table_name)
-            self._export_table_with_manifest(table_name, normalized_table, entity_keys)
+            self._export_table_with_manifest(table_name, normalized_table, entity_keys, entity_name_overrides)
             self._decompose_json_columns(table_name, normalized_table)
 
             if not self.params.debug:
@@ -595,19 +601,25 @@ class Component(ComponentBase):
         )
         result = client.get_collections_bulk(
             temp_jsonl,
+            include_metafields=params.endpoints.collection_metafields,
             date_since=date_since,
             date_to=date_to,
             fetch_parameter=params.loading_options.fetch_parameter,
         )
 
         if result.item_count > 0:
-            self._process_bulk_collections(result)
+            self._process_bulk_collections(result, include_metafields=params.endpoints.collection_metafields)
         else:
             self.logger.info("No collections found")
             Path(result.file_path).unlink(missing_ok=True)
 
-    def _process_bulk_collections(self, bulk_result: BulkOperationResult):
-        self._process_bulk_result(bulk_result, "collection")
+    def _process_bulk_collections(self, bulk_result: BulkOperationResult, include_metafields: bool = False):
+        # Collection metafields share the generic "Metafield" GID entity type with product
+        # metafields, so entity-splitting would merge both owners into a single "metafield"
+        # table. Rename the collection-owned metafields to a distinct "collection_metafield"
+        # table (all Metafield rows in the collections bulk belong to collections).
+        entity_name_overrides = {"Metafield": "collection_metafield"} if include_metafields else None
+        self._process_bulk_result(bulk_result, "collection", entity_name_overrides=entity_name_overrides)
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory levels data using DuckDB"""
@@ -805,7 +817,11 @@ class Component(ComponentBase):
         self._export_table_with_manifest("inventory_levels")
 
     def _export_table_with_manifest(
-        self, table_name: str, normalized_table: str | None = None, entity_keys: dict[str, set[str]] | None = None
+        self,
+        table_name: str,
+        normalized_table: str | None = None,
+        entity_keys: dict[str, set[str]] | None = None,
+        entity_name_overrides: dict[str, str] | None = None,
     ):
         if normalized_table is None:
             normalized_table = table_name
@@ -828,7 +844,10 @@ class Component(ComponentBase):
         if len(entity_types) > 1:
             self.logger.info(f"Splitting {table_name} by entity types: {', '.join(entity_types)}")
             for entity_type in entity_types:
-                snake_entity = self._camel_to_snake(entity_type)
+                if entity_name_overrides and entity_type in entity_name_overrides:
+                    snake_entity = entity_name_overrides[entity_type]
+                else:
+                    snake_entity = self._camel_to_snake(entity_type)
                 self._export_entity_type(normalized_table, snake_entity, entity_type, table_meta, entity_keys)
         else:
             self._export_single_table(table_name, normalized_table, table_meta)
@@ -934,6 +953,7 @@ class Component(ComponentBase):
             "inventory_item": ["id"],
             "inventory_level": ["parent_id", "id"],
             "collection": ["id"],
+            "collection_metafield": ["id"],
             "location": ["id"],
             "event": ["id"],
         }

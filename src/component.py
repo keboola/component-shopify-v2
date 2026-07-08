@@ -614,11 +614,14 @@ class Component(ComponentBase):
             Path(result.file_path).unlink(missing_ok=True)
 
     def _process_bulk_collections(self, bulk_result: BulkOperationResult, include_metafields: bool = False):
-        # Collection metafields share the generic "Metafield" GID entity type with product
-        # metafields, so entity-splitting would merge both owners into a single "metafield"
-        # table. Rename the collection-owned metafields to a distinct "collection_metafield"
-        # table (all Metafield rows in the collections bulk belong to collections).
-        entity_name_overrides = {"Metafield": "collection_metafield"} if include_metafields else None
+        # The collections bulk decomposes into child entities that share generic GID entity
+        # types with the products endpoint. "Product" rows here are the product-GID -> collection-GID
+        # mapping (not the full product schema), and "Metafield" rows are collection-owned. Rename
+        # both to distinct "collection_product"/"collection_metafield" tables so a config with both
+        # products and collections enabled doesn't collide on the generic "product"/"metafield" tables.
+        entity_name_overrides = {"Product": "collection_product"}
+        if include_metafields:
+            entity_name_overrides["Metafield"] = "collection_metafield"
         self._process_bulk_result(bulk_result, "collection", entity_name_overrides=entity_name_overrides)
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
@@ -953,6 +956,7 @@ class Component(ComponentBase):
             "inventory_item": ["id"],
             "inventory_level": ["parent_id", "id"],
             "collection": ["id"],
+            "collection_product": ["id"],
             "collection_metafield": ["id"],
             "location": ["id"],
             "event": ["id"],

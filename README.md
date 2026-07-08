@@ -146,7 +146,7 @@ The component uses DuckDB to automatically process bulk operation results into C
 - **collection.csv** - Collections with columns: `id`, `title`, `handle`, `description_html`, `sort_order`, `template_suffix`, `updated_at`, `products_count` (JSON), `rule_set` (JSON)
 - **collection_rule_set.csv** - Rule sets for smart collections with columns: `parent_id`, `applied_disjunctively`, `rules` (JSON string — smart-collection rules are kept as a single JSON column, not exploded into separate rows)
 - **collection_products_count.csv** - Product counts per collection with columns: `parent_id`, `count`
-- **product.csv** - Collection→product mapping with columns: `id` (product GID), `parent_id` (collection GID)
+- **collection_product.csv** - Collection↔product mapping (the REST `collects` equivalent) with columns: `id` (product GID), `parent_id` (collection GID). Kept in a distinct table (not the generic `product` table emitted by the products endpoint, which has the full product schema) so the two do not collide when both endpoints are enabled.
 - **collection_metafield.csv** - Collection metafields (when `collection_metafields` is enabled) with columns: `id`, `parent_id` (collection GID), `namespace`, `key`, `value`, `type`, `description`, `created_at`, `updated_at`. Kept in a distinct table (not the generic `metafield` table used by product metafields) so collection metafields are not merged with product metafields.
 - **locations.csv** - Store location information
 - **events.csv** - System event logs

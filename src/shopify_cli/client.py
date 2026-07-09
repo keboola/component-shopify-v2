@@ -14,6 +14,12 @@ from .query_loader import QueryLoader
 
 TOTAL_ITEMS_LIMIT: int | None = None  # None for production, count for testing
 
+# published_status value used for the bulk `collections` query so that collections not published
+# to the Online Store channel are still returned. Per the current Shopify Admin GraphQL docs,
+# `online_store_channel` returns all resources in the online store channel regardless of
+# publication status.
+COLLECTIONS_PUBLISHED_STATUS = "online_store_channel"
+
 
 @dataclass
 class BulkOperationResult:
@@ -929,13 +935,16 @@ class ShopifyGraphQLClient:
         """
         api_wait_start = time.time()
 
-        filters = []
+        # Without a query argument the bulk `collections` connection only returns collections
+        # published to the Online Store channel, silently dropping unpublished ones. Always inject
+        # a publish-status filter so every collection is returned regardless of publication status.
+        filters = [f"published_status:{COLLECTIONS_PUBLISHED_STATUS}"]
         if date_since:
             filters.append(f"{fetch_parameter}:>='{date_since}'")
         if date_to:
             filters.append(f"{fetch_parameter}:<'{date_to}'")
 
-        query_filter = " AND ".join(filters) if filters else ""
+        query_filter = " AND ".join(filters)
 
         log_dates = ""
         if date_since and date_to:

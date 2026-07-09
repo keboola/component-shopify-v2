@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from unittest import mock
 
@@ -6,6 +7,45 @@ from freezegun import freeze_time
 
 from component import Component
 from configuration import Configuration
+from shopify_cli.client import ShopifyGraphQLClient
+
+
+class TestCollectionsBulkQueryFilter(unittest.TestCase):
+    """The bulk `collections` connection only returns Online-Store-published collections when no
+    query argument is supplied, so a publish-status filter must always be injected."""
+
+    def _run_and_capture_mutation(self, date_since=None, date_to=None) -> str:
+        with mock.patch.object(ShopifyGraphQLClient, "_setup_session", return_value=None):
+            client = ShopifyGraphQLClient("shop", "token", "2025-10", False)
+
+        captured = {}
+
+        def fake_execute_query(query, variables=None, max_retries=5):
+            if "bulkOperationRunQuery" in query:
+                captured["mutation"] = query
+                return {"bulkOperationRunQuery": {"bulkOperation": {"id": "gid://1"}, "userErrors": []}}
+            return {"currentBulkOperation": {"status": "COMPLETED", "url": None, "objectCount": 0}}
+
+        with (
+            mock.patch.object(client, "execute_query", side_effect=fake_execute_query),
+            mock.patch("shopify_cli.client.time.sleep", return_value=None),
+            tempfile.NamedTemporaryFile(suffix=".jsonl") as tmp,
+        ):
+            client.get_collections_bulk(tmp.name, date_since=date_since, date_to=date_to)
+
+        return captured["mutation"]
+
+    def test_publish_status_filter_injected_without_dates(self):
+        mutation = self._run_and_capture_mutation()
+        self.assertIn('collections(query: "published_status:online_store_channel")', mutation)
+
+    def test_publish_status_filter_anded_with_dates(self):
+        mutation = self._run_and_capture_mutation(date_since="2024-01-01", date_to="2025-01-01")
+        self.assertIn(
+            'collections(query: "published_status:online_store_channel '
+            "AND updated_at:>='2024-01-01' AND updated_at:<'2025-01-01'\")",
+            mutation,
+        )
 
 
 class TestParseLoadingOptionDates(unittest.TestCase):

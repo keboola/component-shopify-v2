@@ -20,6 +20,27 @@ TOTAL_ITEMS_LIMIT: int | None = None  # None for production, count for testing
 # publication status.
 COLLECTIONS_PUBLISHED_STATUS = "online_store_channel"
 
+# ---------------------------------------------------------------------------
+# Collections diagnostic (temporary, dev-branch only)
+# ---------------------------------------------------------------------------
+# Numeric Collection IDs for the three "Aurora" collections that are missing from the extracted
+# set on the customer (Snuggs) shop. Used only by the collections diagnostic probes to check which
+# filter / retrieval path surfaces them.
+AURORA_COLLECTION_IDS = ["674851291520", "674851455360", "674853618048"]
+
+# Candidate `query` filter strings probed against the non-bulk `collections` connection. `None`
+# means "no filter" (baseline). Values are used verbatim as written by the shop owner so the log
+# reflects exactly what was tried.
+COLLECTIONS_DIAGNOSTIC_FILTERS: list[str | None] = [
+    None,
+    "published_status:online_store_channel",
+    "published_status:unpublished",
+    "published_status:unavailable",
+    "published_status:online_store_channel OR published_status:unavailable",
+    "published_status:published OR published_status:unpublished",
+    "published_status:published OR published_status:online_store-hidden",
+]
+
 
 @dataclass
 class BulkOperationResult:
@@ -1093,6 +1114,83 @@ class ShopifyGraphQLClient:
             elif status in ["FAILED", "CANCELED"]:
                 error = current_op.get("errorCode", "Unknown error")
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
+
+    # -----------------------------------------------------------------------
+    # Collections diagnostic probes (temporary, dev-branch only)
+    # -----------------------------------------------------------------------
+    def get_collections_count(self, query: str | None = None) -> int:
+        """Return the total number of collections via the non-bulk `collectionsCount` field.
+
+        `collectionsCount` needs only `read_products` and accepts an optional `query` filter.
+        """
+        gql = """
+        query CollectionsCount($query: String) {
+          collectionsCount(query: $query) {
+            count
+          }
+        }
+        """
+        data = self.execute_query(gql, variables={"query": query})
+        return data.get("collectionsCount", {}).get("count", 0)
+
+    def get_collection_ids(self, query: str | None = None, first: int = 250) -> list[dict[str, Any]]:
+        """Return `{id, title}` for collections matching `query` from the non-bulk `collections` connection.
+
+        A single page of `first` (default 250) is fetched — enough to cover shops with a few hundred
+        collections without pagination.
+        """
+        gql = """
+        query CollectionsProbe($first: Int!, $query: String) {
+          collections(first: $first, query: $query) {
+            edges {
+              node {
+                id
+                title
+              }
+            }
+          }
+        }
+        """
+        data = self.execute_query(gql, variables={"first": first, "query": query})
+        edges = data.get("collections", {}).get("edges", [])
+        return [edge["node"] for edge in edges]
+
+    def get_collection_by_id(self, collection_gid: str) -> dict[str, Any] | None:
+        """Fetch a single collection directly by GID, including its publication state.
+
+        Selects `resourcePublications` and `unpublishedPublications` (Collection implements
+        `Publishable`) so we can see which channels the collection is on. Returns `None` if no
+        collection exists for the GID.
+        """
+        gql = """
+        query CollectionById($id: ID!) {
+          collection(id: $id) {
+            id
+            title
+            resourcePublications(first: 25) {
+              edges {
+                node {
+                  isPublished
+                  publication {
+                    id
+                    name
+                  }
+                }
+              }
+            }
+            unpublishedPublications(first: 25) {
+              edges {
+                node {
+                  id
+                  name
+                }
+              }
+            }
+          }
+        }
+        """
+        data = self.execute_query(gql, variables={"id": collection_gid})
+        return data.get("collection")
 
     def _download_bulk_results(
         self, url: str, item_count: int, entity_type: str, temp_file_path: str, api_wait_time: float

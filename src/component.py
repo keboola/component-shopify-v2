@@ -18,7 +18,12 @@ from keboola.vcr.sanitizers import QueryParamSanitizer
 
 from configuration import PRODUCTS_ENDPOINTS, Configuration
 from shopify_cli.auth import ShopifyTokenManager
-from shopify_cli.client import BulkOperationResult, ShopifyGraphQLClient
+from shopify_cli.client import (
+    AURORA_COLLECTION_IDS,
+    COLLECTIONS_DIAGNOSTIC_FILTERS,
+    BulkOperationResult,
+    ShopifyGraphQLClient,
+)
 
 # ---------------------------------------------------------------------------
 # VCR sanitizers — auto-discovered by keboola.datadirtest and platform debug jobs.
@@ -295,6 +300,10 @@ class Component(ComponentBase):
             api_version=params.api_version,
             debug=params.debug,
         )
+
+        if params.collections_diagnostic:
+            self._run_collections_diagnostic(client)
+            return
 
         enabled_endpoints = params.enabled_endpoints
         self.logger.info(f"Starting data extraction for endpoints: {enabled_endpoints}")
@@ -623,6 +632,80 @@ class Component(ComponentBase):
         if include_metafields:
             entity_name_overrides["Metafield"] = "collection_metafield"
         self._process_bulk_result(bulk_result, "collection", entity_name_overrides=entity_name_overrides)
+
+    @staticmethod
+    def _collection_id_from_gid(gid: str | None) -> str:
+        """Extract the numeric Collection id from a `gid://shopify/Collection/<id>` string."""
+        if not gid:
+            return ""
+        return gid.rsplit("/", 1)[-1]
+
+    def _run_collections_diagnostic(self, client: ShopifyGraphQLClient):
+        """Temporary, dev-branch-only collections diagnostic.
+
+        Runs cheap read-only NON-bulk probes and logs the results to the job log. Nothing is written
+        to Storage. Intended to identify which filter / retrieval path surfaces the collections that
+        the bulk `collections` connection silently drops. Remove once the correct filter is known.
+        """
+        target_gids = {cid: f"gid://shopify/Collection/{cid}" for cid in AURORA_COLLECTION_IDS}
+
+        self.logger.info("=" * 72)
+        self.logger.info("COLLECTIONS DIAGNOSTIC — read-only probes, nothing written to Storage")
+        self.logger.info(f"Target Aurora collection IDs: {', '.join(AURORA_COLLECTION_IDS)}")
+        self.logger.info("=" * 72)
+
+        # 1) True total via collectionsCount (needs only read_products)
+        try:
+            total = client.get_collections_count()
+            self.logger.info(f"[count] collectionsCount (no filter) = {total}")
+        except Exception as e:
+            self.logger.warning(f"[count] collectionsCount failed: {e}")
+
+        # 2) collections(first: 250, query: X) for each candidate filter
+        self.logger.info("-" * 72)
+        self.logger.info("[filters] collections(first: 250, query: X) — returned count and Aurora ID presence")
+        for filter_value in COLLECTIONS_DIAGNOSTIC_FILTERS:
+            label = filter_value if filter_value is not None else "<no filter / baseline>"
+            try:
+                nodes = client.get_collection_ids(query=filter_value, first=250)
+                returned_ids = {self._collection_id_from_gid(node.get("id")) for node in nodes}
+                presence = ", ".join(
+                    f"{cid}={'PRESENT' if cid in returned_ids else 'absent'}" for cid in AURORA_COLLECTION_IDS
+                )
+                self.logger.info(f'[filters] query="{label}" -> count={len(nodes)} | {presence}')
+            except Exception as e:
+                self.logger.warning(f'[filters] query="{label}" -> FAILED: {e}')
+
+        # 3) Direct collection(id: ...) lookups with publication state
+        self.logger.info("-" * 72)
+        self.logger.info("[direct] collection(id: ...) direct-ID lookup with publication state")
+        for cid, gid in target_gids.items():
+            try:
+                collection = client.get_collection_by_id(gid)
+            except Exception as e:
+                self.logger.warning(f"[direct] {cid} -> lookup FAILED (token may lack read_publications): {e}")
+                continue
+
+            if not collection:
+                self.logger.info(f"[direct] {cid} -> NOT FOUND (collection({gid}) returned null)")
+                continue
+
+            resource_pubs = [
+                f"{((edge.get('node') or {}).get('publication') or {}).get('name')}"
+                f"({'published' if (edge.get('node') or {}).get('isPublished') else 'unpublished'})"
+                for edge in ((collection.get("resourcePublications") or {}).get("edges", []))
+            ]
+            unpublished_pubs = [
+                (edge.get("node") or {}).get("name")
+                for edge in ((collection.get("unpublishedPublications") or {}).get("edges", []))
+            ]
+            self.logger.info(f"[direct] {cid} -> FOUND title={collection.get('title')!r}")
+            self.logger.info(f"[direct] {cid} -> resourcePublications={resource_pubs or '[]'}")
+            self.logger.info(f"[direct] {cid} -> unpublishedPublications={unpublished_pubs or '[]'}")
+
+        self.logger.info("=" * 72)
+        self.logger.info("COLLECTIONS DIAGNOSTIC complete")
+        self.logger.info("=" * 72)
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory levels data using DuckDB"""

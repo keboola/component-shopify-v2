@@ -83,6 +83,11 @@ class Configuration(BaseModel):
     loading_options: LoadingOptions = Field(default_factory=LoadingOptions)
     debug: bool = Field(default=False, description="Enable debug mode")
 
+    # Temporary, dev-branch-only diagnostic switch. When true, the component runs a set of cheap
+    # read-only collections probes (see Component._run_collections_diagnostic) and logs the results
+    # instead of performing any extraction. To be removed once the correct collections filter is known.
+    collections_diagnostic: bool = Field(default=False, description="Run collections diagnostic probes")
+
     # keeping as a hidden argument untiil we eventually remove the batch GraphQL endpoints support
     batch_size: int = Field(default=50, ge=1, le=250, description="Number of records per batch")
 

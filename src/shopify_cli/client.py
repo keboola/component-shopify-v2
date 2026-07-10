@@ -226,9 +226,9 @@ class ShopifyGraphQLClient:
         if date_since or date_to:
             date_conditions = []
             if date_since:
-                date_conditions.append(f"created_at:>={date_since}")
+                date_conditions.append(f"created_at:>='{date_since}'")
             if date_to:
-                date_conditions.append(f"created_at:<={date_to}")
+                date_conditions.append(f"created_at:<'{date_to}'")
             date_filter = f'query: "{" ".join(date_conditions)}"'
 
         # Modify query to include date filter if needed

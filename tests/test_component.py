@@ -64,6 +64,35 @@ class TestParseLoadingOptionDates(unittest.TestCase):
         self.assertEqual(end, "2026-03-19T00:00:00Z")
 
 
+class TestLegacyOrdersQueryBuilder(unittest.TestCase):
+    """Pin the legacy get_orders query string: timestamp date bounds must be quoted
+    (Shopify search uses ':' as its field separator) and the upper bound must be exclusive."""
+
+    def _build_orders_query(self, date_since, date_to):
+        from shopify_cli.client import ShopifyGraphQLClient
+
+        with mock.patch.object(ShopifyGraphQLClient, "_setup_session", return_value=None):
+            client = ShopifyGraphQLClient(
+                store_name="test-shop", api_token="TEST_TOKEN", api_version="2025-10", debug=False
+            )
+        captured: dict[str, str] = {}
+
+        def fake_paginate(query, root_field, batch_size):
+            captured["query"] = query
+            return iter([])
+
+        with mock.patch.object(client, "_paginate", side_effect=fake_paginate):
+            list(client.get_orders(date_since=date_since, date_to=date_to))
+        return captured["query"]
+
+    def test_legacy_orders_timestamp_bounds_quoted_and_exclusive(self):
+        query = self._build_orders_query("2026-03-12", "2026-03-19T13:56:13Z")
+        self.assertIn("created_at:>='2026-03-12'", query)
+        self.assertIn("created_at:<'2026-03-19T13:56:13Z'", query)
+        # Upper bound must be exclusive ('<'), never inclusive ('<='), matching the bulk paths.
+        self.assertNotIn("created_at:<=", query)
+
+
 class TestComponent(unittest.TestCase):
     # set global time to 2010-10-10 - affects functions like datetime.now()
     @freeze_time("2010-10-10")

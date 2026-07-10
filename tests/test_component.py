@@ -69,18 +69,31 @@ class TestCollectionsDiagnosticClient(unittest.TestCase):
         self.assertIn("collectionsCount", captured["query"])
         self.assertEqual(captured["variables"], {"query": None})
 
-    def test_collection_ids_returns_nodes(self):
+    def test_collection_ids_paginates_all_pages(self):
         client = self._client()
-        captured = {}
+        calls = []
 
         def fake_execute_query(query, variables=None, max_retries=5):
-            captured["variables"] = variables
-            return {"collections": {"edges": [{"node": {"id": "gid://shopify/Collection/1", "title": "A"}}]}}
+            calls.append(variables)
+            if variables["after"] is None:
+                return {
+                    "collections": {
+                        "edges": [{"node": {"id": "gid://shopify/Collection/1", "title": "A"}}],
+                        "pageInfo": {"hasNextPage": True, "endCursor": "CURSOR1"},
+                    }
+                }
+            return {
+                "collections": {
+                    "edges": [{"node": {"id": "gid://shopify/Collection/2", "title": "B"}}],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
 
         with mock.patch.object(client, "execute_query", side_effect=fake_execute_query):
-            nodes = client.get_collection_ids(query="published_status:unpublished", first=250)
-        self.assertEqual(nodes, [{"id": "gid://shopify/Collection/1", "title": "A"}])
-        self.assertEqual(captured["variables"], {"first": 250, "query": "published_status:unpublished"})
+            nodes = client.get_collection_ids(query="updated_at:>='2010-01-01'", first=250)
+        self.assertEqual([n["id"] for n in nodes], ["gid://shopify/Collection/1", "gid://shopify/Collection/2"])
+        self.assertEqual(calls[0], {"first": 250, "after": None, "query": "updated_at:>='2010-01-01'"})
+        self.assertEqual(calls[1]["after"], "CURSOR1")
 
     def test_collection_by_id_query(self):
         client = self._client()
@@ -89,14 +102,15 @@ class TestCollectionsDiagnosticClient(unittest.TestCase):
         def fake_execute_query(query, variables=None, max_retries=5):
             captured["query"] = query
             captured["variables"] = variables
-            return {"collection": {"id": variables["id"], "title": "Aurora"}}
+            return {"collection": {"id": variables["id"], "title": "Aurora", "updatedAt": "2020-01-01T00:00:00Z"}}
 
         gid = "gid://shopify/Collection/674851291520"
         with mock.patch.object(client, "execute_query", side_effect=fake_execute_query):
             collection = client.get_collection_by_id(gid)
         self.assertEqual(collection["title"], "Aurora")
-        self.assertIn("resourcePublications", captured["query"])
-        self.assertIn("unpublishedPublications", captured["query"])
+        self.assertIn("updatedAt", captured["query"])
+        self.assertIn("handle", captured["query"])
+        self.assertNotIn("resourcePublications", captured["query"])
         self.assertEqual(captured["variables"], {"id": gid})
 
 
@@ -115,15 +129,19 @@ class TestCollectionsDiagnosticOrchestration(unittest.TestCase):
         self.assertEqual(self.comp._collection_id_from_gid("gid://shopify/Collection/674851291520"), "674851291520")
         self.assertEqual(self.comp._collection_id_from_gid(None), "")
 
-    def test_diagnostic_probes_all_filters_and_tolerates_publication_error(self):
+    def test_diagnostic_probes_all_filters_and_logs_direct_lookup(self):
         client = mock.Mock()
-        client.get_collections_count.return_value = 65
+        client.get_collections_count.return_value = 167
         # Only the baseline (no filter) returns one of the Aurora IDs
         client.get_collection_ids.side_effect = lambda query=None, first=250: (
             [{"id": "gid://shopify/Collection/674851291520"}] if query is None else []
         )
-        # Direct lookup fails as if the token lacks read_publications — must not raise
-        client.get_collection_by_id.side_effect = Exception("Access denied for publications field")
+        client.get_collection_by_id.return_value = {
+            "id": "gid://shopify/Collection/674851291520",
+            "title": "Aurora",
+            "handle": "aurora",
+            "updatedAt": "2020-01-01T00:00:00Z",
+        }
 
         with self.assertLogs("test-diagnostic", level="INFO") as logs:
             self.comp._run_collections_diagnostic(client)
@@ -135,9 +153,20 @@ class TestCollectionsDiagnosticOrchestration(unittest.TestCase):
         self.assertEqual(client.get_collection_by_id.call_count, len(AURORA_COLLECTION_IDS))
 
         output = "\n".join(logs.output)
-        self.assertIn("collectionsCount (no filter) = 65", output)
+        self.assertIn("collectionsCount (no filter) = 167", output)
         self.assertIn("674851291520=PRESENT", output)
-        self.assertIn("lookup FAILED", output)
+        self.assertIn("updatedAt='2020-01-01T00:00:00Z'", output)
+
+    def test_diagnostic_tolerates_direct_lookup_error(self):
+        client = mock.Mock()
+        client.get_collections_count.return_value = 167
+        client.get_collection_ids.return_value = []
+        client.get_collection_by_id.side_effect = Exception("boom")
+
+        with self.assertLogs("test-diagnostic", level="INFO") as logs:
+            self.comp._run_collections_diagnostic(client)  # must not raise
+
+        self.assertIn("lookup FAILED", "\n".join(logs.output))
 
 
 class TestParseLoadingOptionDates(unittest.TestCase):

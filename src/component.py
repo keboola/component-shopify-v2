@@ -676,32 +676,24 @@ class Component(ComponentBase):
             except Exception as e:
                 self.logger.warning(f'[filters] query="{label}" -> FAILED: {e}')
 
-        # 3) Direct collection(id: ...) lookups with publication state
+        # 3) Direct collection(id: ...) lookups (id, title, handle, updatedAt only)
         self.logger.info("-" * 72)
-        self.logger.info("[direct] collection(id: ...) direct-ID lookup with publication state")
+        self.logger.info("[direct] collection(id: ...) direct-ID lookup — id, title, handle, updatedAt")
         for cid, gid in target_gids.items():
             try:
                 collection = client.get_collection_by_id(gid)
             except Exception as e:
-                self.logger.warning(f"[direct] {cid} -> lookup FAILED (token may lack read_publications): {e}")
+                self.logger.warning(f"[direct] {cid} -> lookup FAILED: {e}")
                 continue
 
             if not collection:
                 self.logger.info(f"[direct] {cid} -> NOT FOUND (collection({gid}) returned null)")
                 continue
 
-            resource_pubs = [
-                f"{((edge.get('node') or {}).get('publication') or {}).get('name')}"
-                f"({'published' if (edge.get('node') or {}).get('isPublished') else 'unpublished'})"
-                for edge in ((collection.get("resourcePublications") or {}).get("edges", []))
-            ]
-            unpublished_pubs = [
-                (edge.get("node") or {}).get("name")
-                for edge in ((collection.get("unpublishedPublications") or {}).get("edges", []))
-            ]
-            self.logger.info(f"[direct] {cid} -> FOUND title={collection.get('title')!r}")
-            self.logger.info(f"[direct] {cid} -> resourcePublications={resource_pubs or '[]'}")
-            self.logger.info(f"[direct] {cid} -> unpublishedPublications={unpublished_pubs or '[]'}")
+            self.logger.info(
+                f"[direct] {cid} -> FOUND title={collection.get('title')!r} "
+                f"handle={collection.get('handle')!r} updatedAt={collection.get('updatedAt')!r}"
+            )
 
         self.logger.info("=" * 72)
         self.logger.info("COLLECTIONS DIAGNOSTIC complete")

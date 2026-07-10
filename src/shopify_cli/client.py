@@ -31,14 +31,16 @@ AURORA_COLLECTION_IDS = ["674851291520", "674851455360", "674853618048"]
 # Candidate `query` filter strings probed against the non-bulk `collections` connection. `None`
 # means "no filter" (baseline). Values are used verbatim as written by the shop owner so the log
 # reflects exactly what was tried.
+#
+# v2 probes test the "stale search index" theory: if any `query:` filter is served from an
+# incomplete index, these date-windowed filters should all return ~52 (Aurora absent) no matter how
+# wide the bounds, while the unfiltered baseline returns the full 167.
 COLLECTIONS_DIAGNOSTIC_FILTERS: list[str | None] = [
     None,
-    "published_status:online_store_channel",
-    "published_status:unpublished",
-    "published_status:unavailable",
-    "published_status:online_store_channel OR published_status:unavailable",
-    "published_status:published OR published_status:unpublished",
-    "published_status:published OR published_status:online_store-hidden",
+    "updated_at:>='2010-01-01'",
+    "updated_at:>='2019-07-10'",
+    "updated_at:<'2026-07-11'",
+    "updated_at:>='2010-01-01' AND updated_at:<'2026-07-11'",
 ]
 
 
@@ -1134,58 +1136,49 @@ class ShopifyGraphQLClient:
         return data.get("collectionsCount", {}).get("count", 0)
 
     def get_collection_ids(self, query: str | None = None, first: int = 250) -> list[dict[str, Any]]:
-        """Return `{id, title}` for collections matching `query` from the non-bulk `collections` connection.
-
-        A single page of `first` (default 250) is fetched — enough to cover shops with a few hundred
-        collections without pagination.
-        """
+        """Return `{id, title}` for all collections matching `query` from the non-bulk `collections`
+        connection, paginating through every page (`first` per page)."""
         gql = """
-        query CollectionsProbe($first: Int!, $query: String) {
-          collections(first: $first, query: $query) {
+        query CollectionsProbe($first: Int!, $after: String, $query: String) {
+          collections(first: $first, after: $after, query: $query) {
             edges {
               node {
                 id
                 title
               }
             }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
           }
         }
         """
-        data = self.execute_query(gql, variables={"first": first, "query": query})
-        edges = data.get("collections", {}).get("edges", [])
-        return [edge["node"] for edge in edges]
+        nodes: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            data = self.execute_query(gql, variables={"first": first, "after": cursor, "query": query})
+            connection = data.get("collections", {})
+            nodes.extend(edge["node"] for edge in connection.get("edges", []))
+            page_info = connection.get("pageInfo", {})
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+        return nodes
 
     def get_collection_by_id(self, collection_gid: str) -> dict[str, Any] | None:
-        """Fetch a single collection directly by GID, including its publication state.
+        """Fetch a single collection directly by GID.
 
-        Selects `resourcePublications` and `unpublishedPublications` (Collection implements
-        `Publishable`) so we can see which channels the collection is on. Returns `None` if no
-        collection exists for the GID.
+        Selects only `id`, `title`, `handle`, `updatedAt` (needs `read_products` only — no
+        `read_publications` scope required). Returns `None` if no collection exists for the GID.
         """
         gql = """
         query CollectionById($id: ID!) {
           collection(id: $id) {
             id
             title
-            resourcePublications(first: 25) {
-              edges {
-                node {
-                  isPublished
-                  publication {
-                    id
-                    name
-                  }
-                }
-              }
-            }
-            unpublishedPublications(first: 25) {
-              edges {
-                node {
-                  id
-                  name
-                }
-              }
-            }
+            handle
+            updatedAt
           }
         }
         """

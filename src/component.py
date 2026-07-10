@@ -232,14 +232,28 @@ class Component(ComponentBase):
             self.logger.warning(f"Failed to decompose object column {column_name}: {str(e)}")
 
     def _parse_loading_option_dates(self, date_since: str | None, date_to: str | None) -> tuple[str | None, str | None]:
-        """Parse date_since and date_to using keboola.utils parse_datetime_interval."""
+        """Parse date_since and date_to into Shopify search bounds.
+
+        The window is rounded outward, never inward, and the two bounds are deliberately asymmetric:
+
+        - Upper bound (date_to) keeps full ISO-8601 UTC timestamp precision so that ``date_to="now"``
+          (or any relative value) resolves to the actual run moment, e.g. ``updated_at:<'2026-07-10T13:56:13Z'``.
+          Truncating it to bare ``YYYY-MM-DD`` snaps it back to midnight of the run day and silently drops
+          every record updated earlier that same day.
+        - Lower bound (date_since) is intentionally floored to midnight of its day. A timestamp-precise
+          lower bound would open gaps between consecutive incremental runs using relative date_since values:
+          yesterday's run covers up to its own start time, while today's ">= 1 day ago" would begin later in
+          the day, leaving the intervening records uncovered. Flooring to midnight keeps the windows overlapping.
+
+        We override ``parse_datetime_interval``'s ``strformat`` (letting it return datetime objects) instead of
+        reformatting a pre-truncated string, since the date-only truncation is exactly the source of the bug.
+        """
         if not date_since and not date_to:
             return None, None
         try:
             start, end = parse_datetime_interval(
                 period_from=date_since or "1970-01-01",
                 period_to=date_to or "now",
-                strformat="%Y-%m-%d",
             )
         except Exception as e:
             bad = date_since if date_since else date_to
@@ -247,7 +261,9 @@ class Component(ComponentBase):
                 f"Could not parse date '{bad}'. Please use ISO format (YYYY-MM-DD) or relative format "
                 "like '1 week ago', 'now', etc."
             ) from e
-        return (start if date_since else None), (end if date_to else None)
+        floored_start = start.strftime("%Y-%m-%d") if date_since else None
+        timestamp_end = end.strftime("%Y-%m-%dT%H:%M:%SZ") if date_to else None
+        return floored_start, timestamp_end
 
     def _resolve_access_token(self, params: Configuration) -> str:
         """Resolve the access token based on auth mode.

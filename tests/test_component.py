@@ -16,34 +16,52 @@ class TestParseLoadingOptionDates(unittest.TestCase):
         ):
             self.comp = Component.__new__(Component)
 
-    @freeze_time("2026-03-19")
+    @freeze_time("2026-03-19T13:56:13")
     def test_both_none_returns_none_tuple(self):
         result = self.comp._parse_loading_option_dates(None, None)
         self.assertEqual(result, (None, None))
 
-    @freeze_time("2026-03-19")
+    @freeze_time("2026-03-19T13:56:13")
     def test_absolute_dates(self):
+        # Explicit date-only user values are still accepted; the lower bound stays midnight-floored
+        # and the upper bound is emitted as a full timestamp.
         start, end = self.comp._parse_loading_option_dates("2026-03-12", "2026-03-19")
         self.assertEqual(start, "2026-03-12")
-        self.assertEqual(end, "2026-03-19")
+        self.assertEqual(end, "2026-03-19T00:00:00Z")
 
-    @freeze_time("2026-03-19")
-    def test_relative_date_since(self):
+    @freeze_time("2026-03-19T13:56:13")
+    def test_date_to_now_includes_same_day_records(self):
+        # date_to="now" must resolve to the actual run moment (not midnight), so a record updated
+        # earlier the same day (e.g. 2026-03-19T11:32:42Z) falls below the upper bound and is included.
         start, end = self.comp._parse_loading_option_dates("1 week ago", "now")
         self.assertEqual(start, "2026-03-12")
-        self.assertEqual(end, "2026-03-19")
+        self.assertEqual(end, "2026-03-19T13:56:13Z")
+        self.assertGreater(end, "2026-03-19T11:32:42Z")
 
-    @freeze_time("2026-03-19")
+    @freeze_time("2026-03-19T13:56:13")
+    def test_date_since_relative_floored_to_midnight(self):
+        # Relative date_since values are floored to midnight of their day, not the run time-of-day.
+        start, end = self.comp._parse_loading_option_dates("7 years ago", "now")
+        self.assertEqual(start, "2019-03-19")
+        self.assertEqual(end, "2026-03-19T13:56:13Z")
+
+    @freeze_time("2026-03-19T13:56:13")
     def test_only_date_since_set(self):
         start, end = self.comp._parse_loading_option_dates("2026-01-01", None)
         self.assertEqual(start, "2026-01-01")
         self.assertIsNone(end)
 
-    @freeze_time("2026-03-19")
+    @freeze_time("2026-03-19T13:56:13")
+    def test_unset_date_to_emits_no_upper_bound(self):
+        start, end = self.comp._parse_loading_option_dates("7 years ago", None)
+        self.assertEqual(start, "2019-03-19")
+        self.assertIsNone(end)
+
+    @freeze_time("2026-03-19T13:56:13")
     def test_only_date_to_set(self):
         start, end = self.comp._parse_loading_option_dates(None, "2026-03-19")
         self.assertIsNone(start)
-        self.assertEqual(end, "2026-03-19")
+        self.assertEqual(end, "2026-03-19T00:00:00Z")
 
 
 class TestComponent(unittest.TestCase):

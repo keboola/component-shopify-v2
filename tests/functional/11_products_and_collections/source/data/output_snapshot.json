@@ -14,7 +14,7 @@
         "products_count",
         "rule_set"
       ],
-      "hash": "sha256:75c7933e968eedf1fe31df10e1422c8ff3d2025b875c4f3e8718e3d0f4913567",
+      "hash": "sha256:0d02ad6d2ae571345afaaaae6adcbb8f58bf14ab44b09f809967cda212ad2f81",
       "row_count": 3,
       "size_bytes": 513
     },
@@ -29,22 +29,22 @@
         "id",
         "parent_id"
       ],
-      "hash": "sha256:dce305bee7f6071e9f24480883141ffbff6de1e157479ec145a0234bb310ece0",
-      "row_count": 4,
-      "size_bytes": 200
+      "hash": "sha256:923506af75a756343a0ccfd4d660220a436665e0a0dde29b822f7125d300f110",
+      "row_count": 5,
+      "size_bytes": 261
     },
     "collection_product.csv.manifest": {
       "columns": null,
-      "hash": "sha256:8d11ee9affab476e6c0802ef3197e69f8c3be11c277a2e0becf907aaf51cf171",
+      "hash": "sha256:d7a1821748f2ff214a413cfa9cf0db0e037d782f7999b25b256b6f20169febe8",
       "row_count": null,
-      "size_bytes": 319
+      "size_bytes": 340
     },
     "collection_products_count.csv": {
       "columns": [
         "parent_id",
         "count"
       ],
-      "hash": "sha256:ffb54c1b115fc3911bd0dc86d5dafa30b0eb114d344d26db5c6aeb8da5885e33",
+      "hash": "sha256:d1ffab5e70c4875e939139a4a1824f5cd14c71e0259a6e9c2626b9347a0e1cdc",
       "row_count": 3,
       "size_bytes": 92
     },

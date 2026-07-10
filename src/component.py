@@ -956,7 +956,7 @@ class Component(ComponentBase):
             "inventory_item": ["id"],
             "inventory_level": ["parent_id", "id"],
             "collection": ["id"],
-            "collection_product": ["id"],
+            "collection_product": ["parent_id", "id"],
             "collection_metafield": ["id"],
             "location": ["id"],
             "event": ["id"],

@@ -57,9 +57,9 @@
     },
     "collection_product.csv.manifest": {
       "columns": null,
-      "hash": "sha256:8d11ee9affab476e6c0802ef3197e69f8c3be11c277a2e0becf907aaf51cf171",
+      "hash": "sha256:d7a1821748f2ff214a413cfa9cf0db0e037d782f7999b25b256b6f20169febe8",
       "row_count": null,
-      "size_bytes": 319
+      "size_bytes": 340
     },
     "collection_products_count.csv": {
       "columns": [

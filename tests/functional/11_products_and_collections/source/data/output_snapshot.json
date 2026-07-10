@@ -1,0 +1,140 @@
+{
+  "files": {},
+  "hash_algorithm": "sha256",
+  "tables": {
+    "collection.csv": {
+      "columns": [
+        "id",
+        "title",
+        "handle",
+        "description_html",
+        "sort_order",
+        "template_suffix",
+        "updated_at",
+        "products_count",
+        "rule_set"
+      ],
+      "hash": "sha256:75c7933e968eedf1fe31df10e1422c8ff3d2025b875c4f3e8718e3d0f4913567",
+      "row_count": 3,
+      "size_bytes": 513
+    },
+    "collection.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:4c295514126eacea14f1533d323291c69cb03095ad20dfd3423cb55f3f0fdc83",
+      "row_count": null,
+      "size_bytes": 922
+    },
+    "collection_product.csv": {
+      "columns": [
+        "id",
+        "parent_id"
+      ],
+      "hash": "sha256:dce305bee7f6071e9f24480883141ffbff6de1e157479ec145a0234bb310ece0",
+      "row_count": 4,
+      "size_bytes": 200
+    },
+    "collection_product.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:8d11ee9affab476e6c0802ef3197e69f8c3be11c277a2e0becf907aaf51cf171",
+      "row_count": null,
+      "size_bytes": 319
+    },
+    "collection_products_count.csv": {
+      "columns": [
+        "parent_id",
+        "count"
+      ],
+      "hash": "sha256:ffb54c1b115fc3911bd0dc86d5dafa30b0eb114d344d26db5c6aeb8da5885e33",
+      "row_count": 3,
+      "size_bytes": 92
+    },
+    "collection_products_count.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:62782829b79cb0cb62f0b348c8a990228e1fe2cc3093d010b893519056e7080c",
+      "row_count": null,
+      "size_bytes": 323
+    },
+    "collection_rule_set.csv": {
+      "columns": [
+        "parent_id",
+        "applied_disjunctively",
+        "rules"
+      ],
+      "hash": "sha256:df818559d044938d9b7606f1b5f087a91f64c2bcd33587dbac981c6f7bd08e61",
+      "row_count": 2,
+      "size_bytes": 155
+    },
+    "collection_rule_set.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:0b5de57d29dcc902bfdb73095bb1ff5820801ef88ea5b9f6d838aa3c4ec595a6",
+      "row_count": null,
+      "size_bytes": 419
+    },
+    "product.csv": {
+      "columns": [
+        "id",
+        "title",
+        "handle",
+        "description",
+        "vendor",
+        "product_type",
+        "tags",
+        "status",
+        "created_at",
+        "updated_at",
+        "published_at",
+        "total_inventory"
+      ],
+      "hash": "sha256:d577f1ac6fbcb9472acc5f4772ad7aeb38855bd5d9d3d795ac868c037e994101",
+      "row_count": 10,
+      "size_bytes": 2181
+    },
+    "product.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:3042f60745ab42cf6ab683f9da8bb321e36932c4fcce1078af6c6bc18701efe6",
+      "row_count": null,
+      "size_bytes": 1167
+    },
+    "product_image.csv": {
+      "columns": [
+        "id",
+        "parent_id",
+        "url",
+        "alt_text",
+        "width",
+        "height"
+      ],
+      "hash": "sha256:6f22afda508a857472c578de6cf4ba18a471fa30fe34960ffb005ab3cf7e6c8c",
+      "row_count": 11,
+      "size_bytes": 3413
+    },
+    "product_image.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:a785b07cac9560e5fd7004ef71b042a7b98f7bc86795b8fdd647984206918fc3",
+      "row_count": null,
+      "size_bytes": 622
+    },
+    "product_variant.csv": {
+      "columns": [
+        "id",
+        "title",
+        "sku",
+        "barcode",
+        "price",
+        "compare_at_price",
+        "inventory_quantity",
+        "parent_id"
+      ],
+      "hash": "sha256:73590e1c8fda322a772323cabd070207727a2e1ced7120d86b9fcd37901631f2",
+      "row_count": 15,
+      "size_bytes": 1794
+    },
+    "product_variant.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:40a6f9880f361c30ba184efd34bd483ffa42ef0c8e200c63c74852d467995839",
+      "row_count": null,
+      "size_bytes": 803
+    }
+  },
+  "version": "1.0"
+}

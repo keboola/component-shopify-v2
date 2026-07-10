@@ -173,6 +173,31 @@
           },
           "propertyOrder": 120
         },
+        "collections": {
+          "type": "boolean",
+          "title": "Collections",
+          "format": "checkbox",
+          "default": false,
+          "description": "Get product collections (both custom and smart collections)",
+          "options": {
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkCollections.graphql)"
+          },
+          "propertyOrder": 125
+        },
+        "collection_metafields": {
+          "type": "boolean",
+          "title": "Collections – Metafields",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "collections": true
+            },
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkCollections.graphql) and [the replacement fragment](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/fragments/CollectionMetafields.graphql)"
+          },
+          "description": "Include collection metafields",
+          "propertyOrder": 127
+        },
         "locations": {
           "type": "boolean",
           "title": "Locations",
@@ -180,7 +205,7 @@
           "default": false,
           "description": "Get store locations",
           "options": {
-            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkCustomers.graphql)"
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/BulkLocations.graphql)"
           },
           "propertyOrder": 130
         }

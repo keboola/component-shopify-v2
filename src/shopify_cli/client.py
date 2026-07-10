@@ -905,6 +905,118 @@ class ShopifyGraphQLClient:
                 error = current_op.get("errorCode", "Unknown error")
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
+    @log_bulk_performance("collections")
+    def get_collections_bulk(
+        self,
+        temp_file_path: str,
+        include_metafields: bool = False,
+        date_since: str | None = None,
+        date_to: str | None = None,
+        fetch_parameter: str = "updated_at",
+    ) -> BulkOperationResult:
+        """
+        Get all collections using Shopify's bulk operations
+
+        Args:
+            temp_file_path: Path where JSONL results will be saved
+            include_metafields: Whether to include collection metafields in the response
+            date_since: Start date for filtering (YYYY-MM-DD format)
+            date_to: End date for filtering (YYYY-MM-DD format)
+            fetch_parameter: Field to filter by ('updated_at' or 'created_at')
+
+        Returns:
+            BulkOperationResult with file path and timing info
+        """
+        api_wait_start = time.time()
+
+        filters = []
+        if date_since:
+            filters.append(f"{fetch_parameter}:>='{date_since}'")
+        if date_to:
+            filters.append(f"{fetch_parameter}:<'{date_to}'")
+
+        query_filter = " AND ".join(filters) if filters else ""
+
+        log_dates = ""
+        if date_since and date_to:
+            log_dates = f" from {date_since} to {date_to}"
+        elif date_since:
+            log_dates = f" from {date_since}"
+        elif date_to:
+            log_dates = f" until {date_to}"
+
+        log_metafields = " (including collection metafields)" if include_metafields else ""
+
+        self.logger.info(f"Starting bulk operation for collections{log_metafields}{log_dates}")
+
+        mutation_file = self.query_loader.queries_dir / "BulkCollections.graphql"
+        with open(mutation_file) as f:
+            mutation = f.read()
+
+        # Inject collection metafields if requested
+        if include_metafields:
+            metafields_fragment_file = self.query_loader.queries_dir / "fragments" / "CollectionMetafields.graphql"
+            with open(metafields_fragment_file) as f:
+                collection_metafields_fragment = f.read()
+            mutation = mutation.replace("__COLLECTION_METAFIELDS_PLACEHOLDER__", collection_metafields_fragment)
+        else:
+            mutation = mutation.replace("__COLLECTION_METAFIELDS_PLACEHOLDER__", "")
+
+        if query_filter:
+            mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')
+        else:
+            mutation = mutation.replace("__QUERY_FILTER__", "")
+
+        result = self.execute_query(mutation)
+
+        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
+        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
+
+        if user_errors:
+            raise UserException(f"Bulk operation failed: {user_errors}")
+
+        operation_id = bulk_op.get("id")
+        self.logger.info(f"Bulk operation started: {operation_id}")
+
+        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
+        with open(status_file) as f:
+            status_query = f.read()
+
+        poll_start = time.time()
+        while True:
+            elapsed = time.time() - poll_start
+            sleep_interval = 5 if elapsed < 60 else 15
+            time.sleep(sleep_interval)
+
+            status_result = self.execute_query(status_query)
+            current_op = status_result.get("currentBulkOperation", {})
+
+            status = current_op.get("status")
+            self.logger.debug(f"Bulk operation status: {status}")
+
+            if status == "COMPLETED":
+                url = current_op.get("url")
+                object_count = current_op.get("objectCount", 0)
+                api_wait_time = time.time() - api_wait_start
+
+                if not url:
+                    self.logger.info("Bulk operation completed with no results (empty dataset)")
+                    with open(temp_file_path, "w") as f:
+                        pass
+                    return BulkOperationResult(
+                        file_path=temp_file_path,
+                        item_count=0,
+                        api_wait_time=api_wait_time,
+                        download_time=0.0,
+                    )
+
+                self.logger.info(f"Downloading results from: {url}")
+                return self._download_bulk_results(url, int(object_count), "collections", temp_file_path, api_wait_time)
+
+            elif status in ["FAILED", "CANCELED"]:
+                error = current_op.get("errorCode", "Unknown error")
+                raise UserException(f"Bulk operation {status.lower()}: {error}")
+
     @log_bulk_performance("locations")
     def get_locations_bulk(self, temp_file_path: str) -> BulkOperationResult:
         """

@@ -1,0 +1,3 @@
+"id","title","handle","description_html","sort_order","template_suffix","updated_at","products_count","rule_set"
+"gid://shopify/Collection/1001","Smart Sale","smart-sale","<p>Smart collection</p>","BEST_SELLING",,"2024-06-01 10:00:00","{""count"":2}","{""appliedDisjunctively"":true,""rules"":[{""column"":""TAG"",""condition"":""sale"",""relation"":""EQUALS""}]}"
+"gid://shopify/Collection/1002","Custom Summer","custom-summer","<p>Custom collection</p>","MANUAL","custom","2024-07-15 14:30:00","{""count"":1}",

@@ -1,4 +1,5 @@
 import os
+import time
 import unittest
 from unittest import mock
 
@@ -63,6 +64,26 @@ class TestParseLoadingOptionDates(unittest.TestCase):
         self.assertIsNone(start)
         self.assertEqual(end, "2026-03-19T00:00:00Z")
 
+    def test_bounds_are_identical_across_timezones(self):
+        # The emitted bounds must be a real UTC instant regardless of the container's TZ env
+        # (dateparser resolves in UTC), not "correct only while the container runs UTC".
+        results = []
+        original_tz = os.environ.get("TZ")
+        try:
+            for tz in ("America/New_York", "Europe/Prague"):
+                os.environ["TZ"] = tz
+                time.tzset()
+                with freeze_time("2026-03-19T13:56:13"):
+                    results.append(self.comp._parse_loading_option_dates("7 years ago", "now"))
+        finally:
+            if original_tz is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = original_tz
+            time.tzset()
+        self.assertEqual(results[0], results[1])
+        self.assertEqual(results[0], ("2019-03-19", "2026-03-19T13:56:13Z"))
+
 
 class TestLegacyOrdersQueryBuilder(unittest.TestCase):
     """Pin the legacy get_orders query string: timestamp date bounds must be quoted
@@ -91,6 +112,46 @@ class TestLegacyOrdersQueryBuilder(unittest.TestCase):
         self.assertIn("created_at:<'2026-03-19T13:56:13Z'", query)
         # Upper bound must be exclusive ('<'), never inclusive ('<='), matching the bulk paths.
         self.assertNotIn("created_at:<=", query)
+
+
+class TestBulkOrdersQueryBuilder(unittest.TestCase):
+    """Pin the bulk get_orders_bulk query string. The VCR functional cassettes match requests on
+    method/host/path/query only (not body), so they cannot assert what date bound the bulk mutation
+    actually carries; this captures the mutation sent to Shopify and asserts the timestamp date_to
+    comes out quoted and exclusive."""
+
+    def _build_bulk_orders_mutation(self, date_since, date_to):
+        from shopify_cli.client import ShopifyGraphQLClient
+
+        with mock.patch.object(ShopifyGraphQLClient, "_setup_session", return_value=None):
+            client = ShopifyGraphQLClient(
+                store_name="test-shop", api_token="TEST_TOKEN", api_version="2025-10", debug=False
+            )
+        captured: dict[str, str] = {}
+        responses = iter(
+            [
+                {"bulkOperationRunQuery": {"bulkOperation": {"id": "gid://shopify/BulkOperation/1"}, "userErrors": []}},
+                {"currentBulkOperation": {"status": "COMPLETED", "url": None, "objectCount": "0"}},
+            ]
+        )
+
+        def fake_execute_query(query, variables=None):
+            if "bulkOperationRunQuery" in query:
+                captured["mutation"] = query
+            return next(responses)
+
+        with (
+            mock.patch.object(client, "execute_query", side_effect=fake_execute_query),
+            mock.patch("shopify_cli.client.time.sleep", return_value=None),
+        ):
+            client.get_orders_bulk(temp_file_path="/tmp/bulk_orders_test.jsonl", date_since=date_since, date_to=date_to)
+        return captured["mutation"]
+
+    def test_bulk_orders_timestamp_bound_quoted_and_exclusive(self):
+        mutation = self._build_bulk_orders_mutation("2026-03-12", "2026-03-19T13:56:13Z")
+        self.assertIn("updated_at:>='2026-03-12'", mutation)
+        self.assertIn("updated_at:<'2026-03-19T13:56:13Z'", mutation)
+        self.assertNotIn("updated_at:<=", mutation)
 
 
 class TestComponent(unittest.TestCase):

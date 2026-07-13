@@ -9,11 +9,11 @@ from collections import OrderedDict, defaultdict
 from pathlib import Path
 from typing import Any
 
+import dateparser
 import duckdb
 from keboola.component.base import ComponentBase
 from keboola.component.dao import BaseType, ColumnDefinition, SupportedDataTypes
 from keboola.component.exceptions import UserException
-from keboola.utils.date import parse_datetime_interval
 from keboola.vcr.sanitizers import QueryParamSanitizer
 
 from configuration import PRODUCTS_ENDPOINTS, Configuration
@@ -245,22 +245,26 @@ class Component(ComponentBase):
           yesterday's run covers up to its own start time, while today's ">= 1 day ago" would begin later in
           the day, leaving the intervening records uncovered. Flooring to midnight keeps the windows overlapping.
 
-        We override ``parse_datetime_interval``'s ``strformat`` (letting it return datetime objects) instead of
-        reformatting a pre-truncated string, since the date-only truncation is exactly the source of the bug.
+        Dates are resolved in UTC (``TIMEZONE="UTC"``): the previous ``parse_datetime_interval`` truncated
+        both bounds to bare ``YYYY-MM-DD`` (the source of the same-day-exclusion bug) and, being unable to
+        pass a timezone through, resolved values in the container's local timezone. Resolving in UTC makes
+        relative values ("now", "7 years ago") real UTC instants and anchors explicit calendar dates
+        ("2026-03-19") to UTC midnight without a timezone shift, so the trailing ``Z`` is always accurate
+        regardless of the runtime timezone.
         """
         if not date_since and not date_to:
             return None, None
-        try:
-            start, end = parse_datetime_interval(
-                period_from=date_since or "1970-01-01",
-                period_to=date_to or "now",
-            )
-        except Exception as e:
-            bad = date_since if date_since else date_to
+        settings = {"TIMEZONE": "UTC", "RETURN_AS_TIMEZONE_AWARE": True}
+        start = dateparser.parse(date_since or "1970-01-01", settings=settings)
+        end = dateparser.parse(date_to or "now", settings=settings)
+        if start is None or end is None:
+            bad = date_since if start is None else date_to
             raise UserException(
                 f"Could not parse date '{bad}'. Please use ISO format (YYYY-MM-DD) or relative format "
                 "like '1 week ago', 'now', etc."
-            ) from e
+            )
+        if end < start:
+            raise UserException(f"date_since ('{date_since}') cannot be after date_to ('{date_to}').")
         floored_start = start.strftime("%Y-%m-%d") if date_since else None
         timestamp_end = end.strftime("%Y-%m-%dT%H:%M:%SZ") if date_to else None
         return floored_start, timestamp_end

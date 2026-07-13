@@ -131,21 +131,6 @@
       "row_count": null,
       "size_bytes": 648
     },
-    "order_original_unit_price_set.csv": {
-      "columns": [
-        "parent_id",
-        "shop_money"
-      ],
-      "hash": "sha256:511e715599647e87f6dbe6c68f49d8b6a13df348b4e4b898edd8fa4968fc9050",
-      "row_count": 4,
-      "size_bytes": 265
-    },
-    "order_original_unit_price_set.csv.manifest": {
-      "columns": null,
-      "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
-      "row_count": null,
-      "size_bytes": 327
-    },
     "order_payment_gateway_names.csv": {
       "columns": [
         "parent_id",

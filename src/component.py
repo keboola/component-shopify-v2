@@ -33,6 +33,14 @@ VCR_SANITIZERS = [
     )
 ]
 
+# Columns intentionally excluded from generic JSON decomposition into child tables.
+# `originalUnitPriceSet` is line-item-level data, but decomposition runs on the mixed
+# top-level table and would emit a misnamed `order_original_unit_price_set` child table.
+# It remains available as the serialized `original_unit_price_set` JSON column on line_item.
+# Proper per-entity child tables are introduced by PR 3 of L1-141; suppressing this here
+# avoids shipping a name that PR 3 would have to rename.
+DECOMPOSITION_SKIP_COLUMNS = {"originalUnitPriceSet"}
+
 
 class Component(ComponentBase):
     def __init__(self, *args, **kwargs):
@@ -114,6 +122,10 @@ class Component(ComponentBase):
             col_type_str = str(col_type).upper()
 
             if not ("STRUCT" in col_type_str or "LIST" in col_type_str or col_type_str.endswith("[]")):
+                continue
+
+            if col_name in DECOMPOSITION_SKIP_COLUMNS:
+                self.logger.info(f"Skipping decomposition for column: {col_name} in {table_name}")
                 continue
 
             snake_col_name = self._camel_to_snake(col_name)

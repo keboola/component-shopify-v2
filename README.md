@@ -141,6 +141,46 @@ The component uses DuckDB to automatically process bulk operation results into C
 - **events.csv** - System event logs
 - **{custom_query_name}.csv** - Custom query results
 
+#### Orders output mapping (v1 fields)
+
+The orders endpoint produces the parent `order.csv` and `line_item.csv` tables plus a set of
+automatically decomposed child tables. Nested money values are preserved as **serialized JSON**,
+not flattened into `__`-separated scalar columns — downstream transformations (e.g. dbt) must
+extract them with JSON functions (`amount`, `currencyCode` live inside the JSON).
+
+New columns on **`order.csv`**:
+
+| Column | Source (GraphQL) | Format |
+| --- | --- | --- |
+| `display_financial_status` | `displayFinancialStatus` | string |
+| `display_fulfillment_status` | `displayFulfillmentStatus` | string |
+| `test` | `test` | boolean |
+| `payment_gateway_names` | `paymentGatewayNames` | serialized JSON array (also decomposed, see below) |
+| `current_total_additional_fees_set` | `currentTotalAdditionalFeesSet` | serialized JSON `{"shopMoney":{"amount","currencyCode"}}` |
+| `current_total_duties_set` | `currentTotalDutiesSet` | serialized JSON `{"shopMoney":{"amount","currencyCode"}}` |
+| `total_tip_received_set` | `totalTipReceivedSet` | serialized JSON `{"shopMoney":{"amount","currencyCode"}}` |
+
+New columns on **`line_item.csv`**:
+
+| Column | Source (GraphQL) | Format |
+| --- | --- | --- |
+| `current_quantity` | `currentQuantity` | integer |
+| `original_unit_price_set` | `originalUnitPriceSet` | serialized JSON `{"shopMoney":{"amount","currencyCode"}}` |
+
+Child tables created for the new fields:
+
+| Table | Columns | Relationship |
+| --- | --- | --- |
+| `order_payment_gateway_names.csv` | `parent_id`, `row_number`, `item` | one row per payment gateway name (`parent_id` → `order.id`) |
+| `order_current_total_additional_fees_set.csv` | `parent_id`, `shop_money` | 1:1 with `order` (`shop_money` is serialized JSON) |
+| `order_current_total_duties_set.csv` | `parent_id`, `shop_money` | 1:1 with `order` |
+| `order_total_tip_received_set.csv` | `parent_id`, `shop_money` | 1:1 with `order` |
+
+> Note: `original_unit_price_set` is intentionally **not** decomposed into a child table. It is
+> line-item-level data, but generic decomposition runs on the mixed top-level stream and would
+> emit a misnamed `order_original_unit_price_set` table; properly named per-entity child tables
+> are introduced by a later PR. The value stays available as the serialized JSON column on
+> `line_item.csv`.
 
 ### Data Types and Manifests
 

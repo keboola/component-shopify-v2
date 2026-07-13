@@ -159,5 +159,24 @@
         }
       }
     }
+  },
+  {
+    "name": "09_orders_real_data",
+    "description": "Extract orders with populated results, covering v1 order and line item fields",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true
+        },
+        "loading_options": {
+          "date_since": "2025-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
   }
 ]

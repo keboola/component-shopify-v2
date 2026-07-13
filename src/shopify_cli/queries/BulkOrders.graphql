@@ -14,6 +14,10 @@ mutation {
             processedAt
             cancelledAt
             cancelReason
+            displayFinancialStatus
+            displayFulfillmentStatus
+            test
+            paymentGatewayNames
             totalPriceSet {
               shopMoney {
                 amount
@@ -38,6 +42,24 @@ mutation {
                 currencyCode
               }
             }
+            currentTotalAdditionalFeesSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            currentTotalDutiesSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            totalTipReceivedSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
             customer {
               id
               firstName
@@ -51,7 +73,14 @@ mutation {
                   id
                   title
                   quantity
+                  currentQuantity
                   sku
+                  originalUnitPriceSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
                   variant {
                     id
                     title

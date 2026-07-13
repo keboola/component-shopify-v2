@@ -1,0 +1,4 @@
+"parent_id","shop_money"
+"gid://shopify/LineItem/2001","{""amount"":""50.00"",""currencyCode"":""EUR""}"
+"gid://shopify/LineItem/2002","{""amount"":""30.00"",""currencyCode"":""EUR""}"
+"gid://shopify/LineItem/2003","{""amount"":""60.00"",""currencyCode"":""EUR""}"

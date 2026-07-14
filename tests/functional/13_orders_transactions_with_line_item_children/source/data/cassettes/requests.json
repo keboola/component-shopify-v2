@@ -1,0 +1,94 @@
+{
+ "_metadata": {
+  "freeze_time": "2026-07-14T08:00:00",
+  "keboola_vcr_version": "0.0.0",
+  "recorded_at": "2026-07-14T08:00:00+00:00"
+ },
+ "interactions": [
+  {
+   "request": {
+    "body": "{\"query\": \"mutation { bulkOperationRunQuery ... }\"}",
+    "headers": {
+     "Accept": [
+      "application/json"
+     ],
+     "Content-Type": [
+      "application/json"
+     ]
+    },
+    "method": "POST",
+    "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+   },
+   "response": {
+    "status": {
+     "code": 200,
+     "message": "OK"
+    },
+    "headers": {
+     "Content-Type": [
+      "application/json"
+     ]
+    },
+    "body": {
+     "string": "{\"data\": {\"bulkOperationRunQuery\": {\"bulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000021\", \"status\": \"CREATED\"}, \"userErrors\": []}}}"
+    }
+   }
+  },
+  {
+   "request": {
+    "body": "{\"query\": \"query { currentBulkOperation { ... } }\"}",
+    "headers": {
+     "Accept": [
+      "application/json"
+     ],
+     "Content-Type": [
+      "application/json"
+     ]
+    },
+    "method": "POST",
+    "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+   },
+   "response": {
+    "status": {
+     "code": 200,
+     "message": "OK"
+    },
+    "headers": {
+     "Content-Type": [
+      "application/json"
+     ]
+    },
+    "body": {
+     "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000022\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-07-14T07:59:32Z\", \"completedAt\": \"2026-07-14T07:59:33Z\", \"objectCount\": \"2\", \"fileSize\": \"3000\", \"url\": \"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-transactions?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED\", \"partialDataUrl\": null}}}"
+    }
+   }
+  },
+  {
+   "request": {
+    "body": null,
+    "headers": {
+     "Accept": [
+      "*/*"
+     ]
+    },
+    "method": "GET",
+    "uri": "https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-transactions?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED"
+   },
+   "response": {
+    "status": {
+     "code": 200,
+     "message": "OK"
+    },
+    "headers": {
+     "Content-Type": [
+      "application/json"
+     ]
+    },
+    "body": {
+     "string": "{\"id\": \"gid://shopify/Order/1301\", \"name\": \"#1301\", \"email\": \"buyer@example.com\", \"phone\": null, \"createdAt\": \"2025-07-01T10:00:00Z\", \"updatedAt\": \"2025-07-01T10:05:00Z\", \"processedAt\": \"2025-07-01T10:00:00Z\", \"cancelledAt\": null, \"cancelReason\": null, \"displayFinancialStatus\": \"PAID\", \"displayFulfillmentStatus\": \"FULFILLED\", \"test\": false, \"paymentGatewayNames\": [\"manual\"], \"totalPriceSet\": {\"shopMoney\": {\"amount\": \"120.00\", \"currencyCode\": \"EUR\"}}, \"subtotalPriceSet\": {\"shopMoney\": {\"amount\": \"110.00\", \"currencyCode\": \"EUR\"}}, \"totalTaxSet\": {\"shopMoney\": {\"amount\": \"11.50\", \"currencyCode\": \"EUR\"}}, \"totalShippingPriceSet\": {\"shopMoney\": {\"amount\": \"10.00\", \"currencyCode\": \"EUR\"}}, \"currentTotalAdditionalFeesSet\": null, \"currentTotalDutiesSet\": null, \"totalTipReceivedSet\": {\"shopMoney\": {\"amount\": \"0.00\", \"currencyCode\": \"EUR\"}}, \"transactions\": [{\"id\": \"gid://shopify/OrderTransaction/7301\", \"kind\": \"SALE\", \"status\": \"SUCCESS\", \"test\": false, \"amountSet\": {\"shopMoney\": {\"amount\": \"120.00\", \"currencyCode\": \"EUR\"}}, \"gateway\": \"manual\", \"createdAt\": \"2025-07-01T10:00:00Z\", \"processedAt\": \"2025-07-01T10:00:00Z\", \"errorCode\": null, \"authorizationCode\": \"AUTH123\", \"authorizationExpiresAt\": null}, {\"id\": \"gid://shopify/OrderTransaction/7302\", \"kind\": \"REFUND\", \"status\": \"SUCCESS\", \"test\": false, \"amountSet\": {\"shopMoney\": {\"amount\": \"20.00\", \"currencyCode\": \"EUR\"}}, \"gateway\": \"manual\", \"createdAt\": \"2025-07-02T09:00:00Z\", \"processedAt\": \"2025-07-02T09:00:00Z\", \"errorCode\": null, \"authorizationCode\": null, \"authorizationExpiresAt\": null}], \"customer\": {\"id\": \"gid://shopify/Customer/5301\", \"firstName\": \"Buyer\", \"lastName\": \"Example\", \"email\": \"buyer@example.com\", \"phone\": null}, \"shippingAddress\": {\"firstName\": \"Buyer\", \"lastName\": \"Example\", \"address1\": \"1 Test Street\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"zip\": \"11000\", \"phone\": null}, \"billingAddress\": {\"firstName\": \"Buyer\", \"lastName\": \"Example\", \"address1\": \"1 Test Street\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"zip\": \"11000\", \"phone\": null}}\n{\"id\": \"gid://shopify/LineItem/2301\", \"title\": \"Widget A\", \"quantity\": 2, \"currentQuantity\": 2, \"sku\": \"WID-A\", \"originalUnitPriceSet\": {\"shopMoney\": {\"amount\": \"50.00\", \"currencyCode\": \"EUR\"}}, \"variant\": {\"id\": \"gid://shopify/ProductVariant/3301\", \"title\": \"Widget A\", \"sku\": \"WID-A\", \"price\": \"50.00\"}, \"taxLines\": [{\"title\": \"VAT 21%\", \"rate\": 0.21, \"ratePercentage\": 21.0, \"priceSet\": {\"shopMoney\": {\"amount\": \"10.50\", \"currencyCode\": \"EUR\"}}, \"channelLiable\": false, \"source\": \"shopify\"}, {\"title\": \"City Tax\", \"rate\": 0.02, \"ratePercentage\": 2.0, \"priceSet\": {\"shopMoney\": {\"amount\": \"1.00\", \"currencyCode\": \"EUR\"}}, \"channelLiable\": true, \"source\": \"external\"}], \"discountAllocations\": [{\"allocatedAmountSet\": {\"shopMoney\": {\"amount\": \"5.00\", \"currencyCode\": \"EUR\"}}, \"discountApplication\": {\"index\": 0}}, {\"allocatedAmountSet\": {\"shopMoney\": {\"amount\": \"2.50\", \"currencyCode\": \"EUR\"}}, \"discountApplication\": {\"index\": 1}}], \"__parentId\": \"gid://shopify/Order/1301\"}\n"
+    }
+   }
+  }
+ ],
+ "version": 1
+}

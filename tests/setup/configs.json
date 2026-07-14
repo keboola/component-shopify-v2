@@ -216,5 +216,25 @@
         }
       }
     }
+  },
+  {
+    "name": "13_orders_transactions_with_line_item_children",
+    "description": "Extract orders with order transactions enabled: an order WITH transactions and a line item with 2+ tax lines and 2+ discount allocations, asserting order.csv keeps the transactions column alongside both line_item_* child tables",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true,
+          "order_transactions": true
+        },
+        "loading_options": {
+          "date_since": "2025-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
   }
 ]

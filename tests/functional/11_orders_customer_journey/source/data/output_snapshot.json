@@ -13,9 +13,9 @@
         "variant",
         "parent_id"
       ],
-      "hash": "sha256:baaa6d02dfed10fe255d2150cff0cabf92eb5c8e471a357e70c84045801acd88",
+      "hash": "sha256:2ed44d54813180c3e9829365b490be46c5d4b0a4ba4bf192e3e85cb2627769df",
       "row_count": 4,
-      "size_bytes": 943
+      "size_bytes": 871
     },
     "line_item.csv.manifest": {
       "columns": null,
@@ -78,9 +78,9 @@
         "customer_journey_summary__last_visit__utm_parameters__term",
         "customer_journey_summary__last_visit__utm_parameters__content"
       ],
-      "hash": "sha256:515dcc010be3a949666df1a20a5f0bd4eba33335dc42b7c277b2252df6b7f954",
-      "row_count": 3,
-      "size_bytes": 4139
+      "hash": "sha256:cde6e71c8011d665ff0c6df5b1f454b42eb03ec92d560a24e77339500bcf2e3b",
+      "row_count": 4,
+      "size_bytes": 5293
     },
     "order.csv.manifest": {
       "columns": null,
@@ -101,45 +101,15 @@
         "zip",
         "phone"
       ],
-      "hash": "sha256:1b1c804307aff983d3a6fcf11b40fcfec5b3351fbf020f2cbb9b3b761652bae9",
-      "row_count": 3,
-      "size_bytes": 263
+      "hash": "sha256:45fd37901fbbc3b9f2081645836e63b96a187c3d2aae3e0eaf6a7a01da36da9e",
+      "row_count": 4,
+      "size_bytes": 347
     },
     "order_billing_address.csv.manifest": {
       "columns": null,
       "hash": "sha256:47e7fc72db38d5d49ab992cf52d3ccdfb77b9bac341c97684970708448bdf52a",
       "row_count": null,
       "size_bytes": 979
-    },
-    "order_current_total_additional_fees_set.csv": {
-      "columns": [
-        "parent_id",
-        "shop_money"
-      ],
-      "hash": "sha256:c35f1db6568844c3cfc362a45e5c2d04585bcc1c15d06dc8eb07432420e48bd9",
-      "row_count": 2,
-      "size_bytes": 101
-    },
-    "order_current_total_additional_fees_set.csv.manifest": {
-      "columns": null,
-      "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
-      "row_count": null,
-      "size_bytes": 327
-    },
-    "order_current_total_duties_set.csv": {
-      "columns": [
-        "parent_id",
-        "shop_money"
-      ],
-      "hash": "sha256:5428f2c97dafbfd2e9851ff7d13c4e05ef6dc5ca4f1e3b40734fe93bdd1fa9ad",
-      "row_count": 2,
-      "size_bytes": 101
-    },
-    "order_current_total_duties_set.csv.manifest": {
-      "columns": null,
-      "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
-      "row_count": null,
-      "size_bytes": 327
     },
     "order_customer.csv": {
       "columns": [
@@ -150,9 +120,9 @@
         "email",
         "phone"
       ],
-      "hash": "sha256:20ffe8018837cc3f41e012d84370aadd87e87f09f3ed1e5574b071254094aed6",
-      "row_count": 3,
-      "size_bytes": 240
+      "hash": "sha256:8df77d74f7360d8ec5631f3d3c7f90a902b3a91a214dab920058e39180c2762c",
+      "row_count": 4,
+      "size_bytes": 343
     },
     "order_customer.csv.manifest": {
       "columns": null,
@@ -189,9 +159,9 @@
         "zip",
         "phone"
       ],
-      "hash": "sha256:1b1c804307aff983d3a6fcf11b40fcfec5b3351fbf020f2cbb9b3b761652bae9",
-      "row_count": 3,
-      "size_bytes": 263
+      "hash": "sha256:45fd37901fbbc3b9f2081645836e63b96a187c3d2aae3e0eaf6a7a01da36da9e",
+      "row_count": 4,
+      "size_bytes": 347
     },
     "order_shipping_address.csv.manifest": {
       "columns": null,
@@ -204,9 +174,9 @@
         "parent_id",
         "shop_money"
       ],
-      "hash": "sha256:6fcf9f270f58b6e84fda79a3ddf44cb58a10e26f9848c0543a8f9f0f799ec7ae",
-      "row_count": 3,
-      "size_bytes": 180
+      "hash": "sha256:431b38cb206338e93101cb559f2986ac3b165e5ba6f82321e7b25ef8c68c306c",
+      "row_count": 4,
+      "size_bytes": 256
     },
     "order_subtotal_price_set.csv.manifest": {
       "columns": null,
@@ -219,9 +189,9 @@
         "parent_id",
         "shop_money"
       ],
-      "hash": "sha256:92d5b189cb3e54813b39c92d5e6a3981bc16a9d11cd3c9eda1b749c129b059ac",
-      "row_count": 3,
-      "size_bytes": 180
+      "hash": "sha256:e0a87b6ae6f624bb5414a0d72f795f267ea3410bfb280ef870ea746fc27caeca",
+      "row_count": 4,
+      "size_bytes": 259
     },
     "order_total_price_set.csv.manifest": {
       "columns": null,
@@ -234,9 +204,9 @@
         "parent_id",
         "shop_money"
       ],
-      "hash": "sha256:9dc3cb0d7eaef7de7f98af4a2643d14a979d40abf9bf1175a19e68be7beb22bc",
-      "row_count": 3,
-      "size_bytes": 177
+      "hash": "sha256:bbdde7bb3b4460e7466314bff1c90e50ee867d598fbccb6876ad6c39b44a780a",
+      "row_count": 4,
+      "size_bytes": 253
     },
     "order_total_shipping_price_set.csv.manifest": {
       "columns": null,
@@ -249,26 +219,11 @@
         "parent_id",
         "shop_money"
       ],
-      "hash": "sha256:6ac38ebc936f1410e81feec751f3d663091b3452592bddc7ff9201f06d8ff8f4",
-      "row_count": 3,
-      "size_bytes": 178
+      "hash": "sha256:d0a5702740026a3008ae88195a1a15a73d060e6dbb52f0bc65dcd24b54d231f5",
+      "row_count": 4,
+      "size_bytes": 256
     },
     "order_total_tax_set.csv.manifest": {
-      "columns": null,
-      "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
-      "row_count": null,
-      "size_bytes": 327
-    },
-    "order_total_tip_received_set.csv": {
-      "columns": [
-        "parent_id",
-        "shop_money"
-      ],
-      "hash": "sha256:507d15c330f4e1c594a552372e9b124bfcae4b6c74861aa94a1dd10bae071a7f",
-      "row_count": 2,
-      "size_bytes": 101
-    },
-    "order_total_tip_received_set.csv.manifest": {
       "columns": null,
       "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
       "row_count": null,
@@ -282,9 +237,9 @@
         "sku",
         "price"
       ],
-      "hash": "sha256:e6ba08a870a1e0f7f818d863e8e2aeac0d88eb1cb444aa92f91e466dd312aa51",
+      "hash": "sha256:e33a7bacc0ebf1527d43d4e18e5d6b4b0e4402164552456d22359a1584f190f7",
       "row_count": 4,
-      "size_bytes": 351
+      "size_bytes": 315
     },
     "order_variant.csv.manifest": {
       "columns": null,

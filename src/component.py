@@ -41,6 +41,56 @@ VCR_SANITIZERS = [
 # avoids shipping a name that PR 3 would have to rename.
 DECOMPOSITION_SKIP_COLUMNS = {"originalUnitPriceSet"}
 
+# Order.customerJourneySummary is flattened explicitly onto the `order` table instead of
+# going through the generic decomposition path. Generic decomposition would emit a 1:1
+# `order_customer_journey_summary` child table, and a plain skip would leave a single
+# serialized JSON blob; Anna's dbt (SUPPORT-12550) depends on flat, __-separated columns
+# on the `order` table (e.g. landing_site <- customer_journey_summary__first_visit__landing_page).
+#
+# Attribution is asynchronous: `ready` may be false with null visit fields, and
+# customerJourneySummary itself may be null (Shopify docs). All columns below are therefore
+# always produced (NULL where absent), with no data-dependent column presence.
+CUSTOMER_JOURNEY_SOURCE_COLUMN = "customerJourneySummary"
+
+
+def _build_customer_journey_columns() -> list[tuple[str, str]]:
+    """Return ordered (output_column_name, json_path) pairs for the flattened columns.
+
+    json_path is relative to the customerJourneySummary object and uses the GraphQL
+    (camelCase) field names, matching the keys DuckDB reads from the bulk JSONL.
+    """
+    prefix = "customer_journey_summary"
+    top_fields = [
+        ("ready", "ready"),
+        ("customer_order_index", "customerOrderIndex"),
+        ("days_to_conversion", "daysToConversion"),
+    ]
+    visit_fields = [
+        ("id", "id"),
+        ("occurred_at", "occurredAt"),
+        ("landing_page", "landingPage"),
+        ("referrer_url", "referrerUrl"),
+        ("source", "source"),
+        ("source_description", "sourceDescription"),
+        ("source_type", "sourceType"),
+        ("referral_code", "referralCode"),
+        ("utm_parameters__source", "utmParameters.source"),
+        ("utm_parameters__medium", "utmParameters.medium"),
+        ("utm_parameters__campaign", "utmParameters.campaign"),
+        ("utm_parameters__term", "utmParameters.term"),
+        ("utm_parameters__content", "utmParameters.content"),
+    ]
+    visits = [("first_visit", "firstVisit"), ("last_visit", "lastVisit")]
+
+    columns = [(f"{prefix}__{name}", f"$.{path}") for name, path in top_fields]
+    for visit_col, visit_path in visits:
+        for name, path in visit_fields:
+            columns.append((f"{prefix}__{visit_col}__{name}", f"$.{visit_path}.{path}"))
+    return columns
+
+
+CUSTOMER_JOURNEY_SUMMARY_COLUMNS = _build_customer_journey_columns()
+
 
 class Component(ComponentBase):
     def __init__(self, *args, **kwargs):
@@ -109,6 +159,38 @@ class Component(ComponentBase):
         self.conn.execute(f'CREATE TABLE "{normalized_table}" AS SELECT {", ".join(select_parts)} FROM "{table_name}"')
 
         return normalized_table
+
+    def _flatten_customer_journey_summary(self, table_name: str, entity_keys: dict[str, set[str]] | None) -> None:
+        """Flatten Order.customerJourneySummary into fixed __-separated columns on the order table.
+
+        Extracts the customerJourneySummary struct into the columns defined by
+        CUSTOMER_JOURNEY_SUMMARY_COLUMNS and drops the original struct column so the generic
+        decomposition never emits an `order_customer_journey_summary` child table. Values are
+        read via JSON path extraction, so every column is produced even when the struct, a
+        visit, or individual fields are absent (asynchronous attribution).
+        """
+        columns = [c[0] for c in self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()]
+        has_source = CUSTOMER_JOURNEY_SOURCE_COLUMN in columns
+
+        projections = [f'* EXCLUDE ("{CUSTOMER_JOURNEY_SOURCE_COLUMN}")'] if has_source else ["*"]
+        for out_name, json_path in CUSTOMER_JOURNEY_SUMMARY_COLUMNS:
+            if has_source:
+                projections.append(
+                    f'json_extract_string(to_json("{CUSTOMER_JOURNEY_SOURCE_COLUMN}"), \'{json_path}\') AS "{out_name}"'
+                )
+            else:
+                projections.append(f'CAST(NULL AS VARCHAR) AS "{out_name}"')
+
+        self.conn.execute(
+            f'CREATE OR REPLACE TABLE "{table_name}" AS SELECT {", ".join(projections)} FROM "{table_name}"'
+        )
+
+        # Keep the flattened columns (and drop the raw struct key) in the Order entity's key set
+        # so the entity-split export retains them.
+        if entity_keys and "Order" in entity_keys:
+            order_keys = entity_keys["Order"]
+            order_keys.discard(CUSTOMER_JOURNEY_SOURCE_COLUMN)
+            order_keys.update(name for name, _ in CUSTOMER_JOURNEY_SUMMARY_COLUMNS)
 
     def _decompose_json_columns(self, table_name: str, normalized_table: str):
         """
@@ -481,6 +563,9 @@ class Component(ComponentBase):
             self.conn.execute(
                 f"CREATE TABLE \"{table_name}\" AS SELECT * FROM read_json_auto('{bulk_result.file_path}')"
             )
+
+            if table_name == "order":
+                self._flatten_customer_journey_summary(table_name, entity_keys)
 
             normalized_table = self._normalize_table(table_name)
             self._export_table_with_manifest(table_name, normalized_table, entity_keys)

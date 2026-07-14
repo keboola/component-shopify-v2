@@ -60,6 +60,45 @@ mutation {
                 currencyCode
               }
             }
+            customerJourneySummary {
+              ready
+              customerOrderIndex
+              daysToConversion
+              firstVisit {
+                id
+                occurredAt
+                landingPage
+                referrerUrl
+                source
+                sourceDescription
+                sourceType
+                referralCode
+                utmParameters {
+                  source
+                  medium
+                  campaign
+                  term
+                  content
+                }
+              }
+              lastVisit {
+                id
+                occurredAt
+                landingPage
+                referrerUrl
+                source
+                sourceDescription
+                sourceType
+                referralCode
+                utmParameters {
+                  source
+                  medium
+                  campaign
+                  term
+                  content
+                }
+              }
+            }
             customer {
               id
               firstName

@@ -182,6 +182,58 @@ Child tables created for the new fields:
 > are introduced by a later PR. The value stays available as the serialized JSON column on
 > `line_item.csv`.
 
+#### Customer journey / marketing attribution (`customerJourneySummary`)
+
+`Order.customerJourneySummary` is used for marketing attribution (deriving order source
+categories such as Google Brand/Non-brand, Meta, TikTok, Email, Influencer, Direct). Unlike the
+money sets above, it is **flattened directly onto `order.csv` as `__`-separated scalar columns**
+(not decomposed into an `order_customer_journey_summary` child table and not left as a serialized
+JSON blob). This matches the downstream dbt mapping, e.g.
+`landing_site ← customer_journey_summary__first_visit__landing_page` and
+`referring_site ← customer_journey_summary__first_visit__referrer_url`.
+
+29 columns are added to `order.csv`:
+
+| Column | Source (GraphQL) |
+| --- | --- |
+| `customer_journey_summary__ready` | `customerJourneySummary.ready` |
+| `customer_journey_summary__customer_order_index` | `customerJourneySummary.customerOrderIndex` |
+| `customer_journey_summary__days_to_conversion` | `customerJourneySummary.daysToConversion` |
+| `customer_journey_summary__first_visit__id` | `customerJourneySummary.firstVisit.id` |
+| `customer_journey_summary__first_visit__occurred_at` | `customerJourneySummary.firstVisit.occurredAt` |
+| `customer_journey_summary__first_visit__landing_page` | `customerJourneySummary.firstVisit.landingPage` |
+| `customer_journey_summary__first_visit__referrer_url` | `customerJourneySummary.firstVisit.referrerUrl` |
+| `customer_journey_summary__first_visit__source` | `customerJourneySummary.firstVisit.source` |
+| `customer_journey_summary__first_visit__source_description` | `customerJourneySummary.firstVisit.sourceDescription` |
+| `customer_journey_summary__first_visit__source_type` | `customerJourneySummary.firstVisit.sourceType` |
+| `customer_journey_summary__first_visit__referral_code` | `customerJourneySummary.firstVisit.referralCode` |
+| `customer_journey_summary__first_visit__utm_parameters__source` | `customerJourneySummary.firstVisit.utmParameters.source` |
+| `customer_journey_summary__first_visit__utm_parameters__medium` | `customerJourneySummary.firstVisit.utmParameters.medium` |
+| `customer_journey_summary__first_visit__utm_parameters__campaign` | `customerJourneySummary.firstVisit.utmParameters.campaign` |
+| `customer_journey_summary__first_visit__utm_parameters__term` | `customerJourneySummary.firstVisit.utmParameters.term` |
+| `customer_journey_summary__first_visit__utm_parameters__content` | `customerJourneySummary.firstVisit.utmParameters.content` |
+| `customer_journey_summary__last_visit__id` | `customerJourneySummary.lastVisit.id` |
+| `customer_journey_summary__last_visit__occurred_at` | `customerJourneySummary.lastVisit.occurredAt` |
+| `customer_journey_summary__last_visit__landing_page` | `customerJourneySummary.lastVisit.landingPage` |
+| `customer_journey_summary__last_visit__referrer_url` | `customerJourneySummary.lastVisit.referrerUrl` |
+| `customer_journey_summary__last_visit__source` | `customerJourneySummary.lastVisit.source` |
+| `customer_journey_summary__last_visit__source_description` | `customerJourneySummary.lastVisit.sourceDescription` |
+| `customer_journey_summary__last_visit__source_type` | `customerJourneySummary.lastVisit.sourceType` |
+| `customer_journey_summary__last_visit__referral_code` | `customerJourneySummary.lastVisit.referralCode` |
+| `customer_journey_summary__last_visit__utm_parameters__source` | `customerJourneySummary.lastVisit.utmParameters.source` |
+| `customer_journey_summary__last_visit__utm_parameters__medium` | `customerJourneySummary.lastVisit.utmParameters.medium` |
+| `customer_journey_summary__last_visit__utm_parameters__campaign` | `customerJourneySummary.lastVisit.utmParameters.campaign` |
+| `customer_journey_summary__last_visit__utm_parameters__term` | `customerJourneySummary.lastVisit.utmParameters.term` |
+| `customer_journey_summary__last_visit__utm_parameters__content` | `customerJourneySummary.lastVisit.utmParameters.content` |
+
+> **Asynchronous attribution caveat:** `customer_journey_summary__ready` reflects Shopify's
+> `ready` flag — "whether the attributed sessions for the order have been created yet". Attribution
+> is computed asynchronously, so recently placed orders can arrive with `ready = false` and **null
+> visit fields**, and `customerJourneySummary` itself can be **null** entirely. In all of these
+> cases every one of the 29 columns is still emitted (with empty/null values) — column presence on
+> `order.csv` never depends on the data. Values are extracted as-is on each run; the component does
+> **not** poll or retry waiting for attribution to become ready.
+
 ### Data Types and Manifests
 
 All CSV files include Keboola manifest files (`.csv.manifest`) with:

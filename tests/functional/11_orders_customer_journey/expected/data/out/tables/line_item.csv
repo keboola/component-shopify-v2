@@ -1,0 +1,4 @@
+"id","title","quantity","current_quantity","sku","original_unit_price_set","variant","parent_id"
+"gid://shopify/LineItem/2001","Product","1","1","SKU-1","{""shopMoney"":{""amount"":""90.00"",""currencyCode"":""EUR""}}","{""id"":""gid://shopify/ProductVariant/3001"",""title"":""Product"",""sku"":""SKU-1"",""price"":""90.00""}","gid://shopify/Order/1001"
+"gid://shopify/LineItem/2002","Product","1","1","SKU-1","{""shopMoney"":{""amount"":""90.00"",""currencyCode"":""EUR""}}","{""id"":""gid://shopify/ProductVariant/3001"",""title"":""Product"",""sku"":""SKU-1"",""price"":""90.00""}","gid://shopify/Order/1002"
+"gid://shopify/LineItem/2003","Product","1","1","SKU-1","{""shopMoney"":{""amount"":""90.00"",""currencyCode"":""EUR""}}","{""id"":""gid://shopify/ProductVariant/3001"",""title"":""Product"",""sku"":""SKU-1"",""price"":""90.00""}","gid://shopify/Order/1003"

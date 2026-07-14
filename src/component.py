@@ -44,7 +44,7 @@ DECOMPOSITION_SKIP_COLUMNS = {"originalUnitPriceSet"}
 # Order.customerJourneySummary is flattened explicitly onto the `order` table instead of
 # going through the generic decomposition path. Generic decomposition would emit a 1:1
 # `order_customer_journey_summary` child table, and a plain skip would leave a single
-# serialized JSON blob; Anna's dbt (SUPPORT-12550) depends on flat, __-separated columns
+# serialized JSON blob; the customer's dbt mapping (SUPPORT-12550) depends on flat, __-separated columns
 # on the `order` table (e.g. landing_site <- customer_journey_summary__first_visit__landing_page).
 #
 # Attribution is asynchronous: `ready` may be false with null visit fields, and

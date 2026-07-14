@@ -178,5 +178,24 @@
         }
       }
     }
+  },
+  {
+    "name": "11_orders_customer_journey",
+    "description": "Extract orders covering customerJourneySummary attribution flattening (ready=true with UTM, ready=false null visits, null summary)",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true
+        },
+        "loading_options": {
+          "date_since": "2025-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
   }
 ]

@@ -1,0 +1,3 @@
+"parent_id","row_number","id","kind","status","test","amount_set","gateway","created_at","processed_at","error_code","authorization_code","authorization_expires_at"
+"gid://shopify/Order/1001","1","gid://shopify/OrderTransaction/5001","SALE","SUCCESS","false","{""shopMoney"":{""amount"":""100.00"",""currencyCode"":""USD""}}","shopify_payments","2025-06-01 10:00:05","2025-06-01 10:00:05",,"AUTH123",
+"gid://shopify/Order/1001","2","gid://shopify/OrderTransaction/5002","REFUND","SUCCESS","false","{""shopMoney"":{""amount"":""40.00"",""currencyCode"":""USD""}}","shopify_payments","2025-06-02 09:00:00","2025-06-02 09:00:00",,,

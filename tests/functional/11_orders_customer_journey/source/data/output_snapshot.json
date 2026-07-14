@@ -11,17 +11,19 @@
         "sku",
         "original_unit_price_set",
         "variant",
+        "tax_lines",
+        "discount_allocations",
         "parent_id"
       ],
-      "hash": "sha256:2ed44d54813180c3e9829365b490be46c5d4b0a4ba4bf192e3e85cb2627769df",
+      "hash": "sha256:c6c8cf7abdc69a27e775a02f4c0ecc6509680c3e5f0c6defb3276f8e3a03be5f",
       "row_count": 4,
-      "size_bytes": 871
+      "size_bytes": 936
     },
     "line_item.csv.manifest": {
       "columns": null,
-      "hash": "sha256:367165e94e624bafcdeb89f41f26fdd91599841b5a415208e0a3950156a32ad3",
+      "hash": "sha256:473b2b9749b8e0a934f9af3fdc8dd55334d3d5332df06c7bf216b1ef0fcf375e",
       "row_count": null,
-      "size_bytes": 6495
+      "size_bytes": 6674
     },
     "order.csv": {
       "columns": [
@@ -84,9 +86,9 @@
     },
     "order.csv.manifest": {
       "columns": null,
-      "hash": "sha256:546f7aa180dfa7b1ce39b372e90da765450192767a3831de0d4fcc02caf40844",
+      "hash": "sha256:e5bfa3439b63b5248316c99cdd63240644d5b1b00d7122e897e90ab323f2beea",
       "row_count": null,
-      "size_bytes": 6516
+      "size_bytes": 6695
     },
     "order_billing_address.csv": {
       "columns": [

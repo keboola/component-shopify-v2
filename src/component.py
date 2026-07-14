@@ -52,6 +52,39 @@ DECOMPOSITION_SKIP_COLUMNS = {"originalUnitPriceSet"}
 # always produced (NULL where absent), with no data-dependent column presence.
 CUSTOMER_JOURNEY_SOURCE_COLUMN = "customerJourneySummary"
 
+# Line-item-level plain lists (taxLines, discountAllocations) live inline on the LineItem
+# rows of the mixed bulk `order` stream. The generic decomposition path runs on the whole
+# stream and would emit these as `order_*` child tables keyed by a LineItem GID. Instead we
+# decompose them entity-aware: each list is scoped to its owning GID entity and emitted under
+# an entity-derived prefix (line_item_*), with money flattened into __-separated columns
+# (matching the SUPPORT-12550 column spec) rather than left as a serialized shop_money JSON blob.
+#
+# Each entry maps the source column (camelCase, as read from the bulk JSONL) to the owning
+# entity type and the ordered output columns. Each output column is (name, json_path), where
+# json_path is evaluated against a single unnested list element.
+ENTITY_CHILD_LIST_TABLES: dict[str, dict[str, Any]] = {
+    "taxLines": {
+        "entity_type": "LineItem",
+        "columns": [
+            ("title", "$.title"),
+            ("rate", "$.rate"),
+            ("rate_percentage", "$.ratePercentage"),
+            ("price_set__shop_money__amount", "$.priceSet.shopMoney.amount"),
+            ("price_set__shop_money__currency_code", "$.priceSet.shopMoney.currencyCode"),
+            ("channel_liable", "$.channelLiable"),
+            ("source", "$.source"),
+        ],
+    },
+    "discountAllocations": {
+        "entity_type": "LineItem",
+        "columns": [
+            ("amount_set__shop_money__amount", "$.allocatedAmountSet.shopMoney.amount"),
+            ("amount_set__shop_money__currency_code", "$.allocatedAmountSet.shopMoney.currencyCode"),
+            ("discount_application_index", "$.discountApplication.index"),
+        ],
+    },
+}
+
 
 def _build_customer_journey_columns() -> list[tuple[str, str]]:
     """Return ordered (output_column_name, json_path) pairs for the flattened columns.
@@ -206,8 +239,8 @@ class Component(ComponentBase):
             if not ("STRUCT" in col_type_str or "LIST" in col_type_str or col_type_str.endswith("[]")):
                 continue
 
-            if col_name in DECOMPOSITION_SKIP_COLUMNS:
-                self.logger.info(f"Skipping decomposition for column: {col_name} in {table_name}")
+            if col_name in DECOMPOSITION_SKIP_COLUMNS or col_name in ENTITY_CHILD_LIST_TABLES:
+                self.logger.info(f"Skipping generic decomposition for column: {col_name} in {table_name}")
                 continue
 
             snake_col_name = self._camel_to_snake(col_name)
@@ -227,6 +260,71 @@ class Component(ComponentBase):
                 self._create_array_child_table(table_name, col_name, snake_col_name, primary_key_col)
             elif isinstance(sample_value, dict):
                 self._create_object_child_table(table_name, col_name, snake_col_name, primary_key_col)
+
+    def _decompose_entity_child_lists(self, table_name: str) -> None:
+        """Decompose line-item-level plain lists into entity-prefixed child tables.
+
+        The bulk `order` stream is a mixed table where LineItem rows carry plain list columns
+        (taxLines, discountAllocations) inline. Generic decomposition runs on the whole stream
+        and would emit these as `order_*` tables keyed by a LineItem GID. Instead, each list is
+        scoped to its owning GID entity (id LIKE 'gid://shopify/<Entity>/%') and emitted under an
+        entity-derived prefix (line_item_*), with money flattened into __-separated columns.
+        """
+        existing_columns = {c[0] for c in self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()}
+
+        for source_column, spec in ENTITY_CHILD_LIST_TABLES.items():
+            if source_column not in existing_columns:
+                continue
+            entity_type = spec["entity_type"]
+            child_table = f"{self._camel_to_snake(entity_type)}_{self._camel_to_snake(source_column)}"
+            self._create_entity_child_list_table(table_name, source_column, entity_type, child_table, spec["columns"])
+
+    def _create_entity_child_list_table(
+        self,
+        parent_table: str,
+        source_column: str,
+        entity_type: str,
+        child_table: str,
+        column_spec: list[tuple[str, str]],
+    ) -> None:
+        """Build one entity-scoped child table from a plain list column with flattened columns.
+
+        row_number is the deterministic 1-based index of each element within its parent's list:
+        UNNEST of a parallel range zips positionally with UNNEST of the list, so the index always
+        matches the element's array position (unlike ROW_NUMBER() OVER (ORDER BY (SELECT NULL))).
+        """
+        row_source = f"""
+            SELECT
+                "id" AS parent_id,
+                UNNEST(range(1, len("{source_column}") + 1)) AS row_number,
+                UNNEST("{source_column}") AS item
+            FROM "{parent_table}"
+            WHERE id LIKE 'gid://shopify/{entity_type}/%'
+              AND "{source_column}" IS NOT NULL
+              AND len("{source_column}") > 0
+        """
+
+        try:
+            count_result = self.conn.execute(f"SELECT COUNT(*) FROM ({row_source})").fetchone()
+            if not count_result or count_result[0] == 0:
+                self.logger.debug(f"No rows for entity child table {child_table}; skipping")
+                return
+
+            projections = ["parent_id", "row_number"]
+            for out_name, json_path in column_spec:
+                projections.append(f"json_extract_string(to_json(item), '{json_path}') AS \"{out_name}\"")
+
+            self.conn.execute(f'DROP TABLE IF EXISTS "{child_table}"')
+            self.conn.execute(f'CREATE TABLE "{child_table}" AS SELECT {", ".join(projections)} FROM ({row_source})')
+
+            self._export_table_with_manifest(child_table)
+
+            if not self.params.debug:
+                self.conn.execute(f'DROP TABLE IF EXISTS "{child_table}"')
+
+            self.logger.info(f"Created entity child table: {child_table}")
+        except Exception as e:
+            self.logger.warning(f"Failed to decompose entity child list {source_column}: {str(e)}")
 
     def _create_array_child_table(self, parent_table: str, column_name: str, snake_col_name: str, parent_pk: str):
         """Create a child table for array/list JSON columns"""
@@ -569,6 +667,7 @@ class Component(ComponentBase):
 
             normalized_table = self._normalize_table(table_name)
             self._export_table_with_manifest(table_name, normalized_table, entity_keys)
+            self._decompose_entity_child_lists(table_name)
             self._decompose_json_columns(table_name, normalized_table)
 
             if not self.params.debug:

@@ -126,6 +126,30 @@ mutation {
                     sku
                     price
                   }
+                  taxLines {
+                    title
+                    rate
+                    ratePercentage
+                    priceSet {
+                      shopMoney {
+                        amount
+                        currencyCode
+                      }
+                    }
+                    channelLiable
+                    source
+                  }
+                  discountAllocations {
+                    allocatedAmountSet {
+                      shopMoney {
+                        amount
+                        currencyCode
+                      }
+                    }
+                    discountApplication {
+                      index
+                    }
+                  }
                 }
               }
             }

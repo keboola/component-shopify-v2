@@ -166,6 +166,8 @@ New columns on **`line_item.csv`**:
 | --- | --- | --- |
 | `current_quantity` | `currentQuantity` | integer |
 | `original_unit_price_set` | `originalUnitPriceSet` | serialized JSON `{"shopMoney":{"amount","currencyCode"}}` |
+| `tax_lines` | `taxLines` | serialized JSON array (also decomposed into `line_item_tax_lines.csv`) |
+| `discount_allocations` | `discountAllocations` | serialized JSON array (also decomposed into `line_item_discount_allocations.csv`) |
 
 Child tables created for the new fields:
 
@@ -178,9 +180,49 @@ Child tables created for the new fields:
 
 > Note: `original_unit_price_set` is intentionally **not** decomposed into a child table. It is
 > line-item-level data, but generic decomposition runs on the mixed top-level stream and would
-> emit a misnamed `order_original_unit_price_set` table; properly named per-entity child tables
-> are introduced by a later PR. The value stays available as the serialized JSON column on
-> `line_item.csv`.
+> emit a misnamed `order_original_unit_price_set` table. The value stays available as the
+> serialized JSON column on `line_item.csv`.
+
+#### Line-item child tables (per-entity decomposition)
+
+Some line-item-level plain lists are additionally decomposed into their own **entity-prefixed**
+child tables, with nested money **flattened into `__`-separated scalar columns**. Generic
+decomposition runs on the mixed top-level `order` stream and would misname these `order_*` while
+keying them by a LineItem GID; instead the rows are scoped by GID entity type
+(`id LIKE 'gid://shopify/LineItem/%'`) and emitted under the `line_item_*` prefix.
+
+`row_number` is the deterministic 1-based index of each element **within its own line item**
+(per-parent, order-preserving) — it is the array position, not a global sequence.
+
+Naming mapping (customer spec → output): `parent_id` = the customer's `line_item_id`,
+`row_number` = the customer's `row_nr`.
+
+**`line_item_tax_lines.csv`** — PK (`parent_id`, `row_number`); one row per `lineItems.taxLines` element:
+
+| Column | Source (GraphQL) |
+| --- | --- |
+| `parent_id` | `lineItems.id` (LineItem GID) |
+| `row_number` | array index of the tax line within the line item (1-based) |
+| `title` | `taxLines.title` |
+| `rate` | `taxLines.rate` |
+| `rate_percentage` | `taxLines.ratePercentage` |
+| `price_set__shop_money__amount` | `taxLines.priceSet.shopMoney.amount` |
+| `price_set__shop_money__currency_code` | `taxLines.priceSet.shopMoney.currencyCode` |
+| `channel_liable` | `taxLines.channelLiable` |
+| `source` | `taxLines.source` |
+
+**`line_item_discount_allocations.csv`** — PK (`parent_id`, `row_number`); one row per `lineItems.discountAllocations` element:
+
+| Column | Source (GraphQL) |
+| --- | --- |
+| `parent_id` | `lineItems.id` (LineItem GID) |
+| `row_number` | array index of the discount allocation within the line item (1-based) |
+| `amount_set__shop_money__amount` | `discountAllocations.allocatedAmountSet.shopMoney.amount` |
+| `amount_set__shop_money__currency_code` | `discountAllocations.allocatedAmountSet.shopMoney.currencyCode` |
+| `discount_application_index` | `discountAllocations.discountApplication.index` |
+
+A child table is emitted only when at least one line item carries a non-empty list; line items
+with an empty list contribute no rows.
 
 #### Customer journey / marketing attribution (`customerJourneySummary`)
 

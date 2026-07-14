@@ -1015,19 +1015,11 @@ class Component(ComponentBase):
         table_meta: list,
         entity_keys: dict[str, set[str]] | None,
     ):
-        table_meta_names = [c[0] for c in table_meta]
-        missing_columns: list[str] = []
         if entity_keys and entity_type in entity_keys:
             jsonl_keys_snake = {self._camel_to_snake(k) for k in entity_keys[entity_type]}
             valid_columns = [c[0] for c in table_meta if c[0] in jsonl_keys_snake]
-            # Invariant: every key seen for this entity in the authoritative full JSONL scan
-            # must materialize as a column, even if read_json_auto's bounded sample never saw
-            # it (nondeterministic on large bulk files). Missing keys are appended as NULL
-            # VARCHAR columns so the CSV shape is independent of dataset size and row order.
-            existing = set(table_meta_names)
-            missing_columns = sorted(k for k in jsonl_keys_snake if k not in existing)
         else:
-            valid_columns = table_meta_names
+            valid_columns = [c[0] for c in table_meta]
 
         schema = OrderedDict(
             {
@@ -1038,11 +1030,6 @@ class Component(ComponentBase):
                 for c in table_meta
             }
         )
-        for col in missing_columns:
-            schema[col] = ColumnDefinition(
-                data_types=BaseType(dtype=self.convert_base_types("VARCHAR")),
-                primary_key=False,
-            )
 
         out_table = self.create_out_table_definition(
             f"{entity_name}.csv",
@@ -1059,8 +1046,6 @@ class Component(ComponentBase):
                     renamed_columns.append('"__parent_id" AS "parent_id"')
                 else:
                     renamed_columns.append(f'"{col}"')
-            for col in missing_columns:
-                renamed_columns.append(f'CAST(NULL AS VARCHAR) AS "{col}"')
             column_list = ", ".join(renamed_columns)
 
             q = f"""

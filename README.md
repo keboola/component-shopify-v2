@@ -51,6 +51,11 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 - **variant_metafields** - Include product variant metafields in products extraction
 - **order_transactions** - Include transactions in orders extraction
 
+> **Note:** Disabling `order_transactions` after a previous run had it enabled will fail the
+> Storage load against the existing `order` table — Keboola refuses imports that omit columns
+> present on the destination table (the missing-column rule). Drop the `transactions` column (or
+> the whole table) in Storage before disabling the option, or keep the toggle stable.
+
 ### Custom Queries
 
 The component also supports custom GraphQL bulk operations (mutations), allowing you to execute any custom bulk query against the Shopify API.

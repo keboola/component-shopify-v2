@@ -19,9 +19,9 @@
     },
     "order_discount_codes.csv.manifest": {
       "columns": null,
-      "hash": "sha256:323bc18cff797543ed73fa1f5f237eec13c0e41aeb7452ba9c3e5296c07874fd",
+      "hash": "sha256:236142971cefa1ff801cc7e8fd039b5c2cd5a6e983fe5bb6a3d0b991ebe53309",
       "row_count": null,
-      "size_bytes": 885
+      "size_bytes": 886
     },
     "order_shipping_lines.csv": {
       "columns": [
@@ -43,9 +43,9 @@
     },
     "order_shipping_lines.csv.manifest": {
       "columns": null,
-      "hash": "sha256:6b84b4de87f5c23273f32f3a9bbb063e93c45a85f465625469c625a597332a85",
+      "hash": "sha256:cf7900d6aee5f3fab4e8f7909b50f56a6a2925746c29f964c7978703e275f9be",
       "row_count": null,
-      "size_bytes": 1201
+      "size_bytes": 1202
     }
   },
   "version": "1.0"

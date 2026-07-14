@@ -478,12 +478,19 @@ class Component(ComponentBase):
         }
 
     def _write_flat_table(self, table_name: str, rows: list[dict[str, Any]]) -> None:
-        """Write a flat list of dicts as a CSV output table with manifest (all STRING columns)."""
+        """Write a flat list of dicts as a CSV output table with manifest.
+
+        Columns are STRING except ``row_number``, which is typed INTEGER (it is a deterministic
+        array index).
+        """
         columns = list(rows[0].keys())
+        integer_columns = {"row_number"}
         schema = OrderedDict(
             {
                 col: ColumnDefinition(
-                    data_types=BaseType(dtype=SupportedDataTypes.STRING),
+                    data_types=BaseType(
+                        dtype=SupportedDataTypes.INTEGER if col in integer_columns else SupportedDataTypes.STRING
+                    ),
                     primary_key=False,
                 )
                 for col in columns

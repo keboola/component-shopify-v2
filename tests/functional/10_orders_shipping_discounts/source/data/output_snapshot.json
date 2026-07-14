@@ -1,0 +1,52 @@
+{
+  "files": {},
+  "hash_algorithm": "sha256",
+  "tables": {
+    "order_discount_codes.csv": {
+      "columns": [
+        "parent_id",
+        "row_number",
+        "code",
+        "discount_application_index",
+        "value_type",
+        "value_amount",
+        "value_currency_code",
+        "value_percentage"
+      ],
+      "hash": "sha256:35ef5652a8d8766068800412512e1a6fa220082cefc390827895cf596e4f13c4",
+      "row_count": 3,
+      "size_bytes": 293
+    },
+    "order_discount_codes.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:323bc18cff797543ed73fa1f5f237eec13c0e41aeb7452ba9c3e5296c07874fd",
+      "row_count": null,
+      "size_bytes": 885
+    },
+    "order_shipping_lines.csv": {
+      "columns": [
+        "parent_id",
+        "id",
+        "row_number",
+        "title",
+        "code",
+        "source",
+        "price_set__shop_money__amount",
+        "price_set__shop_money__currency_code",
+        "discounted_price_set__shop_money__amount",
+        "discounted_price_set__shop_money__currency_code",
+        "tax_lines"
+      ],
+      "hash": "sha256:8271acc5c71bd413e1c09d206fb0e4d199aa6c57f7707c24dc829bab1e8b9af3",
+      "row_count": 2,
+      "size_bytes": 564
+    },
+    "order_shipping_lines.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:6b84b4de87f5c23273f32f3a9bbb063e93c45a85f465625469c625a597332a85",
+      "row_count": null,
+      "size_bytes": 1201
+    }
+  },
+  "version": "1.0"
+}

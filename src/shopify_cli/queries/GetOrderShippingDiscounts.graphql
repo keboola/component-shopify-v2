@@ -1,0 +1,75 @@
+query GetOrderShippingDiscounts($first: Int!, $after: String, $query: String) {
+  orders(first: $first, after: $after, query: $query, sortKey: UPDATED_AT) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        shippingLines(first: 250) {
+          edges {
+            node {
+              id
+              title
+              code
+              source
+              originalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              discountedPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              taxLines {
+                title
+                rate
+                ratePercentage
+                priceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                channelLiable
+                source
+              }
+            }
+          }
+          pageInfo {
+            hasNextPage
+          }
+        }
+        discountApplications(first: 250) {
+          edges {
+            node {
+              __typename
+              index
+              value {
+                __typename
+                ... on MoneyV2 {
+                  amount
+                  currencyCode
+                }
+                ... on PricingPercentageValue {
+                  percentage
+                }
+              }
+              ... on DiscountCodeApplication {
+                code
+              }
+            }
+          }
+          pageInfo {
+            hasNextPage
+          }
+        }
+      }
+    }
+  }
+}

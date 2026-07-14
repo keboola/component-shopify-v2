@@ -50,6 +50,7 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 - **product_metafields** - Include product-level metafields in products extraction
 - **variant_metafields** - Include product variant metafields in products extraction
 - **order_transactions** - Include transactions in orders extraction
+- **order_shipping_discounts** - Extract order shipping lines and discount codes into the `order_shipping_lines` and `order_discount_codes` tables (paginated GraphQL, see [Order shipping lines & discount codes](#order-shipping-lines--discount-codes))
 
 ### Custom Queries
 
@@ -74,6 +75,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
   - **variant_metafields** - Include variant metafields (default: false)
   - **orders** - Extract orders (default: false)
   - **order_transactions** - Include order transactions (default: false)
+  - **order_shipping_discounts** - Extract order shipping lines and discount codes (default: false)
   - **customers** - Extract customers (default: false)
   - **inventory** - Extract inventory (default: false)
   - **locations** - Extract locations (default: false)
@@ -99,6 +101,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
     "endpoints": {
       "orders": true,
       "order_transactions": true,
+      "order_shipping_discounts": true,
       "products": true,
       "products_drafts": true,
       "product_metafields": true,
@@ -140,6 +143,66 @@ The component uses DuckDB to automatically process bulk operation results into C
 - **locations.csv** - Store location information
 - **events.csv** - System event logs
 - **{custom_query_name}.csv** - Custom query results
+
+#### Order shipping lines & discount codes
+
+Enabled with the `order_shipping_discounts` endpoint flag. Unlike the other order data, these two
+tables are produced by a **paginated GraphQL pass** (not by bulk operations). This is required
+because `Order.shippingLines` and `Order.discountApplications` are connections whose node types do
+NOT implement the Shopify `Node` interface (verified on API version `2025-10`): `ShippingLine` has a
+nullable `id` and implements no interfaces, and `DiscountApplication` has no `id` field at all.
+Shopify bulk operations require "Connections must implement the Node interface", so bulk cannot be
+used for them. Both connections are fetched together in a single paginated query per order page, and
+the order-selection/date filter mirrors the bulk orders extraction so the same order set is covered.
+
+**Column naming note (mapping to the requested v1-style names):** money values are flattened into
+`__`-separated columns (e.g. `price_set__shop_money__amount`), not serialized JSON blobs. Column
+names follow the component's conventions rather than the originally requested names — the mapping is:
+
+| Component column | Requested name |
+| -- | -- |
+| `parent_id` | `order_id` |
+| `row_number` | `row_nr` |
+
+`row_number` is the deterministic 0-based index of the record in the order's API response array
+(for `order_discount_codes` it is the index among the emitted code-type applications), so it is
+stable across runs and does not rely on nondeterministic SQL row numbering.
+
+**`order_shipping_lines.csv`** — one row per shipping line per order (PK: `parent_id` + `row_number`):
+
+| Column | GraphQL source |
+| -- | -- |
+| `parent_id` | `order.id` |
+| `id` | `shippingLines.nodes.id` (nullable) |
+| `row_number` | array index of `shippingLines.nodes` |
+| `title` | `shippingLines.nodes.title` |
+| `code` | `shippingLines.nodes.code` |
+| `source` | `shippingLines.nodes.source` |
+| `price_set__shop_money__amount` | `shippingLines.nodes.originalPriceSet.shopMoney.amount` |
+| `price_set__shop_money__currency_code` | `shippingLines.nodes.originalPriceSet.shopMoney.currencyCode` |
+| `discounted_price_set__shop_money__amount` | `shippingLines.nodes.discountedPriceSet.shopMoney.amount` |
+| `discounted_price_set__shop_money__currency_code` | `shippingLines.nodes.discountedPriceSet.shopMoney.currencyCode` |
+| `tax_lines` | `shippingLines.nodes.taxLines`, serialized as a JSON string (a plain column, NOT a child table) |
+
+**`order_discount_codes.csv`** — one row per code-type discount application per order
+(PK: `parent_id` + `row_number`). Only `DiscountCodeApplication` nodes produce rows; automatic,
+manual, and script discount applications are skipped.
+
+| Column | GraphQL source |
+| -- | -- |
+| `parent_id` | `order.id` |
+| `row_number` | index among the emitted code-type discount applications |
+| `code` | `discountApplications.nodes ... on DiscountCodeApplication { code }` |
+| `discount_application_index` | `discountApplications.nodes.index` (position in the full discount-applications list) |
+| `value_type` | `discountApplications.nodes.value.__typename` (`MoneyV2` or `PricingPercentageValue`) |
+| `value_amount` | `value ... on MoneyV2 { amount }` |
+| `value_currency_code` | `value ... on MoneyV2 { currencyCode }` |
+| `value_percentage` | `value ... on PricingPercentageValue { percentage }` |
+
+> **⚠️ `value_percentage` sign convention:** Shopify documents `PricingPercentageValue.percentage`
+> as a value in the range **-100 to 0** (negative = discount, `-100` = free). The value is extracted
+> as-is without sign flipping, so any "discount rate %" math must account for the negative sign to
+> avoid silently inverting the result.
 
 
 ### Data Types and Manifests

@@ -162,6 +162,20 @@
           "description": "Include order transactions",
           "propertyOrder": 110
         },
+        "order_shipping_discounts": {
+          "type": "boolean",
+          "title": "Orders – Shipping Lines & Discount Codes",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "dependencies": {
+              "orders": true
+            },
+            "tooltip": "Paginated GraphQL pass producing the `order_shipping_lines` and `order_discount_codes` tables. These come from `Order.shippingLines` and `Order.discountApplications`, which cannot be fetched via bulk operations. See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/GetOrderShippingDiscounts.graphql)."
+          },
+          "description": "Include order shipping lines and discount codes (order_shipping_lines and order_discount_codes tables)",
+          "propertyOrder": 115
+        },
         "inventory": {
           "type": "boolean",
           "title": "Inventory",

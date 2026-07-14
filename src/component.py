@@ -333,11 +333,16 @@ class Component(ComponentBase):
         try:
             self.conn.execute(f'DROP TABLE IF EXISTS "{child_table_name}"')
 
+            # row_number is the deterministic 1-based index of each element within its parent's
+            # list: UNNEST of a parallel range zips positionally with UNNEST of the list, so every
+            # element keeps a distinct position. ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) is
+            # evaluated before UNNEST expands the list, which collapsed every element to row 1 and
+            # (with PK (parent_id, row_number) + incremental load) silently deduped all but one.
             self.conn.execute(f"""
                 CREATE TABLE "{child_table_name}" AS
                 SELECT
                     "{parent_pk}" as parent_id,
-                    ROW_NUMBER() OVER (PARTITION BY "{parent_pk}" ORDER BY (SELECT NULL)) as row_number,
+                    UNNEST(range(1, len("{column_name}") + 1)) as row_number,
                     UNNEST("{column_name}") as item
                 FROM "{parent_table}"
                 WHERE "{column_name}" IS NOT NULL AND len("{column_name}") > 0

@@ -199,10 +199,12 @@ manual, and script discount applications are skipped.
 | `value_currency_code` | `value ... on MoneyV2 { currencyCode }` |
 | `value_percentage` | `value ... on PricingPercentageValue { percentage }` |
 
-> **⚠️ `value_percentage` sign convention:** Shopify documents `PricingPercentageValue.percentage`
-> as a value in the range **-100 to 0** (negative = discount, `-100` = free). The value is extracted
-> as-is without sign flipping, so any "discount rate %" math must account for the negative sign to
-> avoid silently inverting the result.
+> **⚠️ `value_percentage` sign convention:** Shopify's docs describe `PricingPercentageValue.percentage`
+> as a value in the range **-100 to 0** (negative = discount, `-100` = free), but real-store validation
+> shows the live API returning **positive** values (e.g. `25.0` for a 25%-off code). The value is
+> extracted **as-is** with no sign manipulation, so it may arrive as either sign depending on the store/API.
+> Consumers should treat the magnitude as the discount percentage — e.g. use `abs(value_percentage)` — to
+> stay correct regardless of sign.
 
 
 ### Data Types and Manifests

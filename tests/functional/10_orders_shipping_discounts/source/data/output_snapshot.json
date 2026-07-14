@@ -13,9 +13,9 @@
         "value_currency_code",
         "value_percentage"
       ],
-      "hash": "sha256:35ef5652a8d8766068800412512e1a6fa220082cefc390827895cf596e4f13c4",
+      "hash": "sha256:c0cca5d3127d6393b47939646da44ae3ce401b590e31104e7c91d38f437d453c",
       "row_count": 3,
-      "size_bytes": 293
+      "size_bytes": 292
     },
     "order_discount_codes.csv.manifest": {
       "columns": null,

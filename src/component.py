@@ -1094,6 +1094,7 @@ class Component(ComponentBase):
         primary_keys = {
             "order": ["id"],
             "order_legacy": ["id"],
+            "line_item": ["id"],
             "product": ["id"],
             "product_legacy": ["id"],
             "customer": ["id"],

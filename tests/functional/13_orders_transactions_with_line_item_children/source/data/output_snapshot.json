@@ -21,9 +21,9 @@
     },
     "line_item.csv.manifest": {
       "columns": null,
-      "hash": "sha256:c9e3a23c89a0eda7c7b8ffdff96531552942abac6b700fa43ab91fcb6c312276",
+      "hash": "sha256:d265d41e3e94da9b6b3ef9ac8a1c7c839ec5b99088b9dc604fc1140422d3cdd1",
       "row_count": null,
-      "size_bytes": 6761
+      "size_bytes": 6782
     },
     "line_item_discount_allocations.csv": {
       "columns": [

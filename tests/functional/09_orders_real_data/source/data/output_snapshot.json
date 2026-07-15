@@ -21,9 +21,9 @@
     },
     "line_item.csv.manifest": {
       "columns": null,
-      "hash": "sha256:473b2b9749b8e0a934f9af3fdc8dd55334d3d5332df06c7bf216b1ef0fcf375e",
+      "hash": "sha256:e5bfa3439b63b5248316c99cdd63240644d5b1b00d7122e897e90ab323f2beea",
       "row_count": null,
-      "size_bytes": 6674
+      "size_bytes": 6695
     },
     "order.csv": {
       "columns": [

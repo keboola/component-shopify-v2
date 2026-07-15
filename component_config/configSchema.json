@@ -287,7 +287,7 @@
             "options": {
               "input_height": "300px"
             },
-            "description": "The GraphQL bulk operation mutation. Must be in format: mutation { bulkOperationRunQuery(query: \"\"\"...\"\"\") { bulkOperation { id status } userErrors { field message } } }.\nYou can use these placeholders to inject values from <b>Loading Options</b>:\n<ul>\n  <li><code>{{ period_start_date }}</code> — Period start date (from <em>Period start date</em> field, e.g. <code>2026-03-12</code>)</li>\n  <li><code>{{ period_end_date }}</code> — Period end date (from <em>Period end date</em> field, e.g. <code>2026-03-19</code>)</li>\n  <li><code>{{ fetch_parameter }}</code> — Fetch parameter field (e.g. <code>created_at</code> or <code>updated_at</code>)</li>\n</ul>\nExample filter: <code>orders(query: \"{{ fetch_parameter }}:&gt;='{{ period_start_date }}' AND {{ fetch_parameter }}:&lt;'{{ period_end_date }}'\")</code>",
+            "description": "The GraphQL bulk operation mutation. Must be in format: mutation { bulkOperationRunQuery(query: \"\"\"...\"\"\") { bulkOperation { id status } userErrors { field message } } }.\nYou can use these placeholders to inject values from <b>Loading Options</b>:\n<ul>\n  <li><code>{{ period_start_date }}</code> — Period start date (from <em>Period start date</em> field, e.g. <code>2026-03-12</code>)</li>\n  <li><code>{{ period_end_date }}</code> — Period end date, a full ISO-8601 UTC timestamp (from <em>Period end date</em> field, e.g. <code>2026-03-19T13:56:13Z</code>). Quote the placeholder — the value contains colons, which Shopify search uses as its field separator.</li>\n  <li><code>{{ fetch_parameter }}</code> — Fetch parameter field (e.g. <code>created_at</code> or <code>updated_at</code>)</li>\n</ul>\nExample filter: <code>orders(query: \"{{ fetch_parameter }}:&gt;='{{ period_start_date }}' AND {{ fetch_parameter }}:&lt;'{{ period_end_date }}'\")</code>",
             "propertyOrder": 190
           }
         }
@@ -316,7 +316,7 @@
           "type": "string",
           "title": "Period end date [excluding]",
           "default": "now",
-          "description": "Date in YYYY-MM-DD format or <a href='https://dateparser.readthedocs.io/' target='_new'>dateparser</a> string i.e. 5 days ago, 1 month ago, yesterday, etc. If left empty, it is set to the current datetime.",
+          "description": "Date in YYYY-MM-DD format or <a href='https://dateparser.readthedocs.io/' target='_new'>dateparser</a> string i.e. 5 days ago, 1 month ago, yesterday, etc. Resolved to a full ISO-8601 UTC timestamp of the run moment, so <code>now</code> includes records updated earlier the same day. If left empty, no upper bound is applied (all records up to the run are downloaded).",
           "propertyOrder": 220
         },
         "fetch_parameter": {

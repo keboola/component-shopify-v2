@@ -82,8 +82,8 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
   - **collection_metafields** - Include collection metafields (default: false)
   - **locations** - Extract locations (default: false)
 - **loading_options** - Date filtering and loading behavior:
-  - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago")
-  - **date_to** - End date for extraction (ISO format YYYY-MM-DD or relative like "now", "yesterday")
+  - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago"). Floored to midnight of its day.
+  - **date_to** - End date for extraction (ISO format YYYY-MM-DD or relative like "now", "yesterday"). Resolved to a full ISO-8601 UTC timestamp of the actual run moment, so `date_to: "now"` includes records updated earlier the same day. Leave unset to emit no upper bound. **Note:** prior to this fix, `date_to` was truncated to midnight of the run day, silently excluding records updated on the run day whenever `date_to` was set.
   - **fetch_parameter** - Field to filter by: "updated_at" or "created_at" (default: "updated_at")
   - **incremental_output** - Load type: 0=Full Load, 1=Incremental Update (default: 1)
 - **events** - Array of event configurations for events endpoint (default: [])

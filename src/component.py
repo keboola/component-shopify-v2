@@ -840,15 +840,21 @@ class Component(ComponentBase):
         else:
             valid_columns = [c[0] for c in table_meta]
 
-        schema = OrderedDict(
-            {
-                ("parent_id" if c[0] == "__parent_id" else c[0]): ColumnDefinition(
-                    data_types=BaseType(dtype=self.convert_base_types(c[1])),
-                    primary_key=False,
-                )
-                for c in table_meta
-            }
-        )
+        # table_meta carries the full normalized parent schema. Each entity/child
+        # table (e.g. product) only contains its own columns, so filter the manifest
+        # schema to valid_columns — otherwise every child manifest declares the
+        # parent's entire column set.
+        valid_set = set(valid_columns)
+        schema: OrderedDict[str, ColumnDefinition] = OrderedDict()
+        for column in table_meta:
+            name = column[0]
+            if name not in valid_set:
+                continue
+            output_name = "parent_id" if name == "__parent_id" else name
+            schema[output_name] = ColumnDefinition(
+                data_types=BaseType(dtype=self.convert_base_types(column[1])),
+                primary_key=False,
+            )
 
         out_table = self.create_out_table_definition(
             f"{entity_name}.csv",

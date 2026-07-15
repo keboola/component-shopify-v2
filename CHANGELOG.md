@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Entity-split table manifests now declare only their own columns (previously inherited the full parent schema). Metadata only; CSV output unchanged.
 - **`date_to` no longer silently excludes records updated on the run day.** The loading-option date bounds
   were truncated to bare `YYYY-MM-DD`, so the upper bound became midnight of the run day
   (`updated_at:<'2026-07-10'`). Any record updated earlier the same day was dropped from the extraction,

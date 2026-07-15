@@ -9,11 +9,11 @@ from collections import OrderedDict, defaultdict
 from pathlib import Path
 from typing import Any
 
+import dateparser
 import duckdb
 from keboola.component.base import ComponentBase
 from keboola.component.dao import BaseType, ColumnDefinition, SupportedDataTypes
 from keboola.component.exceptions import UserException
-from keboola.utils.date import parse_datetime_interval
 from keboola.vcr.sanitizers import QueryParamSanitizer
 
 from configuration import PRODUCTS_ENDPOINTS, Configuration
@@ -232,22 +232,42 @@ class Component(ComponentBase):
             self.logger.warning(f"Failed to decompose object column {column_name}: {str(e)}")
 
     def _parse_loading_option_dates(self, date_since: str | None, date_to: str | None) -> tuple[str | None, str | None]:
-        """Parse date_since and date_to using keboola.utils parse_datetime_interval."""
+        """Parse date_since and date_to into Shopify search bounds.
+
+        The window is rounded outward, never inward, and the two bounds are deliberately asymmetric:
+
+        - Upper bound (date_to) keeps full ISO-8601 UTC timestamp precision so that ``date_to="now"``
+          (or any relative value) resolves to the actual run moment, e.g. ``updated_at:<'2026-07-10T13:56:13Z'``.
+          Truncating it to bare ``YYYY-MM-DD`` snaps it back to midnight of the run day and silently drops
+          every record updated earlier that same day.
+        - Lower bound (date_since) is intentionally floored to midnight of its day. A timestamp-precise
+          lower bound would open gaps between consecutive incremental runs using relative date_since values:
+          yesterday's run covers up to its own start time, while today's ">= 1 day ago" would begin later in
+          the day, leaving the intervening records uncovered. Flooring to midnight keeps the windows overlapping.
+
+        Dates are resolved in UTC (``TIMEZONE="UTC"``): the previous ``parse_datetime_interval`` truncated
+        both bounds to bare ``YYYY-MM-DD`` (the source of the same-day-exclusion bug) and, being unable to
+        pass a timezone through, resolved values in the container's local timezone. Resolving in UTC makes
+        relative values ("now", "7 years ago") real UTC instants and anchors explicit calendar dates
+        ("2026-03-19") to UTC midnight without a timezone shift, so the trailing ``Z`` is always accurate
+        regardless of the runtime timezone.
+        """
         if not date_since and not date_to:
             return None, None
-        try:
-            start, end = parse_datetime_interval(
-                period_from=date_since or "1970-01-01",
-                period_to=date_to or "now",
-                strformat="%Y-%m-%d",
-            )
-        except Exception as e:
-            bad = date_since if date_since else date_to
+        settings = {"TIMEZONE": "UTC", "RETURN_AS_TIMEZONE_AWARE": True}
+        start = dateparser.parse(date_since or "1970-01-01", settings=settings)
+        end = dateparser.parse(date_to or "now", settings=settings)
+        if start is None or end is None:
+            bad = date_since if start is None else date_to
             raise UserException(
                 f"Could not parse date '{bad}'. Please use ISO format (YYYY-MM-DD) or relative format "
                 "like '1 week ago', 'now', etc."
-            ) from e
-        return (start if date_since else None), (end if date_to else None)
+            )
+        if end < start:
+            raise UserException(f"date_since ('{date_since}') cannot be after date_to ('{date_to}').")
+        floored_start = start.strftime("%Y-%m-%d") if date_since else None
+        timestamp_end = end.strftime("%Y-%m-%dT%H:%M:%SZ") if date_to else None
+        return floored_start, timestamp_end
 
     def _resolve_access_token(self, params: Configuration) -> str:
         """Resolve the access token based on auth mode.

@@ -281,6 +281,22 @@ JSON blob). This matches the downstream dbt mapping, e.g.
 > `order.csv` never depends on the data. Values are extracted as-is on each run; the component does
 > **not** poll or retry waiting for attribution to become ready.
 
+#### Order address child tables (`order_shipping_address`, `order_billing_address`)
+
+`Order.shippingAddress` and `Order.billingAddress` are decomposed 1:1 into the
+`order_shipping_address.csv` and `order_billing_address.csv` child tables (`parent_id` →
+`order.id`). In addition to the existing address columns, both tables carry a `country_code`
+column:
+
+| Column | Source (GraphQL) | Format |
+| --- | --- | --- |
+| `country` | `shippingAddress`/`billingAddress`.`country` | full country display name (e.g. `Czechia`, `Netherlands`) |
+| `country_code` | `shippingAddress`/`billingAddress`.`countryCodeV2` (aliased to `countryCode`) | ISO 3166-1 alpha-2 two-letter code (e.g. `NL`, `AT`, `DE`) |
+
+`country_code` is the ISO two-letter code (the legacy v1 `order.shipping_address__country_code`),
+while `country` remains the human-readable display name — they are distinct columns. The value is
+nullable: guest or partial addresses can arrive with `country_code` empty.
+
 ### Data Types and Manifests
 
 All CSV files include Keboola manifest files (`.csv.manifest`) with:

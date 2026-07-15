@@ -80,9 +80,9 @@
         "customer_journey_summary__last_visit__utm_parameters__term",
         "customer_journey_summary__last_visit__utm_parameters__content"
       ],
-      "hash": "sha256:515dcc010be3a949666df1a20a5f0bd4eba33335dc42b7c277b2252df6b7f954",
+      "hash": "sha256:284743e36d61340b8a17bd22518a06d396f31c97a7c3d51d7e1db229eff60a6a",
       "row_count": 3,
-      "size_bytes": 4139
+      "size_bytes": 4229
     },
     "order.csv.manifest": {
       "columns": null,
@@ -100,18 +100,19 @@
         "city",
         "province",
         "country",
+        "country_code",
         "zip",
         "phone"
       ],
-      "hash": "sha256:1b1c804307aff983d3a6fcf11b40fcfec5b3351fbf020f2cbb9b3b761652bae9",
+      "hash": "sha256:688d4ec8f7f3de0898cbafcae138a54d7287c507cde79493ef0b32971fc9b54a",
       "row_count": 3,
-      "size_bytes": 263
+      "size_bytes": 288
     },
     "order_billing_address.csv.manifest": {
       "columns": null,
-      "hash": "sha256:47e7fc72db38d5d49ab992cf52d3ccdfb77b9bac341c97684970708448bdf52a",
+      "hash": "sha256:5384ba9672236784c708b1833203dfe975098cb797b257ec20ad4366a0c3574d",
       "row_count": null,
-      "size_bytes": 979
+      "size_bytes": 1066
     },
     "order_current_total_additional_fees_set.csv": {
       "columns": [
@@ -188,18 +189,19 @@
         "city",
         "province",
         "country",
+        "country_code",
         "zip",
         "phone"
       ],
-      "hash": "sha256:1b1c804307aff983d3a6fcf11b40fcfec5b3351fbf020f2cbb9b3b761652bae9",
+      "hash": "sha256:622e5fd9a661f4893c3f852ffbb865ea332129713ad2e41e390b636c782c7ca5",
       "row_count": 3,
-      "size_bytes": 263
+      "size_bytes": 284
     },
     "order_shipping_address.csv.manifest": {
       "columns": null,
-      "hash": "sha256:47e7fc72db38d5d49ab992cf52d3ccdfb77b9bac341c97684970708448bdf52a",
+      "hash": "sha256:5384ba9672236784c708b1833203dfe975098cb797b257ec20ad4366a0c3574d",
       "row_count": null,
-      "size_bytes": 979
+      "size_bytes": 1066
     },
     "order_subtotal_price_set.csv": {
       "columns": [

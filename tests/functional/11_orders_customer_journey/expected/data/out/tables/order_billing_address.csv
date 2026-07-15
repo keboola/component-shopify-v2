@@ -1,4 +1,4 @@
-"parent_id","first_name","last_name","address1","address2","city","province","country","zip","phone"
-"gid://shopify/Order/1001","Sam","Shopper","Main 1",,"Prague",,"Czechia","11000",
-"gid://shopify/Order/1002","Sam","Shopper","Main 1",,"Prague",,"Czechia","11000",
-"gid://shopify/Order/1003","Sam","Shopper","Main 1",,"Prague",,"Czechia","11000",
+"parent_id","first_name","last_name","address1","address2","city","province","country","country_code","zip","phone"
+"gid://shopify/Order/1001","Sam","Shopper","Main 1",,"Prague",,"Czechia","NL","11000",
+"gid://shopify/Order/1002","Sam","Shopper","Main 1",,"Prague",,"Czechia","AT","11000",
+"gid://shopify/Order/1003","Sam","Shopper","Main 1",,"Prague",,"Czechia","DE","11000",

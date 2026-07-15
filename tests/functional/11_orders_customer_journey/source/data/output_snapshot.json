@@ -80,9 +80,9 @@
         "customer_journey_summary__last_visit__utm_parameters__term",
         "customer_journey_summary__last_visit__utm_parameters__content"
       ],
-      "hash": "sha256:cde6e71c8011d665ff0c6df5b1f454b42eb03ec92d560a24e77339500bcf2e3b",
+      "hash": "sha256:a1abdc03aa574ecd11ff0a042268b77a59f5f69085559c2b0288320f2fb0abbe",
       "row_count": 4,
-      "size_bytes": 5293
+      "size_bytes": 5429
     },
     "order.csv.manifest": {
       "columns": null,
@@ -100,18 +100,19 @@
         "city",
         "province",
         "country",
+        "country_code",
         "zip",
         "phone"
       ],
-      "hash": "sha256:45fd37901fbbc3b9f2081645836e63b96a187c3d2aae3e0eaf6a7a01da36da9e",
+      "hash": "sha256:705a8dcf7a45e920b41c85fb0d94cf9333619fb11796b80c635d283bde52ae29",
       "row_count": 4,
-      "size_bytes": 347
+      "size_bytes": 377
     },
     "order_billing_address.csv.manifest": {
       "columns": null,
-      "hash": "sha256:47e7fc72db38d5d49ab992cf52d3ccdfb77b9bac341c97684970708448bdf52a",
+      "hash": "sha256:5384ba9672236784c708b1833203dfe975098cb797b257ec20ad4366a0c3574d",
       "row_count": null,
-      "size_bytes": 979
+      "size_bytes": 1066
     },
     "order_customer.csv": {
       "columns": [
@@ -158,18 +159,19 @@
         "city",
         "province",
         "country",
+        "country_code",
         "zip",
         "phone"
       ],
-      "hash": "sha256:45fd37901fbbc3b9f2081645836e63b96a187c3d2aae3e0eaf6a7a01da36da9e",
+      "hash": "sha256:33bd442e72f24c785bbc0167b62a79613ede3856372e6c4486490236349700e8",
       "row_count": 4,
-      "size_bytes": 347
+      "size_bytes": 373
     },
     "order_shipping_address.csv.manifest": {
       "columns": null,
-      "hash": "sha256:47e7fc72db38d5d49ab992cf52d3ccdfb77b9bac341c97684970708448bdf52a",
+      "hash": "sha256:5384ba9672236784c708b1833203dfe975098cb797b257ec20ad4366a0c3574d",
       "row_count": null,
-      "size_bytes": 979
+      "size_bytes": 1066
     },
     "order_subtotal_price_set.csv": {
       "columns": [

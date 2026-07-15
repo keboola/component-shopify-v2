@@ -121,9 +121,9 @@
         "customer_journey_summary__last_visit__utm_parameters__term",
         "customer_journey_summary__last_visit__utm_parameters__content"
       ],
-      "hash": "sha256:b41454bc069da510762786777d13fa84f603bcd1eb42ec69ea868b1287c25ffd",
+      "hash": "sha256:26e59accd98b5728aaa7ee450d5b667c8119a8489356dca5473465d211e086eb",
       "row_count": 2,
-      "size_bytes": 3820
+      "size_bytes": 3866
     },
     "order.csv.manifest": {
       "columns": null,
@@ -141,18 +141,19 @@
         "city",
         "province",
         "country",
+        "country_code",
         "zip",
         "phone"
       ],
-      "hash": "sha256:cd2b24e42e6293fdbdc9f2a7ea19dbdd33294aa99a35cd3eee06ffa034930098",
+      "hash": "sha256:fa3bbe8f58361bbdf17c5b9698103b7e98f4e1dd6fc26d6243eef0d82f698fb6",
       "row_count": 2,
-      "size_bytes": 192
+      "size_bytes": 212
     },
     "order_billing_address.csv.manifest": {
       "columns": null,
-      "hash": "sha256:47e7fc72db38d5d49ab992cf52d3ccdfb77b9bac341c97684970708448bdf52a",
+      "hash": "sha256:5384ba9672236784c708b1833203dfe975098cb797b257ec20ad4366a0c3574d",
       "row_count": null,
-      "size_bytes": 979
+      "size_bytes": 1066
     },
     "order_customer.csv": {
       "columns": [
@@ -199,18 +200,19 @@
         "city",
         "province",
         "country",
+        "country_code",
         "zip",
         "phone"
       ],
-      "hash": "sha256:cd2b24e42e6293fdbdc9f2a7ea19dbdd33294aa99a35cd3eee06ffa034930098",
+      "hash": "sha256:fa3bbe8f58361bbdf17c5b9698103b7e98f4e1dd6fc26d6243eef0d82f698fb6",
       "row_count": 2,
-      "size_bytes": 192
+      "size_bytes": 212
     },
     "order_shipping_address.csv.manifest": {
       "columns": null,
-      "hash": "sha256:47e7fc72db38d5d49ab992cf52d3ccdfb77b9bac341c97684970708448bdf52a",
+      "hash": "sha256:5384ba9672236784c708b1833203dfe975098cb797b257ec20ad4366a0c3574d",
       "row_count": null,
-      "size_bytes": 979
+      "size_bytes": 1066
     },
     "order_subtotal_price_set.csv": {
       "columns": [

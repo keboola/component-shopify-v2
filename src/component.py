@@ -52,6 +52,18 @@ DECOMPOSITION_SKIP_COLUMNS = {"originalUnitPriceSet"}
 # always produced (NULL where absent), with no data-dependent column presence.
 CUSTOMER_JOURNEY_SOURCE_COLUMN = "customerJourneySummary"
 
+# Order.lineItems.nodes.product is a plain nullable object field that stays inline on the
+# LineItem rows of the mixed bulk `order` stream (bulk splits rows per connection only). Left
+# as-is, the dict `product` column would reach the generic decomposition path and be emitted as
+# a misnamed `order_product` child table keyed by a LineItem GID (the same trap suppressed for
+# originalUnitPriceSet). Instead we extract product.id into a flat `product_id` column on the
+# `line_item` entity and drop the struct before decomposition. product may be null (the line
+# item's product was deleted), so `product_id` is always produced (NULL where absent), with no
+# data-dependent column presence.
+LINE_ITEM_PRODUCT_SOURCE_COLUMN = "product"
+LINE_ITEM_PRODUCT_ID_COLUMN = "product_id"
+LINE_ITEM_ENTITY_TYPE = "LineItem"
+
 # Line-item-level plain lists (taxLines, discountAllocations) live inline on the LineItem
 # rows of the mixed bulk `order` stream. The generic decomposition path runs on the whole
 # stream and would emit these as `order_*` child tables keyed by a LineItem GID. Instead we
@@ -224,6 +236,38 @@ class Component(ComponentBase):
             order_keys = entity_keys["Order"]
             order_keys.discard(CUSTOMER_JOURNEY_SOURCE_COLUMN)
             order_keys.update(name for name, _ in CUSTOMER_JOURNEY_SUMMARY_COLUMNS)
+
+    def _flatten_line_item_product(self, table_name: str, entity_keys: dict[str, set[str]] | None) -> None:
+        """Extract lineItems.product.id into a flat product_id column and drop the struct.
+
+        product is a plain nullable object inline on the LineItem rows of the mixed bulk stream.
+        Generic decomposition would otherwise emit a misnamed order_product child table keyed by
+        a LineItem GID, so the id is flattened onto line_item here and the struct is dropped
+        before decomposition. product may be null (deleted product), so product_id is always
+        produced (NULL where absent) via JSON path extraction.
+        """
+        columns = [c[0] for c in self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()]
+        has_source = LINE_ITEM_PRODUCT_SOURCE_COLUMN in columns
+
+        projections = [f'* EXCLUDE ("{LINE_ITEM_PRODUCT_SOURCE_COLUMN}")'] if has_source else ["*"]
+        if has_source:
+            projections.append(
+                f"json_extract_string(to_json(\"{LINE_ITEM_PRODUCT_SOURCE_COLUMN}\"), '$.id') "
+                f'AS "{LINE_ITEM_PRODUCT_ID_COLUMN}"'
+            )
+        else:
+            projections.append(f'CAST(NULL AS VARCHAR) AS "{LINE_ITEM_PRODUCT_ID_COLUMN}"')
+
+        self.conn.execute(
+            f'CREATE OR REPLACE TABLE "{table_name}" AS SELECT {", ".join(projections)} FROM "{table_name}"'
+        )
+
+        # Keep the flattened column (and drop the raw struct key) in the LineItem entity's key
+        # set so the entity-split export retains product_id.
+        if entity_keys and LINE_ITEM_ENTITY_TYPE in entity_keys:
+            line_item_keys = entity_keys[LINE_ITEM_ENTITY_TYPE]
+            line_item_keys.discard(LINE_ITEM_PRODUCT_SOURCE_COLUMN)
+            line_item_keys.add(LINE_ITEM_PRODUCT_ID_COLUMN)
 
     def _decompose_json_columns(self, table_name: str, normalized_table: str):
         """
@@ -669,6 +713,7 @@ class Component(ComponentBase):
 
             if table_name == "order":
                 self._flatten_customer_journey_summary(table_name, entity_keys)
+                self._flatten_line_item_product(table_name, entity_keys)
 
             normalized_table = self._normalize_table(table_name)
             self._export_table_with_manifest(table_name, normalized_table, entity_keys)

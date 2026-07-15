@@ -171,8 +171,20 @@ New columns on **`line_item.csv`**:
 | --- | --- | --- |
 | `current_quantity` | `currentQuantity` | integer |
 | `original_unit_price_set` | `originalUnitPriceSet` | serialized JSON `{"shopMoney":{"amount","currencyCode"}}` |
+| `product_id` | `lineItems.product.id` | Product GID (e.g. `gid://shopify/Product/123`); **can be empty** when the line item's product was deleted |
+| `gift_card` | `isGiftCard` (aliased to `giftCard`) | boolean; `true` when the line item is the purchase of a gift card |
 | `tax_lines` | `taxLines` | serialized JSON array (also decomposed into `line_item_tax_lines.csv`) |
 | `discount_allocations` | `discountAllocations` | serialized JSON array (also decomposed into `line_item_discount_allocations.csv`) |
+
+> Note: `product_id` is the flattened `lineItems.product.id`. `Order.lineItems.nodes.product`
+> is a plain nullable object that stays inline on the LineItem rows, so its `id` is extracted
+> onto `line_item.csv` and the object is dropped before decomposition — otherwise generic
+> decomposition would emit a misnamed `order_product` child table keyed by a LineItem GID. The
+> column is always present; it is empty for line items whose product has been deleted.
+>
+> Note: `gift_card` matters for revenue computation — per Shopify's revenue-recognition
+> semantics, gift card purchases are typically **excluded from revenue** at the time of sale and
+> recognized later on redemption, so downstream revenue metrics should filter on this flag.
 
 Child tables created for the new fields:
 

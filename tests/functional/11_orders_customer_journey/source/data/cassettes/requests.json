@@ -1,90 +1,90 @@
 {
-  "_metadata": {
-    "freeze_time": "2026-07-14T08:00:00",
-    "keboola_vcr_version": "0.0.0",
-    "recorded_at": "2026-07-14T08:00:00+00:00"
-  },
-  "interactions": [
-    {
-      "request": {
-        "body": "{\"query\": \"mutation {\\n  bulkOperationRunQuery(\\n    query: \\\"\\\"\\\"\\n    {\\n      orders(query: \\\"updated_at:>='2025-01-01' AND updated_at:<'2026-01-01'\\\") {\\n        edges {\\n          node {\\n            id\\n            name\\n            email\\n            phone\\n            createdAt\\n            updatedAt\\n            processedAt\\n            cancelledAt\\n            cancelReason\\n            displayFinancialStatus\\n            displayFulfillmentStatus\\n            test\\n            paymentGatewayNames\\n            totalPriceSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            subtotalPriceSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            totalTaxSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            totalShippingPriceSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            currentTotalAdditionalFeesSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            currentTotalDutiesSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            totalTipReceivedSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            customerJourneySummary {\\n              ready\\n              customerOrderIndex\\n              daysToConversion\\n              firstVisit {\\n                id\\n                occurredAt\\n                landingPage\\n                referrerUrl\\n                source\\n                sourceDescription\\n                sourceType\\n                referralCode\\n                utmParameters {\\n                  source\\n                  medium\\n                  campaign\\n                  term\\n                  content\\n                }\\n              }\\n              lastVisit {\\n                id\\n                occurredAt\\n                landingPage\\n                referrerUrl\\n                source\\n                sourceDescription\\n                sourceType\\n                referralCode\\n                utmParameters {\\n                  source\\n                  medium\\n                  campaign\\n                  term\\n                  content\\n                }\\n              }\\n            }\\n            customer {\\n              id\\n              firstName\\n              lastName\\n              email\\n              phone\\n            }\\n            lineItems {\\n              edges {\\n                node {\\n                  id\\n                  title\\n                  quantity\\n                  currentQuantity\\n                  sku\\n                  originalUnitPriceSet {\\n                    shopMoney {\\n                      amount\\n                      currencyCode\\n                    }\\n                  }\\n                  variant {\\n                    id\\n                    title\\n                    sku\\n                    price\\n                  }\\n                  taxLines {\\n                    title\\n                    rate\\n                    ratePercentage\\n                    priceSet {\\n                      shopMoney {\\n                        amount\\n                        currencyCode\\n                      }\\n                    }\\n                    channelLiable\\n                    source\\n                  }\\n                  discountAllocations {\\n                    allocatedAmountSet {\\n                      shopMoney {\\n                        amount\\n                        currencyCode\\n                      }\\n                    }\\n                    discountApplication {\\n                      index\\n                    }\\n                  }\\n                }\\n              }\\n            }\\n            shippingAddress {\\n              firstName\\n              lastName\\n              address1\\n              address2\\n              city\\n              province\\n              country\\n              zip\\n              phone\\n            }\\n            billingAddress {\\n              firstName\\n              lastName\\n              address1\\n              address2\\n              city\\n              province\\n              country\\n              zip\\n              phone\\n            }\\n            \\n          }\\n        }\\n      }\\n    }\\n    \\\"\\\"\\\"\\n  ) {\\n    bulkOperation {\\n      id\\n      status\\n    }\\n    userErrors {\\n      field\\n      message\\n    }\\n  }\\n}\\n\", \"variables\": null, \"operationName\": null}",
-        "headers": {
-          "Accept": [
-            "application/json"
-          ],
-          "Content-Type": [
-            "application/json"
-          ]
-        },
-        "method": "POST",
-        "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
-      },
-      "response": {
-        "body": {
-          "string": "{\"data\": {\"bulkOperationRunQuery\": {\"bulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000011\", \"status\": \"CREATED\"}, \"userErrors\": []}}}"
-        },
-        "headers": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ]
-        },
-        "status": {
-          "code": 200,
-          "message": "OK"
-        }
-      }
+ "_metadata": {
+  "freeze_time": "2026-07-14T08:00:00",
+  "keboola_vcr_version": "0.0.0",
+  "recorded_at": "2026-07-14T08:00:00+00:00"
+ },
+ "interactions": [
+  {
+   "request": {
+    "body": "{\"query\": \"mutation {\\n  bulkOperationRunQuery(\\n    query: \\\"\\\"\\\"\\n    {\\n      orders(query: \\\"updated_at:>='2025-01-01' AND updated_at:<'2026-01-01'\\\") {\\n        edges {\\n          node {\\n            id\\n            name\\n            email\\n            phone\\n            createdAt\\n            updatedAt\\n            processedAt\\n            cancelledAt\\n            cancelReason\\n            displayFinancialStatus\\n            displayFulfillmentStatus\\n            test\\n            paymentGatewayNames\\n            totalPriceSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            subtotalPriceSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            totalTaxSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            totalShippingPriceSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            currentTotalAdditionalFeesSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            currentTotalDutiesSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            totalTipReceivedSet {\\n              shopMoney {\\n                amount\\n                currencyCode\\n              }\\n            }\\n            customerJourneySummary {\\n              ready\\n              customerOrderIndex\\n              daysToConversion\\n              firstVisit {\\n                id\\n                occurredAt\\n                landingPage\\n                referrerUrl\\n                source\\n                sourceDescription\\n                sourceType\\n                referralCode\\n                utmParameters {\\n                  source\\n                  medium\\n                  campaign\\n                  term\\n                  content\\n                }\\n              }\\n              lastVisit {\\n                id\\n                occurredAt\\n                landingPage\\n                referrerUrl\\n                source\\n                sourceDescription\\n                sourceType\\n                referralCode\\n                utmParameters {\\n                  source\\n                  medium\\n                  campaign\\n                  term\\n                  content\\n                }\\n              }\\n            }\\n            customer {\\n              id\\n              firstName\\n              lastName\\n              email\\n              phone\\n            }\\n            lineItems {\\n              edges {\\n                node {\\n                  id\\n                  title\\n                  quantity\\n                  currentQuantity\\n                  sku\\n                  originalUnitPriceSet {\\n                    shopMoney {\\n                      amount\\n                      currencyCode\\n                    }\\n                  }\\n                  variant {\\n                    id\\n                    title\\n                    sku\\n                    price\\n                  }\\n                  product {\\n                    id\\n                  }\\n                  giftCard: isGiftCard\\n                  taxLines {\\n                    title\\n                    rate\\n                    ratePercentage\\n                    priceSet {\\n                      shopMoney {\\n                        amount\\n                        currencyCode\\n                      }\\n                    }\\n                    channelLiable\\n                    source\\n                  }\\n                  discountAllocations {\\n                    allocatedAmountSet {\\n                      shopMoney {\\n                        amount\\n                        currencyCode\\n                      }\\n                    }\\n                    discountApplication {\\n                      index\\n                    }\\n                  }\\n                }\\n              }\\n            }\\n            shippingAddress {\\n              firstName\\n              lastName\\n              address1\\n              address2\\n              city\\n              province\\n              country\\n              zip\\n              phone\\n            }\\n            billingAddress {\\n              firstName\\n              lastName\\n              address1\\n              address2\\n              city\\n              province\\n              country\\n              zip\\n              phone\\n            }\\n            \\n          }\\n        }\\n      }\\n    }\\n    \\\"\\\"\\\"\\n  ) {\\n    bulkOperation {\\n      id\\n      status\\n    }\\n    userErrors {\\n      field\\n      message\\n    }\\n  }\\n}\\n\", \"variables\": null, \"operationName\": null}",
+    "headers": {
+     "Accept": [
+      "application/json"
+     ],
+     "Content-Type": [
+      "application/json"
+     ]
     },
-    {
-      "request": {
-        "body": "{\"query\": \"query {\\n  currentBulkOperation {\\n    id\\n    status\\n    errorCode\\n    createdAt\\n    completedAt\\n    objectCount\\n    fileSize\\n    url\\n    partialDataUrl\\n  }\\n}\\n\", \"variables\": null, \"operationName\": null}",
-        "headers": {
-          "Accept": [
-            "application/json"
-          ],
-          "Content-Type": [
-            "application/json"
-          ]
-        },
-        "method": "POST",
-        "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
-      },
-      "response": {
-        "body": {
-          "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000011\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-07-14T07:59:32Z\", \"completedAt\": \"2026-07-14T07:59:33Z\", \"objectCount\": \"6\", \"fileSize\": \"6165\", \"url\": \"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-customer-journey?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-orders.jsonl%22&response-content-type=application%2Fjsonl\", \"partialDataUrl\": null}}}"
-        },
-        "headers": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ]
-        },
-        "status": {
-          "code": 200,
-          "message": "OK"
-        }
-      }
+    "method": "POST",
+    "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+   },
+   "response": {
+    "body": {
+     "string": "{\"data\": {\"bulkOperationRunQuery\": {\"bulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000011\", \"status\": \"CREATED\"}, \"userErrors\": []}}}"
     },
-    {
-      "request": {
-        "body": null,
-        "headers": {},
-        "method": "GET",
-        "uri": "https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-customer-journey?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-orders.jsonl%22&response-content-type=application%2Fjsonl"
-      },
-      "response": {
-        "body": {
-          "string": "{\"id\": \"gid://shopify/Order/1001\", \"name\": \"#1001\", \"email\": \"shopper@example.com\", \"phone\": null, \"createdAt\": \"2025-06-01T10:00:00Z\", \"updatedAt\": \"2025-06-02T10:00:00Z\", \"processedAt\": \"2025-06-01T10:05:00Z\", \"cancelledAt\": null, \"cancelReason\": null, \"displayFinancialStatus\": \"PAID\", \"displayFulfillmentStatus\": \"FULFILLED\", \"test\": false, \"paymentGatewayNames\": [\"shopify_payments\"], \"totalPriceSet\": {\"shopMoney\": {\"amount\": \"100.00\", \"currencyCode\": \"EUR\"}}, \"subtotalPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"totalTaxSet\": {\"shopMoney\": {\"amount\": \"10.00\", \"currencyCode\": \"EUR\"}}, \"totalShippingPriceSet\": {\"shopMoney\": {\"amount\": \"5.00\", \"currencyCode\": \"EUR\"}}, \"currentTotalAdditionalFeesSet\": null, \"currentTotalDutiesSet\": null, \"totalTipReceivedSet\": null, \"customerJourneySummary\": {\"ready\": true, \"customerOrderIndex\": 1, \"daysToConversion\": 3, \"firstVisit\": {\"id\": \"gid://shopify/CustomerVisit/9001\", \"occurredAt\": \"2025-05-28T08:00:00Z\", \"landingPage\": \"/landing/spring\", \"referrerUrl\": \"https://www.google.com/\", \"source\": \"google\", \"sourceDescription\": \"Google Search\", \"sourceType\": \"SEARCH\", \"referralCode\": null, \"utmParameters\": {\"source\": \"google\", \"medium\": \"cpc\", \"campaign\": \"brand\", \"term\": \"diapers\", \"content\": \"ad-a\"}}, \"lastVisit\": {\"id\": \"gid://shopify/CustomerVisit/9002\", \"occurredAt\": \"2025-06-01T09:30:00Z\", \"landingPage\": \"/landing/checkout\", \"referrerUrl\": \"https://www.facebook.com/\", \"source\": \"facebook\", \"sourceDescription\": \"Facebook\", \"sourceType\": \"SOCIAL\", \"referralCode\": \"INFL10\", \"utmParameters\": {\"source\": \"facebook\", \"medium\": \"social\", \"campaign\": \"retargeting\", \"term\": null, \"content\": \"carousel\"}}}, \"customer\": {\"id\": \"gid://shopify/Customer/501\", \"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"email\": \"shopper@example.com\", \"phone\": null}, \"shippingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"NL\", \"zip\": \"11000\", \"phone\": null}, \"billingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"NL\", \"zip\": \"11000\", \"phone\": null}}\n{\"id\": \"gid://shopify/LineItem/2001\", \"title\": \"Product\", \"quantity\": 1, \"currentQuantity\": 1, \"sku\": \"SKU-1\", \"originalUnitPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"variant\": {\"id\": \"gid://shopify/ProductVariant/3001\", \"title\": \"Product\", \"sku\": \"SKU-1\", \"price\": \"90.00\"}, \"taxLines\": [], \"discountAllocations\": [], \"__parentId\": \"gid://shopify/Order/1001\"}\n{\"id\": \"gid://shopify/Order/1002\", \"name\": \"#1002\", \"email\": \"shopper@example.com\", \"phone\": null, \"createdAt\": \"2025-06-01T10:00:00Z\", \"updatedAt\": \"2025-06-02T10:00:00Z\", \"processedAt\": \"2025-06-01T10:05:00Z\", \"cancelledAt\": null, \"cancelReason\": null, \"displayFinancialStatus\": \"PAID\", \"displayFulfillmentStatus\": \"FULFILLED\", \"test\": false, \"paymentGatewayNames\": [], \"totalPriceSet\": {\"shopMoney\": {\"amount\": \"100.00\", \"currencyCode\": \"EUR\"}}, \"subtotalPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"totalTaxSet\": {\"shopMoney\": {\"amount\": \"10.00\", \"currencyCode\": \"EUR\"}}, \"totalShippingPriceSet\": {\"shopMoney\": {\"amount\": \"5.00\", \"currencyCode\": \"EUR\"}}, \"currentTotalAdditionalFeesSet\": null, \"currentTotalDutiesSet\": null, \"totalTipReceivedSet\": null, \"customerJourneySummary\": {\"ready\": false, \"customerOrderIndex\": 2, \"daysToConversion\": null, \"firstVisit\": null, \"lastVisit\": null}, \"customer\": {\"id\": \"gid://shopify/Customer/501\", \"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"email\": \"shopper@example.com\", \"phone\": null}, \"shippingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"AT\", \"zip\": \"11000\", \"phone\": null}, \"billingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"AT\", \"zip\": \"11000\", \"phone\": null}}\n{\"id\": \"gid://shopify/LineItem/2002\", \"title\": \"Product\", \"quantity\": 1, \"currentQuantity\": 1, \"sku\": \"SKU-1\", \"originalUnitPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"variant\": {\"id\": \"gid://shopify/ProductVariant/3001\", \"title\": \"Product\", \"sku\": \"SKU-1\", \"price\": \"90.00\"}, \"taxLines\": [], \"discountAllocations\": [], \"__parentId\": \"gid://shopify/Order/1002\"}\n{\"id\": \"gid://shopify/Order/1003\", \"name\": \"#1003\", \"email\": \"shopper@example.com\", \"phone\": null, \"createdAt\": \"2025-06-01T10:00:00Z\", \"updatedAt\": \"2025-06-02T10:00:00Z\", \"processedAt\": \"2025-06-01T10:05:00Z\", \"cancelledAt\": null, \"cancelReason\": null, \"displayFinancialStatus\": \"PAID\", \"displayFulfillmentStatus\": \"FULFILLED\", \"test\": false, \"paymentGatewayNames\": [], \"totalPriceSet\": {\"shopMoney\": {\"amount\": \"100.00\", \"currencyCode\": \"EUR\"}}, \"subtotalPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"totalTaxSet\": {\"shopMoney\": {\"amount\": \"10.00\", \"currencyCode\": \"EUR\"}}, \"totalShippingPriceSet\": {\"shopMoney\": {\"amount\": \"5.00\", \"currencyCode\": \"EUR\"}}, \"currentTotalAdditionalFeesSet\": null, \"currentTotalDutiesSet\": null, \"totalTipReceivedSet\": null, \"customerJourneySummary\": null, \"customer\": {\"id\": \"gid://shopify/Customer/501\", \"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"email\": \"shopper@example.com\", \"phone\": null}, \"shippingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": null, \"zip\": \"11000\", \"phone\": null}, \"billingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"DE\", \"zip\": \"11000\", \"phone\": null}}\n{\"id\": \"gid://shopify/LineItem/2003\", \"title\": \"Product\", \"quantity\": 1, \"currentQuantity\": 1, \"sku\": \"SKU-1\", \"originalUnitPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"variant\": {\"id\": \"gid://shopify/ProductVariant/3001\", \"title\": \"Product\", \"sku\": \"SKU-1\", \"price\": \"90.00\"}, \"taxLines\": [], \"discountAllocations\": [], \"__parentId\": \"gid://shopify/Order/1003\"}\n"
-        },
-        "headers": {
-          "Content-Type": [
-            "application/jsonl"
-          ]
-        },
-        "status": {
-          "code": 200,
-          "message": "OK"
-        }
-      }
+    "headers": {
+     "Content-Type": [
+      "application/json; charset=utf-8"
+     ]
+    },
+    "status": {
+     "code": 200,
+     "message": "OK"
     }
-  ],
-  "version": 1
+   }
+  },
+  {
+   "request": {
+    "body": "{\"query\": \"query {\\n  currentBulkOperation {\\n    id\\n    status\\n    errorCode\\n    createdAt\\n    completedAt\\n    objectCount\\n    fileSize\\n    url\\n    partialDataUrl\\n  }\\n}\\n\", \"variables\": null, \"operationName\": null}",
+    "headers": {
+     "Accept": [
+      "application/json"
+     ],
+     "Content-Type": [
+      "application/json"
+     ]
+    },
+    "method": "POST",
+    "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+   },
+   "response": {
+    "body": {
+     "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000011\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-07-14T07:59:32Z\", \"completedAt\": \"2026-07-14T07:59:33Z\", \"objectCount\": \"6\", \"fileSize\": \"6165\", \"url\": \"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-customer-journey?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-orders.jsonl%22&response-content-type=application%2Fjsonl\", \"partialDataUrl\": null}}}"
+    },
+    "headers": {
+     "Content-Type": [
+      "application/json; charset=utf-8"
+     ]
+    },
+    "status": {
+     "code": 200,
+     "message": "OK"
+    }
+   }
+  },
+  {
+   "request": {
+    "body": null,
+    "headers": {},
+    "method": "GET",
+    "uri": "https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-customer-journey?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-orders.jsonl%22&response-content-type=application%2Fjsonl"
+   },
+   "response": {
+    "body": {
+     "string": "{\"id\": \"gid://shopify/Order/1001\", \"name\": \"#1001\", \"email\": \"shopper@example.com\", \"phone\": null, \"createdAt\": \"2025-06-01T10:00:00Z\", \"updatedAt\": \"2025-06-02T10:00:00Z\", \"processedAt\": \"2025-06-01T10:05:00Z\", \"cancelledAt\": null, \"cancelReason\": null, \"displayFinancialStatus\": \"PAID\", \"displayFulfillmentStatus\": \"FULFILLED\", \"test\": false, \"paymentGatewayNames\": [\"shopify_payments\"], \"totalPriceSet\": {\"shopMoney\": {\"amount\": \"100.00\", \"currencyCode\": \"EUR\"}}, \"subtotalPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"totalTaxSet\": {\"shopMoney\": {\"amount\": \"10.00\", \"currencyCode\": \"EUR\"}}, \"totalShippingPriceSet\": {\"shopMoney\": {\"amount\": \"5.00\", \"currencyCode\": \"EUR\"}}, \"currentTotalAdditionalFeesSet\": null, \"currentTotalDutiesSet\": null, \"totalTipReceivedSet\": null, \"customerJourneySummary\": {\"ready\": true, \"customerOrderIndex\": 1, \"daysToConversion\": 3, \"firstVisit\": {\"id\": \"gid://shopify/CustomerVisit/9001\", \"occurredAt\": \"2025-05-28T08:00:00Z\", \"landingPage\": \"/landing/spring\", \"referrerUrl\": \"https://www.google.com/\", \"source\": \"google\", \"sourceDescription\": \"Google Search\", \"sourceType\": \"SEARCH\", \"referralCode\": null, \"utmParameters\": {\"source\": \"google\", \"medium\": \"cpc\", \"campaign\": \"brand\", \"term\": \"diapers\", \"content\": \"ad-a\"}}, \"lastVisit\": {\"id\": \"gid://shopify/CustomerVisit/9002\", \"occurredAt\": \"2025-06-01T09:30:00Z\", \"landingPage\": \"/landing/checkout\", \"referrerUrl\": \"https://www.facebook.com/\", \"source\": \"facebook\", \"sourceDescription\": \"Facebook\", \"sourceType\": \"SOCIAL\", \"referralCode\": \"INFL10\", \"utmParameters\": {\"source\": \"facebook\", \"medium\": \"social\", \"campaign\": \"retargeting\", \"term\": null, \"content\": \"carousel\"}}}, \"customer\": {\"id\": \"gid://shopify/Customer/501\", \"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"email\": \"shopper@example.com\", \"phone\": null}, \"shippingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"NL\", \"zip\": \"11000\", \"phone\": null}, \"billingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"NL\", \"zip\": \"11000\", \"phone\": null}}\n{\"id\": \"gid://shopify/LineItem/2001\", \"title\": \"Product\", \"quantity\": 1, \"currentQuantity\": 1, \"sku\": \"SKU-1\", \"originalUnitPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"variant\": {\"id\": \"gid://shopify/ProductVariant/3001\", \"title\": \"Product\", \"sku\": \"SKU-1\", \"price\": \"90.00\"}, \"product\": {\"id\": \"gid://shopify/Product/4001\"}, \"giftCard\": false, \"taxLines\": [], \"discountAllocations\": [], \"__parentId\": \"gid://shopify/Order/1001\"}\n{\"id\": \"gid://shopify/Order/1002\", \"name\": \"#1002\", \"email\": \"shopper@example.com\", \"phone\": null, \"createdAt\": \"2025-06-01T10:00:00Z\", \"updatedAt\": \"2025-06-02T10:00:00Z\", \"processedAt\": \"2025-06-01T10:05:00Z\", \"cancelledAt\": null, \"cancelReason\": null, \"displayFinancialStatus\": \"PAID\", \"displayFulfillmentStatus\": \"FULFILLED\", \"test\": false, \"paymentGatewayNames\": [], \"totalPriceSet\": {\"shopMoney\": {\"amount\": \"100.00\", \"currencyCode\": \"EUR\"}}, \"subtotalPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"totalTaxSet\": {\"shopMoney\": {\"amount\": \"10.00\", \"currencyCode\": \"EUR\"}}, \"totalShippingPriceSet\": {\"shopMoney\": {\"amount\": \"5.00\", \"currencyCode\": \"EUR\"}}, \"currentTotalAdditionalFeesSet\": null, \"currentTotalDutiesSet\": null, \"totalTipReceivedSet\": null, \"customerJourneySummary\": {\"ready\": false, \"customerOrderIndex\": 2, \"daysToConversion\": null, \"firstVisit\": null, \"lastVisit\": null}, \"customer\": {\"id\": \"gid://shopify/Customer/501\", \"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"email\": \"shopper@example.com\", \"phone\": null}, \"shippingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"AT\", \"zip\": \"11000\", \"phone\": null}, \"billingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"AT\", \"zip\": \"11000\", \"phone\": null}}\n{\"id\": \"gid://shopify/LineItem/2002\", \"title\": \"Product\", \"quantity\": 1, \"currentQuantity\": 1, \"sku\": \"SKU-1\", \"originalUnitPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"variant\": {\"id\": \"gid://shopify/ProductVariant/3001\", \"title\": \"Product\", \"sku\": \"SKU-1\", \"price\": \"90.00\"}, \"product\": {\"id\": \"gid://shopify/Product/4002\"}, \"giftCard\": false, \"taxLines\": [], \"discountAllocations\": [], \"__parentId\": \"gid://shopify/Order/1002\"}\n{\"id\": \"gid://shopify/Order/1003\", \"name\": \"#1003\", \"email\": \"shopper@example.com\", \"phone\": null, \"createdAt\": \"2025-06-01T10:00:00Z\", \"updatedAt\": \"2025-06-02T10:00:00Z\", \"processedAt\": \"2025-06-01T10:05:00Z\", \"cancelledAt\": null, \"cancelReason\": null, \"displayFinancialStatus\": \"PAID\", \"displayFulfillmentStatus\": \"FULFILLED\", \"test\": false, \"paymentGatewayNames\": [], \"totalPriceSet\": {\"shopMoney\": {\"amount\": \"100.00\", \"currencyCode\": \"EUR\"}}, \"subtotalPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"totalTaxSet\": {\"shopMoney\": {\"amount\": \"10.00\", \"currencyCode\": \"EUR\"}}, \"totalShippingPriceSet\": {\"shopMoney\": {\"amount\": \"5.00\", \"currencyCode\": \"EUR\"}}, \"currentTotalAdditionalFeesSet\": null, \"currentTotalDutiesSet\": null, \"totalTipReceivedSet\": null, \"customerJourneySummary\": null, \"customer\": {\"id\": \"gid://shopify/Customer/501\", \"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"email\": \"shopper@example.com\", \"phone\": null}, \"shippingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": null, \"zip\": \"11000\", \"phone\": null}, \"billingAddress\": {\"firstName\": \"Sam\", \"lastName\": \"Shopper\", \"address1\": \"Main 1\", \"address2\": null, \"city\": \"Prague\", \"province\": null, \"country\": \"Czechia\", \"countryCode\": \"DE\", \"zip\": \"11000\", \"phone\": null}}\n{\"id\": \"gid://shopify/LineItem/2003\", \"title\": \"Product\", \"quantity\": 1, \"currentQuantity\": 1, \"sku\": \"SKU-1\", \"originalUnitPriceSet\": {\"shopMoney\": {\"amount\": \"90.00\", \"currencyCode\": \"EUR\"}}, \"variant\": {\"id\": \"gid://shopify/ProductVariant/3001\", \"title\": \"Product\", \"sku\": \"SKU-1\", \"price\": \"90.00\"}, \"product\": {\"id\": \"gid://shopify/Product/4003\"}, \"giftCard\": false, \"taxLines\": [], \"discountAllocations\": [], \"__parentId\": \"gid://shopify/Order/1003\"}\n"
+    },
+    "headers": {
+     "Content-Type": [
+      "application/jsonl"
+     ]
+    },
+    "status": {
+     "code": 200,
+     "message": "OK"
+    }
+   }
+  }
+ ],
+ "version": 1
 }

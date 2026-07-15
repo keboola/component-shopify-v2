@@ -126,6 +126,10 @@ mutation {
                     sku
                     price
                   }
+                  product {
+                    id
+                  }
+                  giftCard: isGiftCard
                   taxLines {
                     title
                     rate

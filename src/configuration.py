@@ -66,6 +66,30 @@ class Endpoints(BaseModel):
         return enabled
 
 
+class OrdersDiagnostic(BaseModel):
+    """One-shot read-only diagnostic for orders missing from filtered bulk fetches.
+
+    When any target is set, the component runs ONLY the diagnostic probes and exits
+    without extracting or writing tables. Intended for temporary use on a dev branch;
+    remove the config block after the investigation.
+    """
+
+    order_gids: list[str] = Field(
+        default_factory=list, description="Order GIDs to probe directly via node(id:) (bypasses search)"
+    )
+    order_names: list[str] = Field(
+        default_factory=list, description="Order names (e.g. '#1001-EU') to probe via search query name:..."
+    )
+    updated_at_since: str | None = Field(
+        default=None,
+        description="Window start (YYYY-MM-DD) for a paginated updated_at:>= scan checking target membership",
+    )
+
+    @property
+    def has_targets(self) -> bool:
+        return bool(self.order_gids or self.order_names)
+
+
 class Configuration(BaseModel):
     store_name: str = Field(..., description="Shopify store name (without .myshopify.com)")
     api_version: str = Field(default="2025-10", description="Shopify API version")
@@ -78,6 +102,9 @@ class Configuration(BaseModel):
     events: list[dict] = Field(default_factory=list, description="Events configuration")
     custom_queries: list[CustomQuery] = Field(default_factory=list, description="Custom GraphQL bulk operations")
     loading_options: LoadingOptions = Field(default_factory=LoadingOptions)
+    orders_diagnostic: OrdersDiagnostic | None = Field(
+        default=None, description="One-shot read-only diagnostic mode (see OrdersDiagnostic)"
+    )
     debug: bool = Field(default=False, description="Enable debug mode")
 
     # keeping as a hidden argument untiil we eventually remove the batch GraphQL endpoints support

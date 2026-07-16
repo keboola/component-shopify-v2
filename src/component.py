@@ -537,6 +537,11 @@ class Component(ComponentBase):
             debug=params.debug,
         )
 
+        if params.orders_diagnostic and params.orders_diagnostic.has_targets:
+            self._run_orders_diagnostic(client, params.orders_diagnostic)
+            self.logger.info("DIAG: diagnostic complete - normal extraction skipped (read-only, no tables written)")
+            return
+
         enabled_endpoints = params.enabled_endpoints
         self.logger.info(f"Starting data extraction for endpoints: {enabled_endpoints}")
 
@@ -562,6 +567,84 @@ class Component(ComponentBase):
                 self._process_custom_query(client, custom_query, params)
 
         self.logger.info("Data extraction completed successfully")
+
+    def _run_orders_diagnostic(self, client: ShopifyGraphQLClient, diag) -> None:
+        """One-shot read-only probes for orders missing from filtered bulk fetches.
+
+        Three access paths per target, logged with a DIAG prefix for easy log search:
+        1. node(id:) direct fetch - bypasses the search index entirely
+        2. orders(query:"name:...") - search index, keyed by name
+        3. orders(query:"updated_at:>=...") paginated scan - the same filter the bulk
+           extraction uses, to test membership of the targets in its result set
+        """
+        node_query = """
+        query OrderDiagNode($id: ID!) {
+          node(id: $id) {
+            id
+            ... on Order { name createdAt updatedAt displayFinancialStatus test }
+          }
+        }
+        """
+        search_query = """
+        query OrderDiagSearch($first: Int!, $after: String, $query: String) {
+          orders(first: $first, after: $after, query: $query) {
+            edges { node { id name updatedAt } }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+        """
+        summary: dict[str, Any] = {"node_fetch": {}, "name_search": {}, "window_scan": {}}
+
+        for gid in diag.order_gids:
+            try:
+                data = client.execute_query(node_query, {"id": gid})
+                node = data.get("node")
+                summary["node_fetch"][gid] = node if node else "NOT FOUND"
+                self.logger.info(f"DIAG node(id) {gid}: {json.dumps(node) if node else 'NOT FOUND'}")
+            except Exception as e:  # noqa: BLE001 - diagnostic must not abort on a single probe
+                summary["node_fetch"][gid] = f"ERROR: {e}"
+                self.logger.warning(f"DIAG node(id) {gid} failed: {e}")
+
+        for name in diag.order_names:
+            for variant in (name, name.lstrip("#")):
+                q = f"name:'{variant}'"
+                try:
+                    data = client.execute_query(search_query, {"first": 5, "query": q})
+                    hits = [e["node"] for e in data.get("orders", {}).get("edges", [])]
+                    summary["name_search"][q] = hits if hits else "NO HITS"
+                    self.logger.info(f"DIAG name search {q}: {json.dumps(hits) if hits else 'NO HITS'}")
+                except Exception as e:  # noqa: BLE001
+                    summary["name_search"][q] = f"ERROR: {e}"
+                    self.logger.warning(f"DIAG name search {q} failed: {e}")
+
+        if diag.updated_at_since:
+            window = f"updated_at:>='{diag.updated_at_since}'"
+            targets = set(diag.order_gids)
+            found: dict[str, str] = {}
+            total = 0
+            try:
+                for batch in client._paginate(
+                    search_query, "orders", batch_size=250, max_items=20000, extra_variables={"query": window}
+                ):
+                    total += len(batch)
+                    for node in batch:
+                        if node["id"] in targets:
+                            found[node["id"]] = node.get("updatedAt", "")
+                summary["window_scan"] = {
+                    "filter": window,
+                    "total_returned": total,
+                    "targets_found": found,
+                    "targets_missing": sorted(targets - set(found)),
+                }
+                self.logger.info(f"DIAG window scan {window}: {total} orders returned by search")
+                for gid in targets:
+                    status = f"FOUND (updatedAt={found[gid]})" if gid in found else "MISSING from search results"
+                    self.logger.info(f"DIAG window membership {gid}: {status}")
+            except Exception as e:  # noqa: BLE001
+                summary["window_scan"] = f"ERROR: {e}"
+                self.logger.warning(f"DIAG window scan failed: {e}")
+
+        self.logger.info(f"DIAG SUMMARY: {json.dumps(summary, default=str)}")
 
     def _process_endpoint(self, client: ShopifyGraphQLClient, endpoint: str, params: Configuration):
         """

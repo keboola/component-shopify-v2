@@ -1,0 +1,75 @@
+{
+  "files": {},
+  "hash_algorithm": "sha256",
+  "tables": {
+    "collection.csv": {
+      "columns": [
+        "id",
+        "title",
+        "handle",
+        "description_html",
+        "sort_order",
+        "template_suffix",
+        "updated_at",
+        "products_count",
+        "rule_set"
+      ],
+      "hash": "sha256:75c7933e968eedf1fe31df10e1422c8ff3d2025b875c4f3e8718e3d0f4913567",
+      "row_count": 3,
+      "size_bytes": 513
+    },
+    "collection.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:4c295514126eacea14f1533d323291c69cb03095ad20dfd3423cb55f3f0fdc83",
+      "row_count": null,
+      "size_bytes": 922
+    },
+    "collection_product.csv": {
+      "columns": [
+        "id",
+        "parent_id"
+      ],
+      "hash": "sha256:dce305bee7f6071e9f24480883141ffbff6de1e157479ec145a0234bb310ece0",
+      "row_count": 4,
+      "size_bytes": 200
+    },
+    "collection_product.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:d7a1821748f2ff214a413cfa9cf0db0e037d782f7999b25b256b6f20169febe8",
+      "row_count": null,
+      "size_bytes": 340
+    },
+    "collection_products_count.csv": {
+      "columns": [
+        "parent_id",
+        "count"
+      ],
+      "hash": "sha256:ffb54c1b115fc3911bd0dc86d5dafa30b0eb114d344d26db5c6aeb8da5885e33",
+      "row_count": 3,
+      "size_bytes": 92
+    },
+    "collection_products_count.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:62782829b79cb0cb62f0b348c8a990228e1fe2cc3093d010b893519056e7080c",
+      "row_count": null,
+      "size_bytes": 323
+    },
+    "collection_rule_set.csv": {
+      "columns": [
+        "parent_id",
+        "applied_disjunctively",
+        "rules"
+      ],
+      "hash": "sha256:df818559d044938d9b7606f1b5f087a91f64c2bcd33587dbac981c6f7bd08e61",
+      "row_count": 2,
+      "size_bytes": 155
+    },
+    "collection_rule_set.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:0b5de57d29dcc902bfdb73095bb1ff5820801ef88ea5b9f6d838aa3c4ec595a6",
+      "row_count": null,
+      "size_bytes": 419
+    }
+  },
+  "version": "1.0"
+}

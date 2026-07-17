@@ -1,0 +1,5 @@
+"id","parent_id"
+"gid://shopify/Product/2001","gid://shopify/Collection/1001"
+"gid://shopify/Product/2002","gid://shopify/Collection/1001"
+"gid://shopify/Product/2003","gid://shopify/Collection/1002"
+"gid://shopify/Product/2001","gid://shopify/Collection/1002"

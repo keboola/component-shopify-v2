@@ -10,11 +10,11 @@ from collections import OrderedDict, defaultdict
 from pathlib import Path
 from typing import Any
 
+import dateparser
 import duckdb
 from keboola.component.base import ComponentBase
 from keboola.component.dao import BaseType, ColumnDefinition, SupportedDataTypes
 from keboola.component.exceptions import UserException
-from keboola.utils.date import parse_datetime_interval
 from keboola.vcr.sanitizers import QueryParamSanitizer
 
 from configuration import PRODUCTS_ENDPOINTS, Configuration
@@ -233,22 +233,42 @@ class Component(ComponentBase):
             self.logger.warning(f"Failed to decompose object column {column_name}: {str(e)}")
 
     def _parse_loading_option_dates(self, date_since: str | None, date_to: str | None) -> tuple[str | None, str | None]:
-        """Parse date_since and date_to using keboola.utils parse_datetime_interval."""
+        """Parse date_since and date_to into Shopify search bounds.
+
+        The window is rounded outward, never inward, and the two bounds are deliberately asymmetric:
+
+        - Upper bound (date_to) keeps full ISO-8601 UTC timestamp precision so that ``date_to="now"``
+          (or any relative value) resolves to the actual run moment, e.g. ``updated_at:<'2026-07-10T13:56:13Z'``.
+          Truncating it to bare ``YYYY-MM-DD`` snaps it back to midnight of the run day and silently drops
+          every record updated earlier that same day.
+        - Lower bound (date_since) is intentionally floored to midnight of its day. A timestamp-precise
+          lower bound would open gaps between consecutive incremental runs using relative date_since values:
+          yesterday's run covers up to its own start time, while today's ">= 1 day ago" would begin later in
+          the day, leaving the intervening records uncovered. Flooring to midnight keeps the windows overlapping.
+
+        Dates are resolved in UTC (``TIMEZONE="UTC"``): the previous ``parse_datetime_interval`` truncated
+        both bounds to bare ``YYYY-MM-DD`` (the source of the same-day-exclusion bug) and, being unable to
+        pass a timezone through, resolved values in the container's local timezone. Resolving in UTC makes
+        relative values ("now", "7 years ago") real UTC instants and anchors explicit calendar dates
+        ("2026-03-19") to UTC midnight without a timezone shift, so the trailing ``Z`` is always accurate
+        regardless of the runtime timezone.
+        """
         if not date_since and not date_to:
             return None, None
-        try:
-            start, end = parse_datetime_interval(
-                period_from=date_since or "1970-01-01",
-                period_to=date_to or "now",
-                strformat="%Y-%m-%d",
-            )
-        except Exception as e:
-            bad = date_since if date_since else date_to
+        settings = {"TIMEZONE": "UTC", "RETURN_AS_TIMEZONE_AWARE": True}
+        start = dateparser.parse(date_since or "1970-01-01", settings=settings)
+        end = dateparser.parse(date_to or "now", settings=settings)
+        if start is None or end is None:
+            bad = date_since if start is None else date_to
             raise UserException(
                 f"Could not parse date '{bad}'. Please use ISO format (YYYY-MM-DD) or relative format "
                 "like '1 week ago', 'now', etc."
-            ) from e
-        return (start if date_since else None), (end if date_to else None)
+            )
+        if end < start:
+            raise UserException(f"date_since ('{date_since}') cannot be after date_to ('{date_to}').")
+        floored_start = start.strftime("%Y-%m-%d") if date_since else None
+        timestamp_end = end.strftime("%Y-%m-%dT%H:%M:%SZ") if date_to else None
+        return floored_start, timestamp_end
 
     def _resolve_access_token(self, params: Configuration) -> str:
         """Resolve the access token based on auth mode.
@@ -339,6 +359,7 @@ class Component(ComponentBase):
             "customers_legacy": self._extract_customers_legacy,
             "inventory": self._extract_inventory_bulk,
             "inventory_legacy": self._extract_inventory_levels,
+            "collections": self._extract_collections_bulk,
             "locations": self._extract_locations_bulk,
             "events": self._extract_events,
             "order_refunds": self._extract_order_refunds,
@@ -672,7 +693,13 @@ class Component(ComponentBase):
             self.logger.info("No products found")
             Path(result.file_path).unlink(missing_ok=True)
 
-    def _process_bulk_result(self, bulk_result: BulkOperationResult, table_name: str, entity_name: str | None = None):
+    def _process_bulk_result(
+        self,
+        bulk_result: BulkOperationResult,
+        table_name: str,
+        entity_name: str | None = None,
+        entity_name_overrides: dict[str, str] | None = None,
+    ):
         """Generic method to process bulk operation results"""
         if entity_name is None:
             entity_name = table_name
@@ -689,7 +716,7 @@ class Component(ComponentBase):
             )
 
             normalized_table = self._normalize_table(table_name)
-            self._export_table_with_manifest(table_name, normalized_table, entity_keys)
+            self._export_table_with_manifest(table_name, normalized_table, entity_keys, entity_name_overrides)
             self._decompose_json_columns(table_name, normalized_table)
 
             if not self.params.debug:
@@ -799,6 +826,41 @@ class Component(ComponentBase):
 
     def _process_bulk_locations(self, bulk_result: BulkOperationResult):
         self._process_bulk_result(bulk_result, "location")
+
+    def _extract_collections_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract collections using Shopify bulk operations"""
+        self.logger.info("Extracting collections using bulk operations")
+
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+            temp_jsonl = tmp.name
+
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
+        result = client.get_collections_bulk(
+            temp_jsonl,
+            include_metafields=params.endpoints.collection_metafields,
+            date_since=date_since,
+            date_to=date_to,
+            fetch_parameter=params.loading_options.fetch_parameter,
+        )
+
+        if result.item_count > 0:
+            self._process_bulk_collections(result, include_metafields=params.endpoints.collection_metafields)
+        else:
+            self.logger.info("No collections found")
+            Path(result.file_path).unlink(missing_ok=True)
+
+    def _process_bulk_collections(self, bulk_result: BulkOperationResult, include_metafields: bool = False):
+        # The collections bulk decomposes into child entities that share generic GID entity
+        # types with the products endpoint. "Product" rows here are the product-GID -> collection-GID
+        # mapping (not the full product schema), and "Metafield" rows are collection-owned. Rename
+        # both to distinct "collection_product"/"collection_metafield" tables so a config with both
+        # products and collections enabled doesn't collide on the generic "product"/"metafield" tables.
+        entity_name_overrides = {"Product": "collection_product"}
+        if include_metafields:
+            entity_name_overrides["Metafield"] = "collection_metafield"
+        self._process_bulk_result(bulk_result, "collection", entity_name_overrides=entity_name_overrides)
 
     def _extract_inventory_levels(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract inventory levels data using DuckDB"""
@@ -996,7 +1058,11 @@ class Component(ComponentBase):
         self._export_table_with_manifest("inventory_levels")
 
     def _export_table_with_manifest(
-        self, table_name: str, normalized_table: str | None = None, entity_keys: dict[str, set[str]] | None = None
+        self,
+        table_name: str,
+        normalized_table: str | None = None,
+        entity_keys: dict[str, set[str]] | None = None,
+        entity_name_overrides: dict[str, str] | None = None,
     ):
         if normalized_table is None:
             normalized_table = table_name
@@ -1019,7 +1085,10 @@ class Component(ComponentBase):
         if len(entity_types) > 1:
             self.logger.info(f"Splitting {table_name} by entity types: {', '.join(entity_types)}")
             for entity_type in entity_types:
-                snake_entity = self._camel_to_snake(entity_type)
+                if entity_name_overrides and entity_type in entity_name_overrides:
+                    snake_entity = entity_name_overrides[entity_type]
+                else:
+                    snake_entity = self._camel_to_snake(entity_type)
                 self._export_entity_type(normalized_table, snake_entity, entity_type, table_meta, entity_keys)
         else:
             self._export_single_table(table_name, normalized_table, table_meta)
@@ -1038,15 +1107,21 @@ class Component(ComponentBase):
         else:
             valid_columns = [c[0] for c in table_meta]
 
-        schema = OrderedDict(
-            {
-                ("parent_id" if c[0] == "__parent_id" else c[0]): ColumnDefinition(
-                    data_types=BaseType(dtype=self.convert_base_types(c[1])),
-                    primary_key=False,
-                )
-                for c in table_meta
-            }
-        )
+        # table_meta carries the full normalized parent schema. Each entity/child
+        # table (e.g. product) only contains its own columns, so filter the manifest
+        # schema to valid_columns — otherwise every child manifest declares the
+        # parent's entire column set.
+        valid_set = set(valid_columns)
+        schema: OrderedDict[str, ColumnDefinition] = OrderedDict()
+        for column in table_meta:
+            name = column[0]
+            if name not in valid_set:
+                continue
+            output_name = "parent_id" if name == "__parent_id" else name
+            schema[output_name] = ColumnDefinition(
+                data_types=BaseType(dtype=self.convert_base_types(column[1])),
+                primary_key=False,
+            )
 
         out_table = self.create_out_table_definition(
             f"{entity_name}.csv",
@@ -1118,6 +1193,9 @@ class Component(ComponentBase):
             "inventory": ["id"],
             "inventory_item": ["id"],
             "inventory_level": ["parent_id", "id"],
+            "collection": ["id"],
+            "collection_product": ["parent_id", "id"],
+            "collection_metafield": ["id"],
             "location": ["id"],
             "event": ["id"],
             # Refund tables (from paginated refunds extraction)

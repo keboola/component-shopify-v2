@@ -1,0 +1,14 @@
+metafields {
+  edges {
+    node {
+      id
+      namespace
+      key
+      value
+      type
+      description
+      createdAt
+      updatedAt
+    }
+  }
+}

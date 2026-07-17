@@ -14,7 +14,7 @@ This component extracts data from Shopify stores using the modern GraphQL Admin 
 | Bulk Operations         | Efficient bulk data extraction for large datasets |
 | DuckDB Processing       | Advanced data processing with automatic type detection |
 | Data Normalization      | Converts nested JSON into normalized relational tables |
-| Multiple Endpoints      | 10+ supported endpoints including orders, products, customers, inventory |
+| Multiple Endpoints      | 11+ supported endpoints including orders, products, customers, collections, inventory |
 | Date Range Filtering    | Filter data by date ranges across all bulk operations |
 | Flexible Date Formats   | Supports ISO dates (YYYY-MM-DD) and relative formats ("1 week ago", "now") |
 | Custom Bulk Queries     | Execute custom GraphQL bulk operations |
@@ -42,6 +42,7 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 - **orders** - Extract order data with line items, customer info, and addresses
 - **customers** - Extract customer data with addresses and marketing preferences
 - **inventory** - Extract inventory levels across locations
+- **collections** - Extract product collections (custom and smart collections with products)
 - **locations** - Extract store location information
 - **events** - Extract system events and activity logs
 
@@ -53,6 +54,7 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 
 - **product_metafields** - Include product-level metafields in products extraction
 - **variant_metafields** - Include product variant metafields in products extraction
+- **collection_metafields** - Include collection-level metafields in collections extraction
 - **order_transactions** - Include transactions in orders extraction
 
 ### Custom Queries
@@ -81,10 +83,12 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
   - **order_refunds** - Extract order refunds (default: false, requires orders: true)
   - **customers** - Extract customers (default: false)
   - **inventory** - Extract inventory (default: false)
+  - **collections** - Extract collections (default: false)
+  - **collection_metafields** - Include collection metafields (default: false)
   - **locations** - Extract locations (default: false)
 - **loading_options** - Date filtering and loading behavior:
-  - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago")
-  - **date_to** - End date for extraction (ISO format YYYY-MM-DD or relative like "now", "yesterday")
+  - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago"). Floored to midnight of its day.
+  - **date_to** - End date for extraction (ISO format YYYY-MM-DD or relative like "now", "yesterday"). Resolved to a full ISO-8601 UTC timestamp of the actual run moment, so `date_to: "now"` includes records updated earlier the same day. Leave unset to emit no upper bound. **Note:** prior to this fix, `date_to` was truncated to midnight of the run day, silently excluding records updated on the run day whenever `date_to` was set.
   - **fetch_parameter** - Field to filter by: "updated_at" or "created_at" (default: "updated_at")
   - **incremental_output** - Load type: 0=Full Load, 1=Incremental Update (default: 1)
 - **events** - Array of event configurations for events endpoint (default: [])
@@ -111,6 +115,8 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
       "variant_metafields": true,
       "customers": true,
       "inventory": true,
+      "collections": true,
+      "collection_metafields": true,
       "locations": true
     },
     "loading_options": {
@@ -143,6 +149,11 @@ The component uses DuckDB to automatically process bulk operation results into C
 - **products.csv** - Products with all nested data (variants, metafields, images as JSON)
 - **customers.csv** - Customer data with addresses and preferences (nested as JSON)
 - **inventory.csv** - Inventory levels across locations
+- **collection.csv** - Collections with columns: `id`, `title`, `handle`, `description_html`, `sort_order`, `template_suffix`, `updated_at`, `products_count` (JSON), `rule_set` (JSON)
+- **collection_rule_set.csv** - Rule sets for smart collections with columns: `parent_id`, `applied_disjunctively`, `rules` (JSON string — smart-collection rules are kept as a single JSON column, not exploded into separate rows)
+- **collection_products_count.csv** - Product counts per collection with columns: `parent_id`, `count`
+- **collection_product.csv** - Collection↔product mapping (the REST `collects` equivalent) with columns: `id` (product GID), `parent_id` (collection GID). Kept in a distinct table (not the generic `product` table emitted by the products endpoint, which has the full product schema) so the two do not collide when both endpoints are enabled.
+- **collection_metafield.csv** - Collection metafields (when `collection_metafields` is enabled) with columns: `id`, `parent_id` (collection GID), `namespace`, `key`, `value`, `type`, `description`, `created_at`, `updated_at`. Kept in a distinct table (not the generic `metafield` table used by product metafields) so collection metafields are not merged with product metafields.
 - **locations.csv** - Store location information
 - **events.csv** - System event logs
 - **{custom_query_name}.csv** - Custom query results

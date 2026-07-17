@@ -168,12 +168,9 @@
           "format": "checkbox",
           "default": false,
           "options": {
-            "dependencies": {
-              "orders": true
-            },
             "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/GetOrderRefunds.graphql)"
           },
-          "description": "Include order refunds (refund line items, order adjustments, shipping refunds)",
+          "description": "Include order refunds (refund line items, order adjustments, shipping refunds). Standalone endpoint — does not require the Orders endpoint.",
           "propertyOrder": 115
         },
         "inventory": {

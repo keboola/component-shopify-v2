@@ -48,7 +48,7 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 
 ### Paginated Endpoints
 
-- **order_refunds** - Extract order refund data (refund line items, order adjustments, shipping refunds, transactions) using paginated GraphQL. Requires the **orders** toggle to be enabled. Each refund amount includes both shop and presentment currency.
+- **order_refunds** - Extract order refund data (refund line items, order adjustments, shipping refunds, transactions) using paginated GraphQL. Standalone endpoint — it paginates its own orders query and does not require the **orders** toggle to be enabled. Each refund amount includes both shop and presentment currency.
 
 ### Endpoint Options
 
@@ -80,7 +80,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
   - **variant_metafields** - Include variant metafields (default: false)
   - **orders** - Extract orders (default: false)
   - **order_transactions** - Include order transactions (default: false)
-  - **order_refunds** - Extract order refunds (default: false, requires orders: true)
+  - **order_refunds** - Extract order refunds (default: false, standalone endpoint)
   - **customers** - Extract customers (default: false)
   - **inventory** - Extract inventory (default: false)
   - **collections** - Extract collections (default: false)

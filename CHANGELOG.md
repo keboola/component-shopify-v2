@@ -4,7 +4,7 @@
 
 ### Added
 
-- `order_refunds` endpoint: extracts refund data via paginated GraphQL (not bulk) into 5 flat tables (`refund`, `refund_line_item`, `refund_order_adjustment`, `refund_shipping_line`, `refund_transaction`). All money fields include both shop and presentment currency. Primary keys use stable Shopify GIDs. Requires the `orders` toggle to be enabled in the UI.
+- `order_refunds` endpoint: extracts refund data via paginated GraphQL (not bulk) into 5 flat tables (`refund`, `refund_line_item`, `refund_order_adjustment`, `refund_shipping_line`, `refund_transaction`). All money fields include both shop and presentment currency. Primary keys use stable Shopify GIDs. Standalone endpoint (does not require the `orders` toggle).
 - `collection_metafields` endpoint option: when enabled alongside `collections`, per-collection metafields are extracted into a distinct `collection_metafield` table (keyed by `parent_id` = collection GID), mirroring the product-metafields pattern.
 
 ### Fixed

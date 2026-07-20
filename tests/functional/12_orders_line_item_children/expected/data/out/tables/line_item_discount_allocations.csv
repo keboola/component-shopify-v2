@@ -1,0 +1,3 @@
+"parent_id","row_number","amount_set__shop_money__amount","amount_set__shop_money__currency_code","discount_application_index"
+"gid://shopify/LineItem/2202","1","5.00","EUR","0"
+"gid://shopify/LineItem/2202","2","2.50","EUR","1"

@@ -1,0 +1,4 @@
+"parent_id","id","title","sku","price"
+"gid://shopify/LineItem/2201","gid://shopify/ProductVariant/3201","Widget A","WID-A","50.00"
+"gid://shopify/LineItem/2202","gid://shopify/ProductVariant/3202","Widget B","WID-B","60.00"
+"gid://shopify/LineItem/2203","gid://shopify/ProductVariant/3203","Widget C","WID-C","0.00"

@@ -34,6 +34,109 @@ VCR_SANITIZERS = [
     )
 ]
 
+# Columns intentionally excluded from generic JSON decomposition into child tables.
+# `originalUnitPriceSet` is line-item-level data, but decomposition runs on the mixed
+# top-level table and would emit a misnamed `order_original_unit_price_set` child table.
+# It remains available as the serialized `original_unit_price_set` JSON column on line_item.
+# Proper per-entity child tables are introduced by PR 3 of L1-141; suppressing this here
+# avoids shipping a name that PR 3 would have to rename.
+DECOMPOSITION_SKIP_COLUMNS = {"originalUnitPriceSet"}
+
+# Order.customerJourneySummary is flattened explicitly onto the `order` table instead of
+# going through the generic decomposition path. Generic decomposition would emit a 1:1
+# `order_customer_journey_summary` child table, and a plain skip would leave a single
+# serialized JSON blob; the customer's dbt mapping (SUPPORT-12550) depends on flat, __-separated columns
+# on the `order` table (e.g. landing_site <- customer_journey_summary__first_visit__landing_page).
+#
+# Attribution is asynchronous: `ready` may be false with null visit fields, and
+# customerJourneySummary itself may be null (Shopify docs). All columns below are therefore
+# always produced (NULL where absent), with no data-dependent column presence.
+CUSTOMER_JOURNEY_SOURCE_COLUMN = "customerJourneySummary"
+
+# Order.lineItems.nodes.product is a plain nullable object field that stays inline on the
+# LineItem rows of the mixed bulk `order` stream (bulk splits rows per connection only). Left
+# as-is, the dict `product` column would reach the generic decomposition path and be emitted as
+# a misnamed `order_product` child table keyed by a LineItem GID (the same trap suppressed for
+# originalUnitPriceSet). Instead we extract product.id into a flat `product_id` column on the
+# `line_item` entity and drop the struct before decomposition. product may be null (the line
+# item's product was deleted), so `product_id` is always produced (NULL where absent), with no
+# data-dependent column presence.
+LINE_ITEM_PRODUCT_SOURCE_COLUMN = "product"
+LINE_ITEM_PRODUCT_ID_COLUMN = "product_id"
+LINE_ITEM_ENTITY_TYPE = "LineItem"
+
+# Line-item-level plain lists (taxLines, discountAllocations) live inline on the LineItem
+# rows of the mixed bulk `order` stream. The generic decomposition path runs on the whole
+# stream and would emit these as `order_*` child tables keyed by a LineItem GID. Instead we
+# decompose them entity-aware: each list is scoped to its owning GID entity and emitted under
+# an entity-derived prefix (line_item_*), with money flattened into __-separated columns
+# (matching the SUPPORT-12550 column spec) rather than left as a serialized shop_money JSON blob.
+#
+# Each entry maps the source column (camelCase, as read from the bulk JSONL) to the owning
+# entity type and the ordered output columns. Each output column is (name, json_path), where
+# json_path is evaluated against a single unnested list element.
+ENTITY_CHILD_LIST_TABLES: dict[str, dict[str, Any]] = {
+    "taxLines": {
+        "entity_type": "LineItem",
+        "columns": [
+            ("title", "$.title"),
+            ("rate", "$.rate"),
+            ("rate_percentage", "$.ratePercentage"),
+            ("price_set__shop_money__amount", "$.priceSet.shopMoney.amount"),
+            ("price_set__shop_money__currency_code", "$.priceSet.shopMoney.currencyCode"),
+            ("channel_liable", "$.channelLiable"),
+            ("source", "$.source"),
+        ],
+    },
+    "discountAllocations": {
+        "entity_type": "LineItem",
+        "columns": [
+            ("amount_set__shop_money__amount", "$.allocatedAmountSet.shopMoney.amount"),
+            ("amount_set__shop_money__currency_code", "$.allocatedAmountSet.shopMoney.currencyCode"),
+            ("discount_application_index", "$.discountApplication.index"),
+        ],
+    },
+}
+
+
+def _build_customer_journey_columns() -> list[tuple[str, str]]:
+    """Return ordered (output_column_name, json_path) pairs for the flattened columns.
+
+    json_path is relative to the customerJourneySummary object and uses the GraphQL
+    (camelCase) field names, matching the keys DuckDB reads from the bulk JSONL.
+    """
+    prefix = "customer_journey_summary"
+    top_fields = [
+        ("ready", "ready"),
+        ("customer_order_index", "customerOrderIndex"),
+        ("days_to_conversion", "daysToConversion"),
+    ]
+    visit_fields = [
+        ("id", "id"),
+        ("occurred_at", "occurredAt"),
+        ("landing_page", "landingPage"),
+        ("referrer_url", "referrerUrl"),
+        ("source", "source"),
+        ("source_description", "sourceDescription"),
+        ("source_type", "sourceType"),
+        ("referral_code", "referralCode"),
+        ("utm_parameters__source", "utmParameters.source"),
+        ("utm_parameters__medium", "utmParameters.medium"),
+        ("utm_parameters__campaign", "utmParameters.campaign"),
+        ("utm_parameters__term", "utmParameters.term"),
+        ("utm_parameters__content", "utmParameters.content"),
+    ]
+    visits = [("first_visit", "firstVisit"), ("last_visit", "lastVisit")]
+
+    columns = [(f"{prefix}__{name}", f"$.{path}") for name, path in top_fields]
+    for visit_col, visit_path in visits:
+        for name, path in visit_fields:
+            columns.append((f"{prefix}__{visit_col}__{name}", f"$.{visit_path}.{path}"))
+    return columns
+
+
+CUSTOMER_JOURNEY_SUMMARY_COLUMNS = _build_customer_journey_columns()
+
 
 class Component(ComponentBase):
     def __init__(self, *args, **kwargs):
@@ -103,6 +206,70 @@ class Component(ComponentBase):
 
         return normalized_table
 
+    def _flatten_customer_journey_summary(self, table_name: str, entity_keys: dict[str, set[str]] | None) -> None:
+        """Flatten Order.customerJourneySummary into fixed __-separated columns on the order table.
+
+        Extracts the customerJourneySummary struct into the columns defined by
+        CUSTOMER_JOURNEY_SUMMARY_COLUMNS and drops the original struct column so the generic
+        decomposition never emits an `order_customer_journey_summary` child table. Values are
+        read via JSON path extraction, so every column is produced even when the struct, a
+        visit, or individual fields are absent (asynchronous attribution).
+        """
+        columns = [c[0] for c in self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()]
+        has_source = CUSTOMER_JOURNEY_SOURCE_COLUMN in columns
+
+        projections = [f'* EXCLUDE ("{CUSTOMER_JOURNEY_SOURCE_COLUMN}")'] if has_source else ["*"]
+        for out_name, json_path in CUSTOMER_JOURNEY_SUMMARY_COLUMNS:
+            if has_source:
+                projections.append(
+                    f'json_extract_string(to_json("{CUSTOMER_JOURNEY_SOURCE_COLUMN}"), \'{json_path}\') AS "{out_name}"'
+                )
+            else:
+                projections.append(f'CAST(NULL AS VARCHAR) AS "{out_name}"')
+
+        self.conn.execute(
+            f'CREATE OR REPLACE TABLE "{table_name}" AS SELECT {", ".join(projections)} FROM "{table_name}"'
+        )
+
+        # Keep the flattened columns (and drop the raw struct key) in the Order entity's key set
+        # so the entity-split export retains them.
+        if entity_keys and "Order" in entity_keys:
+            order_keys = entity_keys["Order"]
+            order_keys.discard(CUSTOMER_JOURNEY_SOURCE_COLUMN)
+            order_keys.update(name for name, _ in CUSTOMER_JOURNEY_SUMMARY_COLUMNS)
+
+    def _flatten_line_item_product(self, table_name: str, entity_keys: dict[str, set[str]] | None) -> None:
+        """Extract lineItems.product.id into a flat product_id column and drop the struct.
+
+        product is a plain nullable object inline on the LineItem rows of the mixed bulk stream.
+        Generic decomposition would otherwise emit a misnamed order_product child table keyed by
+        a LineItem GID, so the id is flattened onto line_item here and the struct is dropped
+        before decomposition. product may be null (deleted product), so product_id is always
+        produced (NULL where absent) via JSON path extraction.
+        """
+        columns = [c[0] for c in self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()]
+        has_source = LINE_ITEM_PRODUCT_SOURCE_COLUMN in columns
+
+        projections = [f'* EXCLUDE ("{LINE_ITEM_PRODUCT_SOURCE_COLUMN}")'] if has_source else ["*"]
+        if has_source:
+            projections.append(
+                f"json_extract_string(to_json(\"{LINE_ITEM_PRODUCT_SOURCE_COLUMN}\"), '$.id') "
+                f'AS "{LINE_ITEM_PRODUCT_ID_COLUMN}"'
+            )
+        else:
+            projections.append(f'CAST(NULL AS VARCHAR) AS "{LINE_ITEM_PRODUCT_ID_COLUMN}"')
+
+        self.conn.execute(
+            f'CREATE OR REPLACE TABLE "{table_name}" AS SELECT {", ".join(projections)} FROM "{table_name}"'
+        )
+
+        # Keep the flattened column (and drop the raw struct key) in the LineItem entity's key
+        # set so the entity-split export retains product_id.
+        if entity_keys and LINE_ITEM_ENTITY_TYPE in entity_keys:
+            line_item_keys = entity_keys[LINE_ITEM_ENTITY_TYPE]
+            line_item_keys.discard(LINE_ITEM_PRODUCT_SOURCE_COLUMN)
+            line_item_keys.add(LINE_ITEM_PRODUCT_ID_COLUMN)
+
     def _decompose_json_columns(self, table_name: str, normalized_table: str):
         """
         Decompose JSON columns into separate child tables with proper relationships.
@@ -115,6 +282,10 @@ class Component(ComponentBase):
             col_type_str = str(col_type).upper()
 
             if not ("STRUCT" in col_type_str or "LIST" in col_type_str or col_type_str.endswith("[]")):
+                continue
+
+            if col_name in DECOMPOSITION_SKIP_COLUMNS or col_name in ENTITY_CHILD_LIST_TABLES:
+                self.logger.info(f"Skipping generic decomposition for column: {col_name} in {table_name}")
                 continue
 
             snake_col_name = self._camel_to_snake(col_name)
@@ -135,6 +306,71 @@ class Component(ComponentBase):
             elif isinstance(sample_value, dict):
                 self._create_object_child_table(table_name, col_name, snake_col_name, primary_key_col)
 
+    def _decompose_entity_child_lists(self, table_name: str) -> None:
+        """Decompose line-item-level plain lists into entity-prefixed child tables.
+
+        The bulk `order` stream is a mixed table where LineItem rows carry plain list columns
+        (taxLines, discountAllocations) inline. Generic decomposition runs on the whole stream
+        and would emit these as `order_*` tables keyed by a LineItem GID. Instead, each list is
+        scoped to its owning GID entity (id LIKE 'gid://shopify/<Entity>/%') and emitted under an
+        entity-derived prefix (line_item_*), with money flattened into __-separated columns.
+        """
+        existing_columns = {c[0] for c in self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()}
+
+        for source_column, spec in ENTITY_CHILD_LIST_TABLES.items():
+            if source_column not in existing_columns:
+                continue
+            entity_type = spec["entity_type"]
+            child_table = f"{self._camel_to_snake(entity_type)}_{self._camel_to_snake(source_column)}"
+            self._create_entity_child_list_table(table_name, source_column, entity_type, child_table, spec["columns"])
+
+    def _create_entity_child_list_table(
+        self,
+        parent_table: str,
+        source_column: str,
+        entity_type: str,
+        child_table: str,
+        column_spec: list[tuple[str, str]],
+    ) -> None:
+        """Build one entity-scoped child table from a plain list column with flattened columns.
+
+        row_number is the deterministic 1-based index of each element within its parent's list:
+        UNNEST of a parallel range zips positionally with UNNEST of the list, so the index always
+        matches the element's array position (unlike ROW_NUMBER() OVER (ORDER BY (SELECT NULL))).
+        """
+        row_source = f"""
+            SELECT
+                "id" AS parent_id,
+                UNNEST(range(1, len("{source_column}") + 1)) AS row_number,
+                UNNEST("{source_column}") AS item
+            FROM "{parent_table}"
+            WHERE id LIKE 'gid://shopify/{entity_type}/%'
+              AND "{source_column}" IS NOT NULL
+              AND len("{source_column}") > 0
+        """
+
+        try:
+            count_result = self.conn.execute(f"SELECT COUNT(*) FROM ({row_source})").fetchone()
+            if not count_result or count_result[0] == 0:
+                self.logger.debug(f"No rows for entity child table {child_table}; skipping")
+                return
+
+            projections = ["parent_id", "row_number"]
+            for out_name, json_path in column_spec:
+                projections.append(f"json_extract_string(to_json(item), '{json_path}') AS \"{out_name}\"")
+
+            self.conn.execute(f'DROP TABLE IF EXISTS "{child_table}"')
+            self.conn.execute(f'CREATE TABLE "{child_table}" AS SELECT {", ".join(projections)} FROM ({row_source})')
+
+            self._export_table_with_manifest(child_table)
+
+            if not self.params.debug:
+                self.conn.execute(f'DROP TABLE IF EXISTS "{child_table}"')
+
+            self.logger.info(f"Created entity child table: {child_table}")
+        except Exception as e:
+            self.logger.warning(f"Failed to decompose entity child list {source_column}: {str(e)}")
+
     def _create_array_child_table(self, parent_table: str, column_name: str, snake_col_name: str, parent_pk: str):
         """Create a child table for array/list JSON columns"""
         child_table_name = f"{parent_table}_{snake_col_name}"
@@ -142,11 +378,16 @@ class Component(ComponentBase):
         try:
             self.conn.execute(f'DROP TABLE IF EXISTS "{child_table_name}"')
 
+            # row_number is the deterministic 1-based index of each element within its parent's
+            # list: UNNEST of a parallel range zips positionally with UNNEST of the list, so every
+            # element keeps a distinct position. ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) is
+            # evaluated before UNNEST expands the list, which collapsed every element to row 1 and
+            # (with PK (parent_id, row_number) + incremental load) silently deduped all but one.
             self.conn.execute(f"""
                 CREATE TABLE "{child_table_name}" AS
                 SELECT
                     "{parent_pk}" as parent_id,
-                    ROW_NUMBER() OVER (PARTITION BY "{parent_pk}" ORDER BY (SELECT NULL)) as row_number,
+                    UNNEST(range(1, len("{column_name}") + 1)) as row_number,
                     UNNEST("{column_name}") as item
                 FROM "{parent_table}"
                 WHERE "{column_name}" IS NOT NULL AND len("{column_name}") > 0
@@ -715,8 +956,13 @@ class Component(ComponentBase):
                 f"CREATE TABLE \"{table_name}\" AS SELECT * FROM read_json_auto('{bulk_result.file_path}')"
             )
 
+            if table_name == "order":
+                self._flatten_customer_journey_summary(table_name, entity_keys)
+                self._flatten_line_item_product(table_name, entity_keys)
+
             normalized_table = self._normalize_table(table_name)
             self._export_table_with_manifest(table_name, normalized_table, entity_keys, entity_name_overrides)
+            self._decompose_entity_child_lists(table_name)
             self._decompose_json_columns(table_name, normalized_table)
 
             if not self.params.debug:
@@ -1186,6 +1432,7 @@ class Component(ComponentBase):
         primary_keys = {
             "order": ["id"],
             "order_legacy": ["id"],
+            "line_item": ["id"],
             "product": ["id"],
             "product_legacy": ["id"],
             "customer": ["id"],

@@ -14,6 +14,10 @@ mutation {
             processedAt
             cancelledAt
             cancelReason
+            displayFinancialStatus
+            displayFulfillmentStatus
+            test
+            paymentGatewayNames
             totalPriceSet {
               shopMoney {
                 amount
@@ -38,6 +42,63 @@ mutation {
                 currencyCode
               }
             }
+            currentTotalAdditionalFeesSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            currentTotalDutiesSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            totalTipReceivedSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            customerJourneySummary {
+              ready
+              customerOrderIndex
+              daysToConversion
+              firstVisit {
+                id
+                occurredAt
+                landingPage
+                referrerUrl
+                source
+                sourceDescription
+                sourceType
+                referralCode
+                utmParameters {
+                  source
+                  medium
+                  campaign
+                  term
+                  content
+                }
+              }
+              lastVisit {
+                id
+                occurredAt
+                landingPage
+                referrerUrl
+                source
+                sourceDescription
+                sourceType
+                referralCode
+                utmParameters {
+                  source
+                  medium
+                  campaign
+                  term
+                  content
+                }
+              }
+            }
             customer {
               id
               firstName
@@ -51,12 +112,47 @@ mutation {
                   id
                   title
                   quantity
+                  currentQuantity
                   sku
+                  originalUnitPriceSet {
+                    shopMoney {
+                      amount
+                      currencyCode
+                    }
+                  }
                   variant {
                     id
                     title
                     sku
                     price
+                  }
+                  product {
+                    id
+                  }
+                  giftCard: isGiftCard
+                  taxLines {
+                    title
+                    rate
+                    ratePercentage
+                    priceSet {
+                      shopMoney {
+                        amount
+                        currencyCode
+                      }
+                    }
+                    channelLiable
+                    source
+                  }
+                  discountAllocations {
+                    allocatedAmountSet {
+                      shopMoney {
+                        amount
+                        currencyCode
+                      }
+                    }
+                    discountApplication {
+                      index
+                    }
                   }
                 }
               }
@@ -69,6 +165,7 @@ mutation {
               city
               province
               country
+              countryCode: countryCodeV2
               zip
               phone
             }
@@ -80,6 +177,7 @@ mutation {
               city
               province
               country
+              countryCode: countryCodeV2
               zip
               phone
             }

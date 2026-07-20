@@ -325,6 +325,73 @@ class ShopifyGraphQLClient:
                         f"than the single-page limit. Some records may be missing."
                     )
 
+    def get_order_shipping_discounts(
+        self,
+        date_since: str | None = None,
+        date_to: str | None = None,
+        batch_size: int = 50,
+        fetch_parameter: str = "updated_at",
+    ) -> Iterator[list[dict[str, Any]]]:
+        """
+        Get order shipping lines and discount applications using paginated GraphQL.
+
+        Both ``Order.shippingLines`` and ``Order.discountApplications`` are connections
+        whose node types do NOT implement the ``Node`` interface, so they cannot be fetched
+        via bulk operations. Both connections are retrieved in a single paginated query per
+        order page. The order-selection/date-filter logic mirrors ``get_orders_bulk`` so this
+        pass covers the same order set as the bulk orders extraction.
+
+        Args:
+            date_since: Start date for filtering (YYYY-MM-DD)
+            date_to: End date for filtering (YYYY-MM-DD)
+            batch_size: Number of orders per page
+            fetch_parameter: Field to filter by ('updated_at' or 'created_at')
+
+        Yields:
+            Batches of order dicts, each containing 'shippingLines' and 'discountApplications'.
+        """
+        query = self.query_loader.load_query("GetOrderShippingDiscounts")
+
+        date_conditions = []
+        if date_since:
+            date_conditions.append(f"{fetch_parameter}:>='{date_since}'")
+        if date_to:
+            date_conditions.append(f"{fetch_parameter}:<'{date_to}'")
+        date_filter = " AND ".join(date_conditions)
+
+        query = query.replace(
+            "query GetOrderShippingDiscounts($first: Int!, $after: String, $query: String)",
+            "query GetOrderShippingDiscounts($first: Int!, $after: String)",
+        )
+        if date_filter:
+            query = query.replace(
+                "orders(first: $first, after: $after, query: $query, sortKey: UPDATED_AT)",
+                f'orders(first: $first, after: $after, query: "{date_filter}", sortKey: UPDATED_AT)',
+            )
+        else:
+            query = query.replace(
+                "orders(first: $first, after: $after, query: $query, sortKey: UPDATED_AT)",
+                "orders(first: $first, after: $after, sortKey: UPDATED_AT)",
+            )
+
+        for batch in self._paginate(query, "orders", batch_size):
+            relevant = [order for order in batch if order.get("shippingLines") or order.get("discountApplications")]
+            if relevant:
+                for order in relevant:
+                    self._check_shipping_discount_overflow(order)
+                yield relevant
+
+    def _check_shipping_discount_overflow(self, order: dict[str, Any]) -> None:
+        """Log a warning if an order's shipping or discount connections have more pages than fetched."""
+        order_id = order.get("id", "unknown")
+        for connection_name in ("shippingLines", "discountApplications"):
+            page_info = (order.get(connection_name) or {}).get("pageInfo", {})
+            if page_info.get("hasNextPage"):
+                self.logger.warning(
+                    f"Order {order_id} has more {connection_name} than the single-page limit. "
+                    f"Some records may be missing."
+                )
+
     def get_products(self, batch_size: int = 50) -> Iterator[list[dict[str, Any]]]:
         """
         Get products with pagination

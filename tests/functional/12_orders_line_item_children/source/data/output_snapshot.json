@@ -1,0 +1,313 @@
+{
+  "files": {},
+  "hash_algorithm": "sha256",
+  "tables": {
+    "line_item.csv": {
+      "columns": [
+        "id",
+        "title",
+        "quantity",
+        "current_quantity",
+        "sku",
+        "original_unit_price_set",
+        "variant",
+        "gift_card",
+        "tax_lines",
+        "discount_allocations",
+        "parent_id",
+        "product_id"
+      ],
+      "hash": "sha256:2d2af9814a25caa8e5f60851f0c3e1ad482e97dd0fbb1fd70ad8b60f491607c8",
+      "row_count": 4,
+      "size_bytes": 1668
+    },
+    "line_item.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:580cd53807070c9a2f10cc7d7548d0f5f3f9da6dddc25468c74b08a05bf3c605",
+      "row_count": null,
+      "size_bytes": 6865
+    },
+    "line_item_discount_allocations.csv": {
+      "columns": [
+        "parent_id",
+        "row_number",
+        "amount_set__shop_money__amount",
+        "amount_set__shop_money__currency_code",
+        "discount_application_index"
+      ],
+      "hash": "sha256:83c6472a4f3a9c6eb221bb04429f1d066f5e1f731bcb69d5a8dbd60179721086",
+      "row_count": 3,
+      "size_bytes": 229
+    },
+    "line_item_discount_allocations.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:c7b9a1e1a955f4f8b2be7cf2066312cbd264adf63ff68154c92a4154d9de0e98",
+      "row_count": null,
+      "size_bytes": 667
+    },
+    "line_item_tax_lines.csv": {
+      "columns": [
+        "parent_id",
+        "row_number",
+        "title",
+        "rate",
+        "rate_percentage",
+        "price_set__shop_money__amount",
+        "price_set__shop_money__currency_code",
+        "channel_liable",
+        "source"
+      ],
+      "hash": "sha256:a7c57cb8643d3836b5e5ffcb5cadc5bd5e97e42efcb93b0c7c2c16a15403dcaf",
+      "row_count": 3,
+      "size_bytes": 334
+    },
+    "line_item_tax_lines.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:2731a7b24bb2d0c66331ab101dd4882640a9b286f1d8b6ff1baf1cb61bfefd99",
+      "row_count": null,
+      "size_bytes": 983
+    },
+    "order.csv": {
+      "columns": [
+        "id",
+        "name",
+        "email",
+        "phone",
+        "created_at",
+        "updated_at",
+        "processed_at",
+        "cancelled_at",
+        "cancel_reason",
+        "display_financial_status",
+        "display_fulfillment_status",
+        "test",
+        "payment_gateway_names",
+        "total_price_set",
+        "subtotal_price_set",
+        "total_tax_set",
+        "total_shipping_price_set",
+        "current_total_additional_fees_set",
+        "current_total_duties_set",
+        "total_tip_received_set",
+        "customer",
+        "shipping_address",
+        "billing_address",
+        "customer_journey_summary__ready",
+        "customer_journey_summary__customer_order_index",
+        "customer_journey_summary__days_to_conversion",
+        "customer_journey_summary__first_visit__id",
+        "customer_journey_summary__first_visit__occurred_at",
+        "customer_journey_summary__first_visit__landing_page",
+        "customer_journey_summary__first_visit__referrer_url",
+        "customer_journey_summary__first_visit__source",
+        "customer_journey_summary__first_visit__source_description",
+        "customer_journey_summary__first_visit__source_type",
+        "customer_journey_summary__first_visit__referral_code",
+        "customer_journey_summary__first_visit__utm_parameters__source",
+        "customer_journey_summary__first_visit__utm_parameters__medium",
+        "customer_journey_summary__first_visit__utm_parameters__campaign",
+        "customer_journey_summary__first_visit__utm_parameters__term",
+        "customer_journey_summary__first_visit__utm_parameters__content",
+        "customer_journey_summary__last_visit__id",
+        "customer_journey_summary__last_visit__occurred_at",
+        "customer_journey_summary__last_visit__landing_page",
+        "customer_journey_summary__last_visit__referrer_url",
+        "customer_journey_summary__last_visit__source",
+        "customer_journey_summary__last_visit__source_description",
+        "customer_journey_summary__last_visit__source_type",
+        "customer_journey_summary__last_visit__referral_code",
+        "customer_journey_summary__last_visit__utm_parameters__source",
+        "customer_journey_summary__last_visit__utm_parameters__medium",
+        "customer_journey_summary__last_visit__utm_parameters__campaign",
+        "customer_journey_summary__last_visit__utm_parameters__term",
+        "customer_journey_summary__last_visit__utm_parameters__content"
+      ],
+      "hash": "sha256:33d06bf38f5c94ffa8c884e39858918ca66047d874bcfa5da8e2e7b8cdb8a413",
+      "row_count": 2,
+      "size_bytes": 3113
+    },
+    "order.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:580cd53807070c9a2f10cc7d7548d0f5f3f9da6dddc25468c74b08a05bf3c605",
+      "row_count": null,
+      "size_bytes": 6865
+    },
+    "order_billing_address.csv": {
+      "columns": [
+        "parent_id",
+        "first_name",
+        "last_name",
+        "address1",
+        "address2",
+        "city",
+        "province",
+        "country",
+        "country_code",
+        "zip",
+        "phone"
+      ],
+      "hash": "sha256:22e109be67c7e9783fd4f3524c8ff03257dba6bc94b4b4284957e8e4cadd48f6",
+      "row_count": 2,
+      "size_bytes": 212
+    },
+    "order_billing_address.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:5384ba9672236784c708b1833203dfe975098cb797b257ec20ad4366a0c3574d",
+      "row_count": null,
+      "size_bytes": 1066
+    },
+    "order_customer.csv": {
+      "columns": [
+        "parent_id",
+        "id",
+        "first_name",
+        "last_name",
+        "email",
+        "phone"
+      ],
+      "hash": "sha256:d6d83dc564663f2943692909d038146c63779ce536c22804d03254f95d56a0ef",
+      "row_count": 2,
+      "size_bytes": 154
+    },
+    "order_customer.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:bf99fecdddb1af6f986488fa33bd56a3bd9466c55eae7e789ac050086deeafdc",
+      "row_count": null,
+      "size_bytes": 648
+    },
+    "order_payment_gateway_names.csv": {
+      "columns": [
+        "parent_id",
+        "row_number",
+        "item"
+      ],
+      "hash": "sha256:18d9616072a51557d3a2cf42eb1aa54b72ed17d231af6b1013d23f1f89629521",
+      "row_count": 2,
+      "size_bytes": 72
+    },
+    "order_payment_gateway_names.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:89f90ba85714b0e6392bd42e77ae3b2832cdad77b99fb5f97c13e06d4c95db47",
+      "row_count": null,
+      "size_bytes": 428
+    },
+    "order_shipping_address.csv": {
+      "columns": [
+        "parent_id",
+        "first_name",
+        "last_name",
+        "address1",
+        "address2",
+        "city",
+        "province",
+        "country",
+        "country_code",
+        "zip",
+        "phone"
+      ],
+      "hash": "sha256:22e109be67c7e9783fd4f3524c8ff03257dba6bc94b4b4284957e8e4cadd48f6",
+      "row_count": 2,
+      "size_bytes": 212
+    },
+    "order_shipping_address.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:5384ba9672236784c708b1833203dfe975098cb797b257ec20ad4366a0c3574d",
+      "row_count": null,
+      "size_bytes": 1066
+    },
+    "order_subtotal_price_set.csv": {
+      "columns": [
+        "parent_id",
+        "shop_money"
+      ],
+      "hash": "sha256:34711a7120ea63e572ffcf36b126756a57af2883685169c7dcd89347e3b0c59c",
+      "row_count": 2,
+      "size_bytes": 103
+    },
+    "order_subtotal_price_set.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
+      "row_count": null,
+      "size_bytes": 327
+    },
+    "order_total_price_set.csv": {
+      "columns": [
+        "parent_id",
+        "shop_money"
+      ],
+      "hash": "sha256:413e4e8e3b52911b5a4b4ef1b886beffccabe5492d73ec815a35ba71dedb0066",
+      "row_count": 2,
+      "size_bytes": 103
+    },
+    "order_total_price_set.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
+      "row_count": null,
+      "size_bytes": 327
+    },
+    "order_total_shipping_price_set.csv": {
+      "columns": [
+        "parent_id",
+        "shop_money"
+      ],
+      "hash": "sha256:3f688de0f923e3c216072e5630e28786514386107c6f25ec937aa93060db82e4",
+      "row_count": 2,
+      "size_bytes": 102
+    },
+    "order_total_shipping_price_set.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
+      "row_count": null,
+      "size_bytes": 327
+    },
+    "order_total_tax_set.csv": {
+      "columns": [
+        "parent_id",
+        "shop_money"
+      ],
+      "hash": "sha256:0d2abb89739d09f13191510fa9bedea2f88e0d36533e1605acb57b14a048e979",
+      "row_count": 2,
+      "size_bytes": 102
+    },
+    "order_total_tax_set.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
+      "row_count": null,
+      "size_bytes": 327
+    },
+    "order_total_tip_received_set.csv": {
+      "columns": [
+        "parent_id",
+        "shop_money"
+      ],
+      "hash": "sha256:10f0e27e2854a1cc9e34606a3a7d83e3e42c64d22c9fda36f8ba1c6844b2e8b4",
+      "row_count": 2,
+      "size_bytes": 101
+    },
+    "order_total_tip_received_set.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:29228fb0af06ec07cc6f02fee422a26fe810e6af01a648e9d413d0a6ead655f6",
+      "row_count": null,
+      "size_bytes": 327
+    },
+    "order_variant.csv": {
+      "columns": [
+        "parent_id",
+        "id",
+        "title",
+        "sku",
+        "price"
+      ],
+      "hash": "sha256:4d9b940b2a1abbb4732a444646d7053325689d07cbe43ea11c817f6167219033",
+      "row_count": 4,
+      "size_bytes": 317
+    },
+    "order_variant.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:7322f734a2e25f1c7ad3c939e0b25a5b02bba67336555351c112eaf1a4f3ff31",
+      "row_count": null,
+      "size_bytes": 557
+    }
+  },
+  "version": "1.0"
+}

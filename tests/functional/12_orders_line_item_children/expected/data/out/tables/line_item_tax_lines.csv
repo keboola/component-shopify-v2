@@ -1,0 +1,3 @@
+"parent_id","row_number","title","rate","rate_percentage","price_set__shop_money__amount","price_set__shop_money__currency_code","channel_liable","source"
+"gid://shopify/LineItem/2201","1","VAT 21%","0.21","21.0","10.50","EUR","false","shopify"
+"gid://shopify/LineItem/2201","2","City Tax","0.02","2.0","1.00","EUR","true","external"

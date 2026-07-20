@@ -159,5 +159,121 @@
         }
       }
     }
+  },
+  {
+    "name": "09_orders_real_data",
+    "description": "Extract orders with populated results, covering v1 order and line item fields",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true
+        },
+        "loading_options": {
+          "date_since": "2025-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "09_orders_transactions_row_number",
+    "description": "Orders with an order carrying multiple transactions (SALE + REFUND); asserts array child rows get a positional 1..N row_number so no element is deduped away on incremental load",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true,
+          "order_transactions": true
+        },
+        "loading_options": {
+          "date_since": "2020-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "created_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "10_orders_shipping_discounts",
+    "description": "Extract order shipping lines and discount codes via paginated GraphQL",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "order_shipping_discounts": true
+        },
+        "loading_options": {
+          "date_since": "2024-01-01",
+          "date_to": "2025-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "11_orders_customer_journey",
+    "description": "Extract orders covering customerJourneySummary attribution flattening (ready=true with UTM, ready=false null visits, null summary)",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true
+        },
+        "loading_options": {
+          "date_since": "2025-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "12_orders_line_item_children",
+    "description": "Extract orders covering line-item child tables: a line item with 2+ tax lines, a line item with 2+ discount allocations, and a line item with neither",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true
+        },
+        "loading_options": {
+          "date_since": "2025-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "13_orders_transactions_with_line_item_children",
+    "description": "Extract orders with order transactions enabled: an order WITH transactions and a line item with 2+ tax lines and 2+ discount allocations, asserting order.csv keeps the transactions column alongside both line_item_* child tables",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true,
+          "order_transactions": true
+        },
+        "loading_options": {
+          "date_since": "2025-01-01",
+          "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
   }
 ]

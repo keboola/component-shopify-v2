@@ -1,0 +1,3 @@
+"parent_id","shop_money"
+"gid://shopify/Order/1001","{""amount"":""5.00"",""currencyCode"":""EUR""}"
+"gid://shopify/Order/1002","{""amount"":""0.00"",""currencyCode"":""EUR""}"

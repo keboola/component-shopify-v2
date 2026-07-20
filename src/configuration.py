@@ -46,6 +46,7 @@ class Endpoints(BaseModel):
     orders: bool = False
     order_transactions: bool = False
     order_refunds: bool = False
+    order_shipping_discounts: bool = False
     customers: bool = False
     inventory: bool = False
 

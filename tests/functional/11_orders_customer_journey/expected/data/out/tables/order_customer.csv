@@ -1,0 +1,4 @@
+"parent_id","id","first_name","last_name","email","phone"
+"gid://shopify/Order/1001","gid://shopify/Customer/501","Sam","Shopper","shopper@example.com",
+"gid://shopify/Order/1002","gid://shopify/Customer/501","Sam","Shopper","shopper@example.com",
+"gid://shopify/Order/1003","gid://shopify/Customer/501","Sam","Shopper","shopper@example.com",

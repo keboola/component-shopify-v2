@@ -1,0 +1,4 @@
+"parent_id","id","title","sku","price"
+"gid://shopify/LineItem/2001","gid://shopify/ProductVariant/3001","Product","SKU-1","90.00"
+"gid://shopify/LineItem/2002","gid://shopify/ProductVariant/3001","Product","SKU-1","90.00"
+"gid://shopify/LineItem/2003","gid://shopify/ProductVariant/3001","Product","SKU-1","90.00"

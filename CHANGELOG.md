@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 - 2026-07-20
+
+### Fixed
+
+- Bulk-download log lines no longer emit the Shopify-returned GCS pre-signed URL in full. The `Downloading results from: ...` INFO log now logs only the base URL (path before `?`), stripping the `Signature`, `GoogleAccessId`, and `Expires` query params. Previously these short-lived credentials were written verbatim into job logs (and forwarded to log aggregation), letting anyone with log-read access download the raw export until the URL expired. The download itself is unaffected - it still uses the full signed URL. Applies to all bulk endpoints (products, orders, customers, collections, inventory, custom).
+
 ## 0.3.0 - 2026-07-20
 
 ### Added

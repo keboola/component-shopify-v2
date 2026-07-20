@@ -630,7 +630,7 @@ class ShopifyGraphQLClient:
                         download_time=0.0,
                     )
 
-                self.logger.info(f"Downloading results from: {url}")
+                self.logger.info(f"Downloading results from: {url.split('?')[0]}")
                 return self._download_bulk_results(url, int(object_count), "products", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
@@ -741,7 +741,7 @@ class ShopifyGraphQLClient:
                         download_time=0.0,
                     )
 
-                self.logger.info(f"Downloading results from: {url}")
+                self.logger.info(f"Downloading results from: {url.split('?')[0]}")
                 return self._download_bulk_results(url, int(object_count), "orders", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
@@ -841,7 +841,7 @@ class ShopifyGraphQLClient:
                         download_time=0.0,
                     )
 
-                self.logger.info(f"Downloading results from: {url}")
+                self.logger.info(f"Downloading results from: {url.split('?')[0]}")
                 return self._download_bulk_results(url, int(object_count), "customers", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
@@ -940,7 +940,7 @@ class ShopifyGraphQLClient:
                         download_time=0.0,
                     )
 
-                self.logger.info(f"Downloading results from: {url}")
+                self.logger.info(f"Downloading results from: {url.split('?')[0]}")
                 return self._download_bulk_results(url, int(object_count), "inventory", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
@@ -1037,7 +1037,7 @@ class ShopifyGraphQLClient:
                         download_time=0.0,
                     )
 
-                self.logger.info(f"Downloading results from: {url}")
+                self.logger.info(f"Downloading results from: {url.split('?')[0]}")
                 return self._download_bulk_results(url, int(object_count), "events", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
@@ -1149,7 +1149,7 @@ class ShopifyGraphQLClient:
                         download_time=0.0,
                     )
 
-                self.logger.info(f"Downloading results from: {url}")
+                self.logger.info(f"Downloading results from: {url.split('?')[0]}")
                 return self._download_bulk_results(url, int(object_count), "collections", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
@@ -1217,7 +1217,7 @@ class ShopifyGraphQLClient:
                         download_time=0.0,
                     )
 
-                self.logger.info(f"Downloading results from: {url}")
+                self.logger.info(f"Downloading results from: {url.split('?')[0]}")
                 return self._download_bulk_results(url, int(object_count), "locations", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:
@@ -1321,7 +1321,7 @@ class ShopifyGraphQLClient:
                         download_time=0.0,
                     )
 
-                self.logger.info(f"Downloading results from: {url}")
+                self.logger.info(f"Downloading results from: {url.split('?')[0]}")
                 return self._download_bulk_results(url, int(object_count), "custom", temp_file_path, api_wait_time)
 
             elif status in ["FAILED", "CANCELED"]:

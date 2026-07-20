@@ -162,6 +162,17 @@
           "description": "Include order transactions",
           "propertyOrder": 110
         },
+        "order_refunds": {
+          "type": "boolean",
+          "title": "Orders – Refunds",
+          "format": "checkbox",
+          "default": false,
+          "options": {
+            "tooltip": "See [the GraphQL query](https://github.com/keboola/component-shopify-v2/blob/main/src/shopify_cli/queries/GetOrderRefunds.graphql)"
+          },
+          "description": "Include order refunds (refund line items, order adjustments, shipping refunds). Standalone endpoint — does not require the Orders endpoint.",
+          "propertyOrder": 115
+        },
         "inventory": {
           "type": "boolean",
           "title": "Inventory",

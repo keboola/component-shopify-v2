@@ -1,0 +1,3 @@
+"id","order_id","created_at","updated_at","note","total_refunded_shop_amount","total_refunded_shop_currency","total_refunded_presentment_amount","total_refunded_presentment_currency"
+"gid://shopify/Refund/7001","gid://shopify/Order/6001","2024-03-15T10:30:00Z","2024-03-15T10:30:00Z","Damaged item returned","45.50","CZK","1.89","EUR"
+"gid://shopify/Refund/7002","gid://shopify/Order/6001","2024-05-01T08:00:00Z","2024-05-01T08:00:00Z","","","","",""

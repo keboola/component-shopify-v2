@@ -1,0 +1,2 @@
+"refund_id","order_id","shipping_line_id","subtotal_shop_amount","subtotal_shop_currency","subtotal_presentment_amount","subtotal_presentment_currency","tax_amount_shop_amount","tax_amount_shop_currency","tax_amount_presentment_amount","tax_amount_presentment_currency"
+"gid://shopify/Refund/7001","gid://shopify/Order/6001","gid://shopify/ShippingLine/4001","5.00","CZK","0.21","EUR","1.05","CZK","0.04","EUR"

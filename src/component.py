@@ -1,4 +1,5 @@
 # src/component.py
+import csv
 import json
 import logging
 import re
@@ -361,6 +362,7 @@ class Component(ComponentBase):
             "collections": self._extract_collections_bulk,
             "locations": self._extract_locations_bulk,
             "events": self._extract_events,
+            "order_refunds": self._extract_order_refunds,
         }
 
         try:
@@ -393,6 +395,222 @@ class Component(ComponentBase):
             self.logger.info(f"Successfully extracted {len(all_orders)} orders")
         else:
             self.logger.info("No orders found")
+
+    def _extract_order_refunds(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract order refunds using paginated GraphQL into 5 flat output tables."""
+        self.logger.info("Extracting order refunds (paginated GraphQL)")
+
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
+
+        refunds: list[dict[str, Any]] = []
+        refund_line_items: list[dict[str, Any]] = []
+        refund_order_adjustments: list[dict[str, Any]] = []
+        refund_shipping_lines: list[dict[str, Any]] = []
+        refund_transactions: list[dict[str, Any]] = []
+
+        for batch in client.get_order_refunds(
+            date_since=date_since,
+            date_to=date_to,
+            batch_size=params.batch_size,
+            fetch_parameter=params.loading_options.fetch_parameter,
+        ):
+            for order in batch:
+                order_id = order["id"]
+                for r in order.get("refunds", []):
+                    refund_id = r["id"]
+                    refunds.append(self._flatten_refund(r, order_id))
+
+                    for edge in r.get("refundLineItems", {}).get("edges", []):
+                        node = edge["node"]
+                        refund_line_items.append(self._flatten_refund_line_item(node, refund_id, order_id))
+
+                    for edge in r.get("orderAdjustments", {}).get("edges", []):
+                        node = edge["node"]
+                        refund_order_adjustments.append(
+                            self._flatten_refund_order_adjustment(node, refund_id, order_id)
+                        )
+
+                    for edge in r.get("refundShippingLines", {}).get("edges", []):
+                        node = edge["node"]
+                        refund_shipping_lines.append(self._flatten_refund_shipping_line(node, refund_id, order_id))
+
+                    for edge in r.get("transactions", {}).get("edges", []):
+                        node = edge["node"]
+                        refund_transactions.append(self._flatten_refund_transaction(node, refund_id, order_id))
+
+        tables = {
+            "refund": refunds,
+            "refund_line_item": refund_line_items,
+            "refund_order_adjustment": refund_order_adjustments,
+            "refund_shipping_line": refund_shipping_lines,
+            "refund_transaction": refund_transactions,
+        }
+
+        total = 0
+        for table_name, rows in tables.items():
+            if rows:
+                self._write_refund_table(table_name, rows)
+                total += len(rows)
+                self.logger.info(f"Wrote {len(rows)} rows to {table_name}")
+            else:
+                self.logger.info(f"No data for {table_name}")
+
+        self.logger.info(f"Refunds extraction complete: {len(refunds)} refunds, {total} total rows across 5 tables")
+
+    @staticmethod
+    def _extract_money(money_set: dict[str, Any] | None, prefix: str) -> dict[str, str | None]:
+        """Extract shopMoney and presentmentMoney from a MoneyBag field."""
+        if not money_set:
+            return {
+                f"{prefix}_shop_amount": None,
+                f"{prefix}_shop_currency": None,
+                f"{prefix}_presentment_amount": None,
+                f"{prefix}_presentment_currency": None,
+            }
+        shop = money_set.get("shopMoney") or {}
+        pres = money_set.get("presentmentMoney") or {}
+        return {
+            f"{prefix}_shop_amount": shop.get("amount"),
+            f"{prefix}_shop_currency": shop.get("currencyCode"),
+            f"{prefix}_presentment_amount": pres.get("amount"),
+            f"{prefix}_presentment_currency": pres.get("currencyCode"),
+        }
+
+    def _flatten_refund(self, r: dict[str, Any], order_id: str) -> dict[str, Any]:
+        row: dict[str, Any] = {
+            "id": r["id"],
+            "order_id": order_id,
+            "created_at": r.get("createdAt"),
+            "updated_at": r.get("updatedAt"),
+            "note": r.get("note"),
+        }
+        row.update(self._extract_money(r.get("totalRefundedSet"), "total_refunded"))
+        return row
+
+    @staticmethod
+    def _flatten_refund_line_item(node: dict[str, Any], refund_id: str, order_id: str) -> dict[str, Any]:
+        return {
+            "id": node.get("id"),
+            "refund_id": refund_id,
+            "order_id": order_id,
+            "line_item_id": (node.get("lineItem") or {}).get("id"),
+            "quantity": node.get("quantity"),
+            "restock_type": node.get("restockType"),
+            "subtotal_shop_amount": (node.get("subtotalSet") or {}).get("shopMoney", {}).get("amount"),
+            "subtotal_shop_currency": (node.get("subtotalSet") or {}).get("shopMoney", {}).get("currencyCode"),
+            "subtotal_presentment_amount": (node.get("subtotalSet") or {}).get("presentmentMoney", {}).get("amount"),
+            "subtotal_presentment_currency": (node.get("subtotalSet") or {})
+            .get("presentmentMoney", {})
+            .get("currencyCode"),
+            "total_tax_shop_amount": (node.get("totalTaxSet") or {}).get("shopMoney", {}).get("amount"),
+            "total_tax_shop_currency": (node.get("totalTaxSet") or {}).get("shopMoney", {}).get("currencyCode"),
+            "total_tax_presentment_amount": (node.get("totalTaxSet") or {}).get("presentmentMoney", {}).get("amount"),
+            "total_tax_presentment_currency": (node.get("totalTaxSet") or {})
+            .get("presentmentMoney", {})
+            .get("currencyCode"),
+            "price_shop_amount": (node.get("priceSet") or {}).get("shopMoney", {}).get("amount"),
+            "price_shop_currency": (node.get("priceSet") or {}).get("shopMoney", {}).get("currencyCode"),
+            "price_presentment_amount": (node.get("priceSet") or {}).get("presentmentMoney", {}).get("amount"),
+            "price_presentment_currency": (node.get("priceSet") or {}).get("presentmentMoney", {}).get("currencyCode"),
+            "location_id": (node.get("location") or {}).get("id"),
+        }
+
+    @staticmethod
+    def _flatten_refund_order_adjustment(node: dict[str, Any], refund_id: str, order_id: str) -> dict[str, Any]:
+        return {
+            "id": node.get("id"),
+            "refund_id": refund_id,
+            "order_id": order_id,
+            "reason": node.get("reason"),
+            "amount_shop_amount": (node.get("amountSet") or {}).get("shopMoney", {}).get("amount"),
+            "amount_shop_currency": (node.get("amountSet") or {}).get("shopMoney", {}).get("currencyCode"),
+            "amount_presentment_amount": (node.get("amountSet") or {}).get("presentmentMoney", {}).get("amount"),
+            "amount_presentment_currency": (node.get("amountSet") or {})
+            .get("presentmentMoney", {})
+            .get("currencyCode"),
+            "tax_amount_shop_amount": (node.get("taxAmountSet") or {}).get("shopMoney", {}).get("amount"),
+            "tax_amount_shop_currency": (node.get("taxAmountSet") or {}).get("shopMoney", {}).get("currencyCode"),
+            "tax_amount_presentment_amount": (node.get("taxAmountSet") or {}).get("presentmentMoney", {}).get("amount"),
+            "tax_amount_presentment_currency": (node.get("taxAmountSet") or {})
+            .get("presentmentMoney", {})
+            .get("currencyCode"),
+        }
+
+    @staticmethod
+    def _flatten_refund_shipping_line(node: dict[str, Any], refund_id: str, order_id: str) -> dict[str, Any]:
+        return {
+            "refund_id": refund_id,
+            "order_id": order_id,
+            "shipping_line_id": (node.get("shippingLine") or {}).get("id"),
+            "subtotal_shop_amount": (node.get("subtotalAmountSet") or {}).get("shopMoney", {}).get("amount"),
+            "subtotal_shop_currency": (node.get("subtotalAmountSet") or {}).get("shopMoney", {}).get("currencyCode"),
+            "subtotal_presentment_amount": (node.get("subtotalAmountSet") or {})
+            .get("presentmentMoney", {})
+            .get("amount"),
+            "subtotal_presentment_currency": (node.get("subtotalAmountSet") or {})
+            .get("presentmentMoney", {})
+            .get("currencyCode"),
+            "tax_amount_shop_amount": (node.get("taxAmountSet") or {}).get("shopMoney", {}).get("amount"),
+            "tax_amount_shop_currency": (node.get("taxAmountSet") or {}).get("shopMoney", {}).get("currencyCode"),
+            "tax_amount_presentment_amount": (node.get("taxAmountSet") or {}).get("presentmentMoney", {}).get("amount"),
+            "tax_amount_presentment_currency": (node.get("taxAmountSet") or {})
+            .get("presentmentMoney", {})
+            .get("currencyCode"),
+        }
+
+    @staticmethod
+    def _flatten_refund_transaction(node: dict[str, Any], refund_id: str, order_id: str) -> dict[str, Any]:
+        return {
+            "id": node.get("id"),
+            "refund_id": refund_id,
+            "order_id": order_id,
+            "kind": node.get("kind"),
+            "status": node.get("status"),
+            "test": node.get("test"),
+            "amount_shop_amount": (node.get("amountSet") or {}).get("shopMoney", {}).get("amount"),
+            "amount_shop_currency": (node.get("amountSet") or {}).get("shopMoney", {}).get("currencyCode"),
+            "amount_presentment_amount": (node.get("amountSet") or {}).get("presentmentMoney", {}).get("amount"),
+            "amount_presentment_currency": (node.get("amountSet") or {})
+            .get("presentmentMoney", {})
+            .get("currencyCode"),
+            "gateway": node.get("gateway"),
+            "formatted_gateway": node.get("formattedGateway"),
+            "created_at": node.get("createdAt"),
+            "processed_at": node.get("processedAt"),
+            "error_code": node.get("errorCode"),
+            "authorization_code": node.get("authorizationCode"),
+            "authorization_expires_at": node.get("authorizationExpiresAt"),
+        }
+
+    def _write_refund_table(self, table_name: str, rows: list[dict[str, Any]]) -> None:
+        """Write a flat list of dicts as a CSV output table with manifest."""
+        columns = list(rows[0].keys())
+        schema = OrderedDict(
+            {
+                col: ColumnDefinition(
+                    data_types=BaseType(dtype=SupportedDataTypes.STRING),
+                    primary_key=False,
+                )
+                for col in columns
+            }
+        )
+
+        out_table = self.create_out_table_definition(
+            f"{table_name}.csv",
+            schema=schema,
+            primary_key=self._get_primary_key(table_name),
+            incremental=bool(self.params.loading_options.incremental_output),
+            has_header=True,
+        )
+
+        with open(out_table.full_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=columns, quoting=csv.QUOTE_ALL)
+            writer.writeheader()
+            writer.writerows(rows)
+
+        self.write_manifest(out_table)
 
     def _extract_orders_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract orders using Shopify bulk operations"""
@@ -980,6 +1198,12 @@ class Component(ComponentBase):
             "collection_metafield": ["id"],
             "location": ["id"],
             "event": ["id"],
+            # Refund tables (from paginated refunds extraction)
+            "refund": ["id"],
+            "refund_line_item": ["id"],
+            "refund_order_adjustment": ["id"],
+            "refund_shipping_line": ["refund_id", "shipping_line_id"],
+            "refund_transaction": ["id"],
         }
 
         if table_name in primary_keys:

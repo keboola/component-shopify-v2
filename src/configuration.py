@@ -45,6 +45,7 @@ class Endpoints(BaseModel):
     variant_metafields: bool = False
     orders: bool = False
     order_transactions: bool = False
+    order_refunds: bool = False
     customers: bool = False
     inventory: bool = False
 

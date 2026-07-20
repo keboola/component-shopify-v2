@@ -1,0 +1,170 @@
+query GetOrderRefunds($first: Int!, $after: String, $query: String) {
+  orders(first: $first, after: $after, query: $query, sortKey: UPDATED_AT) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        refunds {
+          id
+          createdAt
+          updatedAt
+          note
+          totalRefundedSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+            presentmentMoney {
+              amount
+              currencyCode
+            }
+          }
+          refundLineItems(first: 250) {
+            edges {
+              node {
+                id
+                lineItem {
+                  id
+                }
+                quantity
+                restockType
+                subtotalSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                  presentmentMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                totalTaxSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                  presentmentMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                priceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                  presentmentMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                location {
+                  id
+                }
+              }
+            }
+            pageInfo {
+              hasNextPage
+            }
+          }
+          orderAdjustments(first: 50) {
+            edges {
+              node {
+                id
+                reason
+                amountSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                  presentmentMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                taxAmountSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                  presentmentMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+            }
+            pageInfo {
+              hasNextPage
+            }
+          }
+          refundShippingLines(first: 250) {
+            edges {
+              node {
+                shippingLine {
+                  id
+                }
+                subtotalAmountSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                  presentmentMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                taxAmountSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                  presentmentMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+            }
+            pageInfo {
+              hasNextPage
+            }
+          }
+          transactions(first: 250) {
+            edges {
+              node {
+                id
+                kind
+                status
+                test
+                amountSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                  presentmentMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                gateway
+                formattedGateway
+                createdAt
+                processedAt
+                errorCode
+                authorizationCode
+                authorizationExpiresAt
+              }
+            }
+            pageInfo {
+              hasNextPage
+            }
+          }
+        }
+      }
+    }
+  }
+}

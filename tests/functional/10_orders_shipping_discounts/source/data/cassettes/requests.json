@@ -1,0 +1,68 @@
+{
+  "_metadata": {
+    "freeze_time": "2026-06-26T12:00:00",
+    "keboola_vcr_version": "0.0.0",
+    "recorded_at": "2026-06-26T12:00:00.000000+00:00"
+  },
+  "interactions": [
+    {
+      "request": {
+        "body": "{\"query\": \"query GetOrderShippingDiscounts($first: Int!, $after: String) {\\n  orders(first: $first, after: $after, query: \\\"updated_at:>='2024-01-01' AND updated_at:<'2025-01-01'\\\", sortKey: UPDATED_AT) {\\n    pageInfo {\\n      hasNextPage\\n      endCursor\\n    }\\n    edges {\\n      node {\\n        id\\n        shippingLines(first: 250) {\\n          edges {\\n            node {\\n              id\\n              title\\n              code\\n              source\\n              originalPriceSet {\\n                shopMoney {\\n                  amount\\n                  currencyCode\\n                }\\n              }\\n              discountedPriceSet {\\n                shopMoney {\\n                  amount\\n                  currencyCode\\n                }\\n              }\\n              taxLines {\\n                title\\n                rate\\n                ratePercentage\\n                priceSet {\\n                  shopMoney {\\n                    amount\\n                    currencyCode\\n                  }\\n                }\\n                channelLiable\\n                source\\n              }\\n            }\\n          }\\n          pageInfo {\\n            hasNextPage\\n          }\\n        }\\n        discountApplications(first: 250) {\\n          edges {\\n            node {\\n              __typename\\n              index\\n              value {\\n                __typename\\n                ... on MoneyV2 {\\n                  amount\\n                  currencyCode\\n                }\\n                ... on PricingPercentageValue {\\n                  percentage\\n                }\\n              }\\n              ... on DiscountCodeApplication {\\n                code\\n              }\\n            }\\n          }\\n          pageInfo {\\n            hasNextPage\\n          }\\n        }\\n      }\\n    }\\n  }\\n}\", \"variables\": {\"first\": 50}}",
+        "headers": {
+          "Accept": [
+            "application/json"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+      },
+      "response": {
+        "body": {
+          "string": "{\"data\": {\"orders\": {\"pageInfo\": {\"hasNextPage\": true, \"endCursor\": \"b3JkZXJzX3BhZ2VfMg==\"}, \"edges\": [{\"node\": {\"id\": \"gid://shopify/Order/1001\", \"shippingLines\": {\"edges\": [{\"node\": {\"id\": \"gid://shopify/ShippingLine/2001\", \"title\": \"Standard Shipping\", \"code\": \"STANDARD\", \"source\": \"shopify\", \"originalPriceSet\": {\"shopMoney\": {\"amount\": \"5.00\", \"currencyCode\": \"CZK\"}}, \"discountedPriceSet\": {\"shopMoney\": {\"amount\": \"4.00\", \"currencyCode\": \"CZK\"}}, \"taxLines\": [{\"title\": \"VAT\", \"rate\": 0.21, \"ratePercentage\": 21.0, \"priceSet\": {\"shopMoney\": {\"amount\": \"0.84\", \"currencyCode\": \"CZK\"}}, \"channelLiable\": false, \"source\": \"TAX_APP\"}]}}], \"pageInfo\": {\"hasNextPage\": true}}, \"discountApplications\": {\"edges\": [], \"pageInfo\": {\"hasNextPage\": false}}}}, {\"node\": {\"id\": \"gid://shopify/Order/1002\", \"shippingLines\": {\"edges\": [], \"pageInfo\": {\"hasNextPage\": false}}, \"discountApplications\": {\"edges\": [{\"node\": {\"__typename\": \"DiscountCodeApplication\", \"index\": 0, \"value\": {\"__typename\": \"PricingPercentageValue\", \"percentage\": 15.0}, \"code\": \"INFLUENCER15\"}}], \"pageInfo\": {\"hasNextPage\": false}}}}, {\"node\": {\"id\": \"gid://shopify/Order/1004\", \"shippingLines\": {\"edges\": [], \"pageInfo\": {\"hasNextPage\": false}}, \"discountApplications\": {\"edges\": [], \"pageInfo\": {\"hasNextPage\": false}}}}]}}, \"extensions\": {\"cost\": {\"requestedQueryCost\": 12, \"actualQueryCost\": 12, \"throttleStatus\": {\"maximumAvailable\": 2000.0, \"currentlyAvailable\": 1988, \"restoreRate\": 100.0}}}}"
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        }
+      }
+    },
+    {
+      "request": {
+        "body": "{\"query\": \"query GetOrderShippingDiscounts($first: Int!, $after: String) {\\n  orders(first: $first, after: $after, query: \\\"updated_at:>='2024-01-01' AND updated_at:<'2025-01-01'\\\", sortKey: UPDATED_AT) {\\n    pageInfo {\\n      hasNextPage\\n      endCursor\\n    }\\n    edges {\\n      node {\\n        id\\n        shippingLines(first: 250) {\\n          edges {\\n            node {\\n              id\\n              title\\n              code\\n              source\\n              originalPriceSet {\\n                shopMoney {\\n                  amount\\n                  currencyCode\\n                }\\n              }\\n              discountedPriceSet {\\n                shopMoney {\\n                  amount\\n                  currencyCode\\n                }\\n              }\\n              taxLines {\\n                title\\n                rate\\n                ratePercentage\\n                priceSet {\\n                  shopMoney {\\n                    amount\\n                    currencyCode\\n                  }\\n                }\\n                channelLiable\\n                source\\n              }\\n            }\\n          }\\n          pageInfo {\\n            hasNextPage\\n          }\\n        }\\n        discountApplications(first: 250) {\\n          edges {\\n            node {\\n              __typename\\n              index\\n              value {\\n                __typename\\n                ... on MoneyV2 {\\n                  amount\\n                  currencyCode\\n                }\\n                ... on PricingPercentageValue {\\n                  percentage\\n                }\\n              }\\n              ... on DiscountCodeApplication {\\n                code\\n              }\\n            }\\n          }\\n          pageInfo {\\n            hasNextPage\\n          }\\n        }\\n      }\\n    }\\n  }\\n}\", \"variables\": {\"first\": 50, \"after\": \"b3JkZXJzX3BhZ2VfMg==\"}}",
+        "headers": {
+          "Accept": [
+            "application/json"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+      },
+      "response": {
+        "body": {
+          "string": "{\"data\": {\"orders\": {\"pageInfo\": {\"hasNextPage\": false, \"endCursor\": \"b3JkZXJzX2VuZA==\"}, \"edges\": [{\"node\": {\"id\": \"gid://shopify/Order/1003\", \"shippingLines\": {\"edges\": [], \"pageInfo\": {\"hasNextPage\": false}}, \"discountApplications\": {\"edges\": [{\"node\": {\"__typename\": \"AutomaticDiscountApplication\", \"index\": 0, \"value\": {\"__typename\": \"MoneyV2\", \"amount\": \"2.00\", \"currencyCode\": \"CZK\"}}}, {\"node\": {\"__typename\": \"DiscountCodeApplication\", \"index\": 1, \"value\": {\"__typename\": \"MoneyV2\", \"amount\": \"10.00\", \"currencyCode\": \"CZK\"}, \"code\": \"SAVE10\"}}], \"pageInfo\": {\"hasNextPage\": false}}}}]}}, \"extensions\": {\"cost\": {\"requestedQueryCost\": 12, \"actualQueryCost\": 12, \"throttleStatus\": {\"maximumAvailable\": 2000.0, \"currentlyAvailable\": 1988, \"restoreRate\": 100.0}}}}"
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "status": {
+          "code": 200,
+          "message": "OK"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

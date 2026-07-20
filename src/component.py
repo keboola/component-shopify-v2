@@ -604,6 +604,7 @@ class Component(ComponentBase):
             "locations": self._extract_locations_bulk,
             "events": self._extract_events,
             "order_refunds": self._extract_order_refunds,
+            "order_shipping_discounts": self._extract_order_shipping_discounts,
         }
 
         try:
@@ -876,6 +877,119 @@ class Component(ComponentBase):
         else:
             self.logger.info("No orders found")
             Path(result.file_path).unlink(missing_ok=True)
+
+    def _extract_order_shipping_discounts(self, client: ShopifyGraphQLClient, params: Configuration):
+        """Extract order shipping lines and code-type discount applications via paginated GraphQL.
+
+        Both connections are fetched in a single paginated query per order page and written as
+        two flat output tables: ``order_shipping_lines`` and ``order_discount_codes``.
+        """
+        self.logger.info("Extracting order shipping lines and discount codes (paginated GraphQL)")
+
+        date_since, date_to = self._parse_loading_option_dates(
+            params.loading_options.date_since, params.loading_options.date_to
+        )
+
+        shipping_lines: list[dict[str, Any]] = []
+        discount_codes: list[dict[str, Any]] = []
+
+        for batch in client.get_order_shipping_discounts(
+            date_since=date_since,
+            date_to=date_to,
+            batch_size=params.batch_size,
+            fetch_parameter=params.loading_options.fetch_parameter,
+        ):
+            for order in batch:
+                order_id = order["id"]
+
+                for row_number, edge in enumerate(order.get("shippingLines", {}).get("edges", [])):
+                    shipping_lines.append(self._flatten_shipping_line(edge["node"], order_id, row_number))
+
+                row_number = 0
+                for edge in order.get("discountApplications", {}).get("edges", []):
+                    node = edge["node"]
+                    if node.get("__typename") != "DiscountCodeApplication":
+                        continue
+                    discount_codes.append(self._flatten_discount_code(node, order_id, row_number))
+                    row_number += 1
+
+        tables = {
+            "order_shipping_lines": shipping_lines,
+            "order_discount_codes": discount_codes,
+        }
+        for table_name, rows in tables.items():
+            if rows:
+                self._write_flat_table(table_name, rows)
+                self.logger.info(f"Wrote {len(rows)} rows to {table_name}")
+            else:
+                self.logger.info(f"No data for {table_name}")
+
+    @staticmethod
+    def _flatten_shipping_line(node: dict[str, Any], order_id: str, row_number: int) -> dict[str, Any]:
+        original_price = (node.get("originalPriceSet") or {}).get("shopMoney") or {}
+        discounted_price = (node.get("discountedPriceSet") or {}).get("shopMoney") or {}
+        return {
+            "parent_id": order_id,
+            "id": node.get("id"),
+            "row_number": row_number,
+            "title": node.get("title"),
+            "code": node.get("code"),
+            "source": node.get("source"),
+            "price_set__shop_money__amount": original_price.get("amount"),
+            "price_set__shop_money__currency_code": original_price.get("currencyCode"),
+            "discounted_price_set__shop_money__amount": discounted_price.get("amount"),
+            "discounted_price_set__shop_money__currency_code": discounted_price.get("currencyCode"),
+            "tax_lines": json.dumps(node.get("taxLines") or []),
+        }
+
+    @staticmethod
+    def _flatten_discount_code(node: dict[str, Any], order_id: str, row_number: int) -> dict[str, Any]:
+        value = node.get("value") or {}
+        return {
+            "parent_id": order_id,
+            "row_number": row_number,
+            "code": node.get("code"),
+            "discount_application_index": node.get("index"),
+            "value_type": value.get("__typename"),
+            "value_amount": value.get("amount"),
+            "value_currency_code": value.get("currencyCode"),
+            "value_percentage": value.get("percentage"),
+        }
+
+    def _write_flat_table(self, table_name: str, rows: list[dict[str, Any]]) -> None:
+        """Write a flat list of dicts as a CSV output table with manifest.
+
+        Columns are STRING except ``row_number``, which is typed INTEGER (it is a deterministic
+        array index).
+        """
+        columns = list(rows[0].keys())
+        integer_columns = {"row_number"}
+        schema = OrderedDict(
+            {
+                col: ColumnDefinition(
+                    data_types=BaseType(
+                        dtype=SupportedDataTypes.INTEGER if col in integer_columns else SupportedDataTypes.STRING
+                    ),
+                    primary_key=False,
+                )
+                for col in columns
+            }
+        )
+
+        out_table = self.create_out_table_definition(
+            f"{table_name}.csv",
+            schema=schema,
+            primary_key=self._get_primary_key(table_name),
+            incremental=bool(self.params.loading_options.incremental_output),
+            has_header=True,
+        )
+
+        with open(out_table.full_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=columns, quoting=csv.QUOTE_ALL)
+            writer.writeheader()
+            writer.writerows(rows)
+
+        self.write_manifest(out_table)
 
     def _extract_products_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract products data using DuckDB (legacy one-by-one method)"""
@@ -1451,6 +1565,9 @@ class Component(ComponentBase):
             "refund_order_adjustment": ["id"],
             "refund_shipping_line": ["refund_id", "shipping_line_id"],
             "refund_transaction": ["id"],
+            # Paginated shipping/discount extraction (deterministic array-index row_number)
+            "order_shipping_lines": ["parent_id", "row_number"],
+            "order_discount_codes": ["parent_id", "row_number"],
         }
 
         if table_name in primary_keys:

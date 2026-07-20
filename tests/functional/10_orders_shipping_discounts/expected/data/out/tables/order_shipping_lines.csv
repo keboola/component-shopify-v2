@@ -1,0 +1,2 @@
+"parent_id","id","row_number","title","code","source","price_set__shop_money__amount","price_set__shop_money__currency_code","discounted_price_set__shop_money__amount","discounted_price_set__shop_money__currency_code","tax_lines"
+"gid://shopify/Order/1001","gid://shopify/ShippingLine/2001","0","Standard Shipping","STANDARD","shopify","5.00","CZK","4.00","CZK","[{""title"": ""VAT"", ""rate"": 0.21, ""ratePercentage"": 21.0, ""priceSet"": {""shopMoney"": {""amount"": ""0.84"", ""currencyCode"": ""CZK""}}, ""channelLiable"": false, ""source"": ""TAX_APP""}]"

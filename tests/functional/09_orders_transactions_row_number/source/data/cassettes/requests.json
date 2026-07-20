@@ -1,0 +1,94 @@
+{
+    "_metadata": {
+        "freeze_time": "2026-03-19T12:17:12",
+        "keboola_vcr_version": "0.0.0",
+        "recorded_at": "2026-03-19T11:17:44.240439+00:00"
+    },
+    "interactions": [
+        {
+            "request": {
+                "body": "{\"query\": \"mutation { bulkOperationRunQuery(...) }\"}",
+                "headers": {
+                    "Accept": [
+                        "application/json"
+                    ],
+                    "Content-Type": [
+                        "application/json"
+                    ]
+                },
+                "method": "POST",
+                "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+            },
+            "response": {
+                "body": {
+                    "string": "{\"data\": {\"bulkOperationRunQuery\": {\"bulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\", \"status\": \"CREATED\"}, \"userErrors\": []}}}"
+                },
+                "headers": {
+                    "Content-Type": [
+                        "application/json; charset=utf-8"
+                    ]
+                },
+                "status": {
+                    "code": 200,
+                    "message": "OK"
+                }
+            }
+        },
+        {
+            "request": {
+                "body": "{\"query\": \"query { currentBulkOperation { ... } }\"}",
+                "headers": {
+                    "Accept": [
+                        "application/json"
+                    ],
+                    "Content-Type": [
+                        "application/json"
+                    ]
+                },
+                "method": "POST",
+                "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+            },
+            "response": {
+                "body": {
+                    "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-03-19T11:17:38Z\", \"completedAt\": \"2026-03-19T11:17:40Z\", \"objectCount\": \"1\", \"fileSize\": \"894\", \"url\": \"https://storage.googleapis.com/shopify-bulk-storage/orders.jsonl?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED\", \"partialDataUrl\": null}}}"
+                },
+                "headers": {
+                    "Content-Type": [
+                        "application/json; charset=utf-8"
+                    ]
+                },
+                "status": {
+                    "code": 200,
+                    "message": "OK"
+                }
+            }
+        },
+        {
+            "request": {
+                "body": null,
+                "headers": {
+                    "Accept": [
+                        "*/*"
+                    ]
+                },
+                "method": "GET",
+                "uri": "https://storage.googleapis.com/shopify-bulk-storage/orders.jsonl?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED"
+            },
+            "response": {
+                "body": {
+                    "string": "{\"id\": \"gid://shopify/Order/1001\", \"name\": \"#1001\", \"email\": \"buyer@example.com\", \"createdAt\": \"2025-06-01T10:00:00Z\", \"updatedAt\": \"2025-06-02T09:00:00Z\", \"transactions\": [{\"id\": \"gid://shopify/OrderTransaction/5001\", \"kind\": \"SALE\", \"status\": \"SUCCESS\", \"test\": false, \"amountSet\": {\"shopMoney\": {\"amount\": \"100.00\", \"currencyCode\": \"USD\"}}, \"gateway\": \"shopify_payments\", \"createdAt\": \"2025-06-01T10:00:05Z\", \"processedAt\": \"2025-06-01T10:00:05Z\", \"errorCode\": null, \"authorizationCode\": \"AUTH123\", \"authorizationExpiresAt\": null}, {\"id\": \"gid://shopify/OrderTransaction/5002\", \"kind\": \"REFUND\", \"status\": \"SUCCESS\", \"test\": false, \"amountSet\": {\"shopMoney\": {\"amount\": \"40.00\", \"currencyCode\": \"USD\"}}, \"gateway\": \"shopify_payments\", \"createdAt\": \"2025-06-02T09:00:00Z\", \"processedAt\": \"2025-06-02T09:00:00Z\", \"errorCode\": null, \"authorizationCode\": null, \"authorizationExpiresAt\": null}]}\n"
+                },
+                "headers": {
+                    "Content-Type": [
+                        "application/jsonl"
+                    ]
+                },
+                "status": {
+                    "code": 200,
+                    "message": "OK"
+                }
+            }
+        }
+    ],
+    "version": 1
+}

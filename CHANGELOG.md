@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 - 2026-07-20
+
+### Fixed
+
+- **DuckDB out-of-memory on large order syncs.** The extractor previously ran DuckDB in-memory (`:memory:`) with a hardcoded 256 MB limit, so base tables could not spill to disk and large syncs (wide-window backfills and ordinary 60-day production windows on high-volume stores) aborted with `Out of Memory Error: could not allocate block ... (244.1 MiB/244.1 MiB used)` during the base-table load. DuckDB now uses a file-backed database under `/tmp/shopify_duckdb/` (unique per run; debug mode writes `/tmp/shopify_duckdb/debug.duckdb` instead of a relative `debug.duckdb` under the read-only `/code` overlay), letting base tables spill to disk. `/tmp` is excluded from the 10 GB overlay budget. The memory limit is raised to an explicit 320 MB (headroom for Python + untracked DuckDB allocations inside the 512 MB container), and the effective limit is logged at startup; the DuckDB file size is logged at end of run. `temp_directory` and `preserve_insertion_order` are unchanged. Storage-layer change only - no output schema or endpoint changes (SUPPORT-12550).
+
 ## 0.3.1 - 2026-07-20
 
 ### Fixed

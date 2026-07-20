@@ -6,6 +6,7 @@ import re
 import shutil
 import tempfile
 import time
+import uuid
 from collections import OrderedDict, defaultdict
 from pathlib import Path
 from typing import Any
@@ -142,15 +143,22 @@ class Component(ComponentBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
-        db_path = "debug.duckdb" if self.configuration.parameters.get("debug") else ":memory:"
-        self.conn = duckdb.connect(db_path)
+        db_dir = Path("/tmp/shopify_duckdb")
+        db_dir.mkdir(parents=True, exist_ok=True)
+        if self.configuration.parameters.get("debug"):
+            self.db_path = str(db_dir / "debug.duckdb")
+        else:
+            self.db_path = str(db_dir / f"data-{uuid.uuid4().hex}.duckdb")
+        self.conn = duckdb.connect(self.db_path)
         self.conn.execute("SET temp_directory='/tmp/duckdb_temp'")
-        self.conn.execute("SET memory_limit='256MB'")
+        self.conn.execute("SET memory_limit='320MB'")
         self.conn.execute("SET preserve_insertion_order=false")
+        effective_memory_limit = self.conn.execute("SELECT current_setting('memory_limit')").fetchone()[0]
+        self.logger.info(f"DuckDB memory_limit={effective_memory_limit}; database file: {self.db_path}")
         self.params = Configuration(**self.configuration.parameters)
 
         if self.params.debug:
-            self.logger.debug(f"DuckDB database saved to: {db_path}")
+            self.logger.debug(f"DuckDB database saved to: {self.db_path}")
 
     def _camel_to_snake(self, name: str) -> str:
         """Convert camelCase to snake_case"""
@@ -583,6 +591,12 @@ class Component(ComponentBase):
                 self._process_custom_query(client, custom_query, params)
 
         self.logger.info("Data extraction completed successfully")
+
+        try:
+            db_size_mib = Path(self.db_path).stat().st_size / (1024 * 1024)
+            self.logger.info(f"DuckDB database file size: {db_size_mib:.1f} MiB ({self.db_path})")
+        except OSError:
+            pass
 
     def _process_endpoint(self, client: ShopifyGraphQLClient, endpoint: str, params: Configuration):
         """

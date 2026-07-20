@@ -1168,15 +1168,7 @@ class Component(ComponentBase):
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
             temp_jsonl = tmp.name
 
-        date_since, date_to = self._parse_loading_option_dates(
-            params.loading_options.date_since, params.loading_options.date_to
-        )
-        result = client.get_inventory_bulk(
-            temp_jsonl,
-            date_since=date_since,
-            date_to=date_to,
-            fetch_parameter=params.loading_options.fetch_parameter,
-        )
+        result = client.get_inventory_bulk(temp_jsonl)
 
         if result.item_count > 0:
             self._process_bulk_inventory(result)

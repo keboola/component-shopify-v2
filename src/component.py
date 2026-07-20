@@ -152,9 +152,13 @@ class Component(ComponentBase):
         self.conn = duckdb.connect(self.db_path)
         self.conn.execute("SET temp_directory='/tmp/duckdb_temp'")
         self.conn.execute("SET memory_limit='320MB'")
+        self.conn.execute("SET threads=2")
         self.conn.execute("SET preserve_insertion_order=false")
         effective_memory_limit = self.conn.execute("SELECT current_setting('memory_limit')").fetchone()[0]
-        self.logger.info(f"DuckDB memory_limit={effective_memory_limit}; database file: {self.db_path}")
+        effective_threads = self.conn.execute("SELECT current_setting('threads')").fetchone()[0]
+        self.logger.info(
+            f"DuckDB memory_limit={effective_memory_limit}; threads={effective_threads}; database file: {self.db_path}"
+        )
         self.params = Configuration(**self.configuration.parameters)
 
         if self.params.debug:

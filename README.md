@@ -15,7 +15,7 @@ This component extracts data from Shopify stores using the modern GraphQL Admin 
 | DuckDB Processing       | Advanced data processing with automatic type detection |
 | Data Normalization      | Converts nested JSON into normalized relational tables |
 | Multiple Endpoints      | 11+ supported endpoints including orders, products, customers, collections, inventory |
-| Date Range Filtering    | Filter data by date ranges across all bulk operations |
+| Date Range Filtering    | Filter data by date ranges across all bulk operations (except `inventory` and `locations`, which always extract the full current snapshot) |
 | Flexible Date Formats   | Supports ISO dates (YYYY-MM-DD) and relative formats ("1 week ago", "now") |
 | Custom Bulk Queries     | Execute custom GraphQL bulk operations |
 | Type Detection          | Automatic data type detection and conversion  |
@@ -41,7 +41,7 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 - **products_unlisted** - Extract unlisted products
 - **orders** - Extract order data with line items, customer info, and addresses
 - **customers** - Extract customer data with addresses and marketing preferences
-- **inventory** - Extract inventory levels across locations
+- **inventory** - Extract inventory items and levels across locations (always a full snapshot; ignores `date_since`/`date_to`)
 - **collections** - Extract product collections (custom and smart collections with products)
 - **locations** - Extract store location information
 - **events** - Extract system events and activity logs
@@ -94,7 +94,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
   - **collection_metafields** - Include collection metafields (default: false)
   - **locations** - Extract locations (default: false)
 - **loading_options** - Date filtering and loading behavior:
-  - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago"). Floored to midnight of its day.
+  - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago"). Floored to midnight of its day. Does not apply to the `inventory` and `locations` endpoints, which always extract the full current snapshot.
   - **date_to** - End date for extraction (ISO format YYYY-MM-DD or relative like "now", "yesterday"). Resolved to a full ISO-8601 UTC timestamp of the actual run moment, so `date_to: "now"` includes records updated earlier the same day. Leave unset to emit no upper bound. **Note:** prior to this fix, `date_to` was truncated to midnight of the run day, silently excluding records updated on the run day whenever `date_to` was set.
   - **fetch_parameter** - Field to filter by: "updated_at" or "created_at" (default: "updated_at")
   - **incremental_output** - Load type: 0=Full Load, 1=Incremental Update (default: 1)

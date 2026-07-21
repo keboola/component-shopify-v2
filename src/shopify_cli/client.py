@@ -849,53 +849,26 @@ class ShopifyGraphQLClient:
                 raise UserException(f"Bulk operation {status.lower()}: {error}")
 
     @log_bulk_performance("inventory")
-    def get_inventory_bulk(
-        self,
-        temp_file_path: str,
-        date_since: str | None = None,
-        date_to: str | None = None,
-        fetch_parameter: str = "updated_at",
-    ) -> BulkOperationResult:
+    def get_inventory_bulk(self, temp_file_path: str) -> BulkOperationResult:
         """
-        Get all inventory items and levels using Shopify's bulk operations
+        Get all inventory items and levels using Shopify's bulk operations.
+
+        Inventory is always extracted as a full, un-windowed snapshot (like locations):
+        InventoryItem.updatedAt only moves on catalog-record edits, not on stock changes,
+        so any date window would silently miss stock-only updates.
 
         Args:
             temp_file_path: Path where JSONL results will be saved
-            date_since: Start date for filtering (YYYY-MM-DD format)
-            date_to: End date for filtering (YYYY-MM-DD format)
-            fetch_parameter: Field to filter by ('updated_at' or 'created_at')
 
         Returns:
             BulkOperationResult with file path and timing info
         """
         api_wait_start = time.time()
-
-        filters = []
-        if date_since:
-            filters.append(f"{fetch_parameter}:>='{date_since}'")
-        if date_to:
-            filters.append(f"{fetch_parameter}:<'{date_to}'")
-
-        query_filter = " AND ".join(filters) if filters else ""
-
-        log_dates = ""
-        if date_since and date_to:
-            log_dates = f" from {date_since} to {date_to}"
-        elif date_since:
-            log_dates = f" from {date_since}"
-        elif date_to:
-            log_dates = f" until {date_to}"
-
-        self.logger.info(f"Starting bulk operation for inventory{log_dates}")
+        self.logger.info("Starting bulk operation for inventory")
 
         mutation_file = self.query_loader.queries_dir / "BulkInventory.graphql"
         with open(mutation_file) as f:
             mutation = f.read()
-
-        if query_filter:
-            mutation = mutation.replace("__QUERY_FILTER__", f'(query: "{query_filter}")')
-        else:
-            mutation = mutation.replace("__QUERY_FILTER__", "")
 
         result = self.execute_query(mutation)
 

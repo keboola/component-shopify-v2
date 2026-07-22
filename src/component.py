@@ -151,7 +151,19 @@ class Component(ComponentBase):
             self.db_path = str(db_dir / f"data-{uuid.uuid4().hex}.duckdb")
         self.conn = duckdb.connect(self.db_path)
         self.conn.execute("SET temp_directory='/tmp/duckdb_temp'")
-        self.conn.execute("SET memory_limit='320MB'")
+        # Backfill tag: scale DuckDB's tracked budget to 60% of the actual container
+        # limit (320MB floor = released behavior when the cgroup is unreadable).
+        # Untracked allocations (parse buffers, Python RSS) live in the remaining 40%.
+        duck_mb = 320
+        for cgroup_file in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+            try:
+                raw = Path(cgroup_file).read_text().strip()
+            except OSError:
+                continue
+            if raw.isdigit():  # cgroup v2 reports the literal string "max" when unlimited
+                duck_mb = max(320, int(int(raw) / (1024 * 1024) * 0.6))
+                break
+        self.conn.execute(f"SET memory_limit='{duck_mb}MB'")
         self.conn.execute("SET threads=2")
         self.conn.execute("SET preserve_insertion_order=false")
         effective_memory_limit = self.conn.execute("SELECT current_setting('memory_limit')").fetchone()[0]

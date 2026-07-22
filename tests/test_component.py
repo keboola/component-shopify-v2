@@ -26,10 +26,10 @@ class TestParseLoadingOptionDates(unittest.TestCase):
 
     @freeze_time("2026-03-19T13:56:13")
     def test_absolute_dates(self):
-        # Explicit date-only user values are still accepted; the lower bound stays midnight-floored
-        # and the upper bound is emitted as a full timestamp.
+        # Explicit bare-date user values still anchor to UTC midnight; both bounds are emitted as
+        # full timestamps, so date-style configs produce the same window as before (L1-151).
         start, end = self.comp._parse_loading_option_dates("2026-03-12", "2026-03-19")
-        self.assertEqual(start, "2026-03-12")
+        self.assertEqual(start, "2026-03-12T00:00:00Z")
         self.assertEqual(end, "2026-03-19T00:00:00Z")
 
     @freeze_time("2026-03-19T13:56:13")
@@ -37,27 +37,35 @@ class TestParseLoadingOptionDates(unittest.TestCase):
         # date_to="now" must resolve to the actual run moment (not midnight), so a record updated
         # earlier the same day (e.g. 2026-03-19T11:32:42Z) falls below the upper bound and is included.
         start, end = self.comp._parse_loading_option_dates("1 week ago", "now")
-        self.assertEqual(start, "2026-03-12")
+        self.assertEqual(start, "2026-03-12T13:56:13Z")
         self.assertEqual(end, "2026-03-19T13:56:13Z")
         self.assertGreater(end, "2026-03-19T11:32:42Z")
 
     @freeze_time("2026-03-19T13:56:13")
-    def test_date_since_relative_floored_to_midnight(self):
-        # Relative date_since values are floored to midnight of their day, not the run time-of-day.
-        start, end = self.comp._parse_loading_option_dates("7 years ago", "now")
-        self.assertEqual(start, "2019-03-19")
+    def test_date_since_relative_resolves_to_full_timestamp(self):
+        # Relative date_since resolves to the exact run time-of-day (no midnight flooring): a
+        # 13:56 run of "12 hours ago" means exactly 12 hours back, not ~26 h to the prior midnight.
+        start, end = self.comp._parse_loading_option_dates("12 hours ago", "now")
+        self.assertEqual(start, "2026-03-19T01:56:13Z")
         self.assertEqual(end, "2026-03-19T13:56:13Z")
+
+    @freeze_time("2026-03-19T13:56:13")
+    def test_date_since_bare_date_unchanged(self):
+        # Bare calendar dates parse to UTC midnight, so date-style configs are unaffected by the
+        # timestamp change: the resolved lower bound is midnight of that day.
+        start, _ = self.comp._parse_loading_option_dates("2026-03-12", "now")
+        self.assertEqual(start, "2026-03-12T00:00:00Z")
 
     @freeze_time("2026-03-19T13:56:13")
     def test_only_date_since_set(self):
         start, end = self.comp._parse_loading_option_dates("2026-01-01", None)
-        self.assertEqual(start, "2026-01-01")
+        self.assertEqual(start, "2026-01-01T00:00:00Z")
         self.assertIsNone(end)
 
     @freeze_time("2026-03-19T13:56:13")
     def test_unset_date_to_emits_no_upper_bound(self):
         start, end = self.comp._parse_loading_option_dates("7 years ago", None)
-        self.assertEqual(start, "2019-03-19")
+        self.assertEqual(start, "2019-03-19T13:56:13Z")
         self.assertIsNone(end)
 
     @freeze_time("2026-03-19T13:56:13")
@@ -84,7 +92,23 @@ class TestParseLoadingOptionDates(unittest.TestCase):
                 os.environ["TZ"] = original_tz
             time.tzset()
         self.assertEqual(results[0], results[1])
-        self.assertEqual(results[0], ("2019-03-19", "2026-03-19T13:56:13Z"))
+        self.assertEqual(results[0], ("2019-03-19T13:56:13Z", "2026-03-19T13:56:13Z"))
+
+
+class TestGetPrimaryKey(unittest.TestCase):
+    def setUp(self):
+        with (
+            mock.patch.dict(os.environ, {"KBC_DATADIR": "/tmp"}),
+            mock.patch("component.Component.__init__", return_value=None),
+        ):
+            self.comp = Component.__new__(Component)
+
+    def test_products_child_tables_have_id_primary_key(self):
+        # metafield / product_variant / product_image are written incremental, so they must declare
+        # a primary key or Storage appends on every run (L1-151, same bug class as line_item PR #26).
+        self.assertEqual(self.comp._get_primary_key("metafield"), ["id"])
+        self.assertEqual(self.comp._get_primary_key("product_variant"), ["id"])
+        self.assertEqual(self.comp._get_primary_key("product_image"), ["id"])
 
 
 class TestLegacyOrdersQueryBuilder(unittest.TestCase):

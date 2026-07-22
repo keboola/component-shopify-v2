@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.3 - 2026-07-22
+
+### Fixed
+
+- **`date_since` is no longer floored to midnight — it now resolves to a full ISO-8601 UTC timestamp.** The loading-option lower bound was truncated to bare `YYYY-MM-DD` (`updated_at:>='2026-07-22'`), while `date_to` already kept full timestamp precision since 0.3.0. As a result a relative `date_since` never meant what it said: `date_since: "12 hours ago"` fetched everything back to midnight of the day 12 h ago, inflating the effective window by up to ~2.5x (a 06:00 UTC run pulled ~30 h, not 12 h) and re-downloading/re-processing the excess every run — enough to push high-volume stores over the container memory limit. No config knob could express a sub-day window. `date_since` is now emitted as a full ISO-8601 UTC timestamp of the resolved instant (`updated_at:>='2026-07-22T06:03:00Z'`), so relative values are honored exactly. Applies uniformly to all endpoints and to the `{{ period_start_date }}` custom-query placeholder (SUPPORT / L1-151).
+  > **⚠️ Breaking change.** The midnight floor previously provided accidental overlap slack between consecutive incremental runs. With exact windows that slack is gone: if the window length is not comfortably larger than the run cadence, scheduler drift or a single failed run can permanently miss records that are never updated again (they only reappear on their next `updated_at`/`created_at` change). **Keep `date_since` windows longer than your run cadence — recommended: window ≥ cadence + 1h.** Bare calendar-date `date_since` values ("2026-07-01") still resolve to UTC midnight, so date-style configs are unaffected.
+- **`metafield`, `product_variant`, and `product_image` now declare a primary key on `id`.** These three tables were written with `incremental=true` but no primary key (only `line_item` was fixed in PR #26), so Storage appended every row on every run — accumulating ~17–21x row duplication (drifted versions) on projects running the products/metafields endpoints with incremental output, silently and with no warning. All three now declare `id` as their primary key (verified `ID!` non-null for `Metafield`/`ProductVariant`; `Image.id` is de-facto non-null because the entity-split filter already excludes null-id images).
+  > **⚠️ Breaking change / migration note.** Primary keys ship default-on for all three tables. (a) On clean projects, the append history collapses into a latest-state upsert — anyone relying on the accumulated appends as an implicit change history loses that behavior. (b) On tables that already contain duplicates, Storage will log a per-run `Error changing primary key ... duplicate values` warning until a one-time dedup (full-load overwrite) is performed — the same behavior `line_item` exhibits after its PR #26 fix.
+
 ## 0.3.2 - 2026-07-20
 
 ### Fixed

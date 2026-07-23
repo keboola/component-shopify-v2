@@ -315,12 +315,18 @@ class Component(ComponentBase):
             snake_col_name = self._camel_to_snake(col_name)
             self.logger.info(f"Decomposing column: {col_name} ({col_type}) in {table_name}")
 
+            # Sample a NON-EMPTY value: LIMIT 1 without ORDER BY returns an arbitrary row,
+            # and an empty list ([] is falsy) previously caused the whole child table to be
+            # silently skipped for the run (L1-152: CZ 2022 order_transactions).
+            sample_predicate = f'"{col_name}" IS NOT NULL'
+            if col_type_str.endswith("[]") or "LIST" in col_type_str:
+                sample_predicate += f' AND len("{col_name}") > 0'
             sample = self.conn.execute(
-                f'SELECT "{col_name}" FROM "{table_name}" WHERE "{col_name}" IS NOT NULL LIMIT 1'
+                f'SELECT "{col_name}" FROM "{table_name}" WHERE {sample_predicate} LIMIT 1'
             ).fetchone()
 
             if not sample or not sample[0]:
-                self.logger.debug(f"No data found for column {col_name}")
+                self.logger.info(f"Column {col_name} in {table_name} has no non-empty values - skipping decomposition")
                 continue
 
             sample_value = sample[0]

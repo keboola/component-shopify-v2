@@ -303,12 +303,18 @@ class Component(ComponentBase):
             snake_col_name = self._camel_to_snake(col_name)
             self.logger.info(f"Decomposing column: {col_name} ({col_type}) in {table_name}")
 
+            # Sample a NON-EMPTY value: LIMIT 1 without ORDER BY returns an arbitrary row,
+            # and an empty list ([] is falsy) previously caused the whole child table to be
+            # silently skipped for the run (L1-152: CZ 2022 order_transactions).
+            sample_predicate = f'"{col_name}" IS NOT NULL'
+            if col_type_str.endswith("[]") or "LIST" in col_type_str:
+                sample_predicate += f' AND len("{col_name}") > 0'
             sample = self.conn.execute(
-                f'SELECT "{col_name}" FROM "{table_name}" WHERE "{col_name}" IS NOT NULL LIMIT 1'
+                f'SELECT "{col_name}" FROM "{table_name}" WHERE {sample_predicate} LIMIT 1'
             ).fetchone()
 
             if not sample or not sample[0]:
-                self.logger.debug(f"No data found for column {col_name}")
+                self.logger.info(f"Column {col_name} in {table_name} has no non-empty values - skipping decomposition")
                 continue
 
             sample_value = sample[0]
@@ -488,16 +494,18 @@ class Component(ComponentBase):
     def _parse_loading_option_dates(self, date_since: str | None, date_to: str | None) -> tuple[str | None, str | None]:
         """Parse date_since and date_to into Shopify search bounds.
 
-        The window is rounded outward, never inward, and the two bounds are deliberately asymmetric:
+        Both bounds keep full ISO-8601 UTC timestamp precision so the requested window is honored
+        exactly, e.g. ``updated_at:>='2026-07-22T06:03:00Z'`` / ``updated_at:<'2026-07-22T18:03:00Z'``:
 
-        - Upper bound (date_to) keeps full ISO-8601 UTC timestamp precision so that ``date_to="now"``
-          (or any relative value) resolves to the actual run moment, e.g. ``updated_at:<'2026-07-10T13:56:13Z'``.
-          Truncating it to bare ``YYYY-MM-DD`` snaps it back to midnight of the run day and silently drops
-          every record updated earlier that same day.
-        - Lower bound (date_since) is intentionally floored to midnight of its day. A timestamp-precise
-          lower bound would open gaps between consecutive incremental runs using relative date_since values:
-          yesterday's run covers up to its own start time, while today's ">= 1 day ago" would begin later in
-          the day, leaving the intervening records uncovered. Flooring to midnight keeps the windows overlapping.
+        - Upper bound (date_to) resolves ``date_to="now"`` (or any relative value) to the actual run
+          moment. Truncating it to bare ``YYYY-MM-DD`` snaps it back to midnight of the run day and
+          silently drops every record updated earlier that same day.
+        - Lower bound (date_since) resolves ``date_since="12 hours ago"`` to exactly 12 hours before the
+          run. It was previously floored to midnight of its day, which silently inflated the effective
+          window by up to ~2.5x (a 06:00 UTC run of "12 hours ago" fetched ~30 h) and offered no way to
+          express a sub-day window. Bare calendar dates ("2026-03-19") still resolve to UTC midnight, so
+          date-style configs are unaffected. Callers relying on relative ``date_since`` for incremental
+          loads must keep the window length above their run cadence (see README) to avoid gaps.
 
         Dates are resolved in UTC (``TIMEZONE="UTC"``): the previous ``parse_datetime_interval`` truncated
         both bounds to bare ``YYYY-MM-DD`` (the source of the same-day-exclusion bug) and, being unable to
@@ -519,9 +527,9 @@ class Component(ComponentBase):
             )
         if end < start:
             raise UserException(f"date_since ('{date_since}') cannot be after date_to ('{date_to}').")
-        floored_start = start.strftime("%Y-%m-%d") if date_since else None
+        timestamp_start = start.strftime("%Y-%m-%dT%H:%M:%SZ") if date_since else None
         timestamp_end = end.strftime("%Y-%m-%dT%H:%M:%SZ") if date_to else None
-        return floored_start, timestamp_end
+        return timestamp_start, timestamp_end
 
     def _resolve_access_token(self, params: Configuration) -> str:
         """Resolve the access token based on auth mode.
@@ -1567,6 +1575,9 @@ class Component(ComponentBase):
             "collection": ["id"],
             "collection_product": ["parent_id", "id"],
             "collection_metafield": ["id"],
+            "metafield": ["id"],
+            "product_variant": ["id"],
+            "product_image": ["id"],
             "location": ["id"],
             "event": ["id"],
             # Refund tables (from paginated refunds extraction)

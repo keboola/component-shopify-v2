@@ -67,6 +67,8 @@ The component supports the following Shopify GraphQL endpoints using **bulk oper
 
 The component also supports custom GraphQL bulk operations (mutations), allowing you to execute any custom bulk query against the Shopify API.
 
+You can inject values from **Loading Options** into a custom query with these placeholders: `{{ period_start_date }}`, `{{ period_end_date }}`, and `{{ fetch_parameter }}`. Both `{{ period_start_date }}` and `{{ period_end_date }}` are substituted with full ISO-8601 UTC timestamps (e.g. `2026-03-19T01:56:13Z`), matching the built-in endpoints — always wrap them in quotes in the Shopify search string since the value contains colons, e.g. `orders(query: "{{ fetch_parameter }}:>='{{ period_start_date }}' AND {{ fetch_parameter }}:<'{{ period_end_date }}'")`.
+
 ## Configuration
 
 ### Required Parameters
@@ -94,7 +96,7 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
   - **collection_metafields** - Include collection metafields (default: false)
   - **locations** - Extract locations (default: false)
 - **loading_options** - Date filtering and loading behavior:
-  - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "2 months ago"). Floored to midnight of its day. Does not apply to the `inventory` and `locations` endpoints, which always extract the full current snapshot.
+  - **date_since** - Start date for extraction (ISO format YYYY-MM-DD or relative like "1 week ago", "12 hours ago"). Resolved to a full ISO-8601 UTC timestamp, so relative values are honored exactly (e.g. `"12 hours ago"` means exactly 12 hours back, not rounded to the prior midnight); bare dates anchor to UTC midnight. Does not apply to the `inventory` and `locations` endpoints, which always extract the full current snapshot. **Incremental loads:** with exact windows there is no accidental overlap slack, so keep the window length above your run cadence (recommended: window &ge; cadence + 1h). Otherwise scheduler drift or a single failed run can permanently miss records that are never updated again (they only reappear on their next `updated_at`/`created_at` change). **Note:** prior to this fix, `date_since` was floored to midnight of its day, silently inflating the effective window by up to ~2.5x and making sub-day windows impossible to express.
   - **date_to** - End date for extraction (ISO format YYYY-MM-DD or relative like "now", "yesterday"). Resolved to a full ISO-8601 UTC timestamp of the actual run moment, so `date_to: "now"` includes records updated earlier the same day. Leave unset to emit no upper bound. **Note:** prior to this fix, `date_to` was truncated to midnight of the run day, silently excluding records updated on the run day whenever `date_to` was set.
   - **fetch_parameter** - Field to filter by: "updated_at" or "created_at" (default: "updated_at")
   - **incremental_output** - Load type: 0=Full Load, 1=Incremental Update (default: 1)

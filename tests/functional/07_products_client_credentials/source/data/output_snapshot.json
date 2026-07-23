@@ -46,6 +46,22 @@
       "row_count": null,
       "size_bytes": 643
     },
+    "product_tags.csv": {
+      "columns": [
+        "parent_id",
+        "row_number",
+        "item"
+      ],
+      "hash": "sha256:b55223d85c00c4115250778bd1899d29da3e8ad0dfa7a98ed8841c91c4a5ef2e",
+      "row_count": 21,
+      "size_bytes": 1063
+    },
+    "product_tags.csv.manifest": {
+      "columns": null,
+      "hash": "sha256:89f90ba85714b0e6392bd42e77ae3b2832cdad77b99fb5f97c13e06d4c95db47",
+      "row_count": null,
+      "size_bytes": 428
+    },
     "product_variant.csv": {
       "columns": [
         "id",

@@ -139,6 +139,90 @@ def _build_customer_journey_columns() -> list[tuple[str, str]]:
 CUSTOMER_JOURNEY_SUMMARY_COLUMNS = _build_customer_journey_columns()
 
 
+# ---------------------------------------------------------------------------
+# DuckDB memory budget
+#
+# Up to 0.3.3 the DuckDB ``memory_limit`` was the hardcoded literal ``320MB``. That
+# value was chosen for the Keboola "small" backend (512 MiB container): 320 MiB for
+# DuckDB, the rest for the Python process and DuckDB's own untracked allocations.
+# Because it was a constant, moving a config to a larger backend bought no extra
+# DuckDB headroom at all — a "medium" container has ~2x the memory, but DuckDB still
+# refused to use more than 320 MiB and still aborted with
+# ``Out of Memory Error: failed to pin block ... (305.0 MiB/305.1 MiB used)``.
+# That made "move to a bigger backend" ineffective advice for DuckDB-bound OOMs.
+#
+# The limit is now derived from the container's own cgroup memory limit using the
+# same 320/512 ratio the constant encoded, so small-backend behaviour is unchanged
+# and larger backends get proportionally more. Detection is deliberately
+# conservative: anything unreadable, absent, unlimited, or implausibly large falls
+# back to the previous constant.
+# ---------------------------------------------------------------------------
+
+# 320 of 512 — the ratio the previous constant encoded, kept exactly. Note DuckDB
+# reads the ``MB`` suffix as decimal megabytes, so ``320MB`` is 305.2 MiB (which is
+# why the production OOM reported "305.0 MiB/305.1 MiB used"). The fraction is
+# applied to the cgroup value in MiB and re-emitted with the same ``MB`` suffix, so
+# a 512 MiB container resolves to the identical ``320MB`` string as before.
+DUCKDB_MEMORY_FRACTION = 0.625
+# Never go below the previous hardcoded value, so no backend loses headroom.
+DUCKDB_MEMORY_FLOOR_MB = 320
+# A cgroup value above this is treated as "not a real container limit" (cgroup v1
+# reports unlimited as a huge sentinel, and an unconstrained container reports host
+# memory). In that case we keep the floor rather than trusting the reading.
+DUCKDB_MEMORY_PLAUSIBLE_CONTAINER_CEILING_MB = 16384
+
+CGROUP_MEMORY_LIMIT_PATHS = (
+    "/sys/fs/cgroup/memory.max",  # cgroup v2
+    "/sys/fs/cgroup/memory/memory.limit_in_bytes",  # cgroup v1
+)
+
+
+def _read_container_memory_limit_mb() -> int | None:
+    """Return the container's memory limit in MiB, or None if it cannot be trusted.
+
+    Reads the cgroup limit the container runtime imposes. Returns None when no cgroup
+    file is readable, when the limit is unset/unlimited, or when the value is not a
+    plausible container limit — callers must fall back to ``DUCKDB_MEMORY_FLOOR_MB``.
+    """
+    for path in CGROUP_MEMORY_LIMIT_PATHS:
+        try:
+            raw = Path(path).read_text().strip()
+        # ValueError covers UnicodeDecodeError, so a cgroup file that is unreadable for
+        # any reason falls back to the floor rather than aborting the whole run.
+        except (OSError, ValueError):
+            continue
+        if not raw or raw == "max":
+            continue
+        try:
+            limit_bytes = int(raw)
+        except ValueError:
+            continue
+        if limit_bytes <= 0:
+            continue
+        limit_mb = limit_bytes // (1024 * 1024)
+        if limit_mb <= 0 or limit_mb > DUCKDB_MEMORY_PLAUSIBLE_CONTAINER_CEILING_MB:
+            continue
+        return limit_mb
+    return None
+
+
+def duckdb_memory_limit_for_container_mb(container_mb: int | None) -> int:
+    """Clamp a detected container limit (MiB) to the DuckDB budget (MiB).
+
+    Pure function, no I/O. Always returns at least ``DUCKDB_MEMORY_FLOOR_MB``, which is
+    the constant used before this function existed — so on the 512 MiB "small" backend,
+    and on any container whose limit could not be read, the result is identical to 0.3.3.
+    """
+    if container_mb is None:
+        return DUCKDB_MEMORY_FLOOR_MB
+    return max(DUCKDB_MEMORY_FLOOR_MB, int(container_mb * DUCKDB_MEMORY_FRACTION))
+
+
+def resolve_duckdb_memory_limit_mb() -> int:
+    """Resolve the DuckDB ``memory_limit`` (MiB) from the container's memory limit."""
+    return duckdb_memory_limit_for_container_mb(_read_container_memory_limit_mb())
+
+
 class Component(ComponentBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -151,13 +235,22 @@ class Component(ComponentBase):
             self.db_path = str(db_dir / f"data-{uuid.uuid4().hex}.duckdb")
         self.conn = duckdb.connect(self.db_path)
         self.conn.execute("SET temp_directory='/tmp/duckdb_temp'")
-        self.conn.execute("SET memory_limit='320MB'")
+        container_memory_mb = _read_container_memory_limit_mb()
+        memory_limit_mb = duckdb_memory_limit_for_container_mb(container_memory_mb)
+        self.conn.execute(f"SET memory_limit='{memory_limit_mb}MB'")
         self.conn.execute("SET threads=2")
         self.conn.execute("SET preserve_insertion_order=false")
         effective_memory_limit = self.conn.execute("SELECT current_setting('memory_limit')").fetchone()[0]
         effective_threads = self.conn.execute("SELECT current_setting('threads')").fetchone()[0]
+        if container_memory_mb is None:
+            memory_source = "container limit not detected, using the default minimum"
+        elif memory_limit_mb == DUCKDB_MEMORY_FLOOR_MB:
+            memory_source = f"container limit {container_memory_mb} MiB, raised to the default minimum"
+        else:
+            memory_source = f"scaled from container limit {container_memory_mb} MiB"
         self.logger.info(
-            f"DuckDB memory_limit={effective_memory_limit}; threads={effective_threads}; database file: {self.db_path}"
+            f"DuckDB memory_limit={effective_memory_limit} ({memory_source}); "
+            f"threads={effective_threads}; database file: {self.db_path}"
         )
         self.params = Configuration(**self.configuration.parameters)
 

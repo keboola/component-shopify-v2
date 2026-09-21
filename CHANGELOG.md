@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.4 - unreleased
+
+### Fixed
+
+- **DuckDB's memory limit now scales with the container instead of being pinned at `320MB`.** The limit was the hardcoded literal `320MB`, sized in 0.3.2 for the 512 MiB "small" backend. Because it was a constant, **moving a configuration to a larger backend bought no extra DuckDB headroom at all** — a "medium" container has roughly twice the memory, but DuckDB still refused to allocate past ~305 MiB and still aborted with `Out of Memory Error: failed to pin block of size 256.0 KiB (305.0 MiB/305.1 MiB used)` during the base-table load. "Move to a bigger backend" was therefore ineffective advice for every DuckDB-bound out-of-memory failure, which is the failure mode large order windows actually hit. The limit is now derived from the container's own cgroup memory limit (`/sys/fs/cgroup/memory.max`, falling back to the cgroup v1 path) using the same 320/512 ratio the constant encoded. Runtime setting only — no output schema, manifest, endpoint, or configuration change.
+  > **No change on the default backend.** A 512 MiB container resolves to exactly `320MB`, byte-for-byte the previous value, so existing small-backend configurations behave identically. Detection is deliberately conservative and falls back to the previous `320MB` whenever the reading cannot be trusted: no readable cgroup file, an unset/`max` limit, the cgroup v1 "unlimited" sentinel, a non-numeric value, or an implausibly large reading (above 16 GiB, which indicates an unconstrained container reporting host memory). The resolved limit is never lower than `320MB`, so no backend loses headroom. The startup log line now states the detected container limit and whether the budget was scaled from it or raised to the minimum.
+  > **To benefit, raise the backend size.** This change unlocks memory the container already has; it does not add any. A configuration that keeps failing on the "small" backend should be moved to a larger one, which now actually increases the DuckDB budget.
+
 ## 0.3.3 - 2026-07-22
 
 ### Fixed

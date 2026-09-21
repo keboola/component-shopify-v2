@@ -5,9 +5,16 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import duckdb
 from freezegun import freeze_time
 
-from component import CUSTOMER_JOURNEY_SUMMARY_COLUMNS, Component
+import component
+from component import (
+    CUSTOMER_JOURNEY_SUMMARY_COLUMNS,
+    Component,
+    duckdb_memory_limit_for_container_mb,
+    resolve_duckdb_memory_limit_mb,
+)
 from configuration import Configuration
 
 
@@ -280,6 +287,87 @@ class TestCustomerJourneyFlattening(unittest.TestCase):
         row = self.rows["#1003"]
         for name, _ in CUSTOMER_JOURNEY_SUMMARY_COLUMNS:
             self.assertEqual(row[name], "", f"{name} should be empty when summary is null")
+
+
+class TestResolveDuckdbMemoryLimit(unittest.TestCase):
+    """The DuckDB memory budget must scale with the container, never shrink below 0.3.3."""
+
+    @staticmethod
+    def _cgroup(values: dict[str, str]):
+        """Patch Path.read_text so only the given cgroup paths exist."""
+        real_read_text = Path.read_text
+
+        def fake_read_text(self, *args, **kwargs):
+            key = str(self)
+            if key in values:
+                return values[key]
+            if key in component.CGROUP_MEMORY_LIMIT_PATHS:
+                raise FileNotFoundError(key)
+            return real_read_text(self, *args, **kwargs)
+
+        return mock.patch.object(Path, "read_text", fake_read_text)
+
+    def test_small_backend_matches_previous_hardcoded_limit(self):
+        # 512 MiB container (Keboola "small") must resolve to exactly the 320MB that
+        # 0.3.3 hardcoded - this change must be a no-op on the default backend.
+        with self._cgroup({"/sys/fs/cgroup/memory.max": str(512 * 1024 * 1024)}):
+            self.assertEqual(resolve_duckdb_memory_limit_mb(), 320)
+
+    def test_larger_backend_gets_proportionally_more(self):
+        # 1 GiB container ("medium") gets 640MB instead of being capped at 320MB.
+        with self._cgroup({"/sys/fs/cgroup/memory.max": str(1024 * 1024 * 1024)}):
+            self.assertEqual(resolve_duckdb_memory_limit_mb(), 640)
+
+    def test_cgroup_v1_is_read_when_v2_absent(self):
+        with self._cgroup({"/sys/fs/cgroup/memory/memory.limit_in_bytes": str(2048 * 1024 * 1024)}):
+            self.assertEqual(resolve_duckdb_memory_limit_mb(), 1280)
+
+    def test_unlimited_cgroup_v2_falls_back_to_floor(self):
+        with self._cgroup({"/sys/fs/cgroup/memory.max": "max"}):
+            self.assertEqual(resolve_duckdb_memory_limit_mb(), 320)
+
+    def test_cgroup_v1_unlimited_sentinel_falls_back_to_floor(self):
+        # cgroup v1 reports "no limit" as a huge sentinel, which must not be trusted.
+        with self._cgroup({"/sys/fs/cgroup/memory/memory.limit_in_bytes": "9223372036854771712"}):
+            self.assertEqual(resolve_duckdb_memory_limit_mb(), 320)
+
+    def test_implausibly_large_limit_falls_back_to_floor(self):
+        # An unconstrained container reports host memory; refuse to size against it.
+        with self._cgroup({"/sys/fs/cgroup/memory.max": str(64 * 1024 * 1024 * 1024)}):
+            self.assertEqual(resolve_duckdb_memory_limit_mb(), 320)
+
+    def test_unreadable_cgroup_falls_back_to_floor(self):
+        with self._cgroup({}):
+            self.assertEqual(resolve_duckdb_memory_limit_mb(), 320)
+
+    def test_garbage_cgroup_value_falls_back_to_floor(self):
+        with self._cgroup({"/sys/fs/cgroup/memory.max": "not-a-number"}):
+            self.assertEqual(resolve_duckdb_memory_limit_mb(), 320)
+
+    def test_tiny_container_never_drops_below_floor(self):
+        # Smaller than "small" must still behave exactly as 0.3.3 did, not worse.
+        with self._cgroup({"/sys/fs/cgroup/memory.max": str(256 * 1024 * 1024)}):
+            self.assertEqual(resolve_duckdb_memory_limit_mb(), 320)
+
+    def test_clamp_helper_is_pure_and_handles_undetected(self):
+        # The clamp is separated from the I/O so the cgroup file is read exactly once.
+        self.assertEqual(duckdb_memory_limit_for_container_mb(None), 320)
+        self.assertEqual(duckdb_memory_limit_for_container_mb(512), 320)
+        self.assertEqual(duckdb_memory_limit_for_container_mb(1024), 640)
+
+    def test_emitted_setting_is_byte_identical_to_the_previous_literal(self):
+        # End-to-end proof of the no-op claim: on a 512 MiB container the value DuckDB
+        # actually ends up with must equal what `SET memory_limit='320MB'` produced.
+        with self._cgroup({"/sys/fs/cgroup/memory.max": str(512 * 1024 * 1024)}):
+            emitted = f"{resolve_duckdb_memory_limit_mb()}MB"
+        self.assertEqual(emitted, "320MB")
+
+        with duckdb.connect(":memory:") as conn:
+            conn.execute("SET memory_limit='320MB'")
+            previous = conn.execute("SELECT current_setting('memory_limit')").fetchone()[0]
+            conn.execute(f"SET memory_limit='{emitted}'")
+            current = conn.execute("SELECT current_setting('memory_limit')").fetchone()[0]
+        self.assertEqual(current, previous)
 
 
 if __name__ == "__main__":

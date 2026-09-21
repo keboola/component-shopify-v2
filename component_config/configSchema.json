@@ -371,6 +371,15 @@
           },
           "description": "If set to Incremental update, the result tables will be updated based on primary key. Full load overwrites the destination table each time. NOTE: If you wish to remove deleted records, this needs to be set to Full load and the Period from attribute empty.",
           "propertyOrder": 240
+        },
+        "chunk_size_days": {
+          "type": "integer",
+          "title": "Split period into chunks (days)",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 3650,
+          "propertyOrder": 250,
+          "description": "0 = disabled (default). When set, the period is fetched in consecutive windows of this many days, one bulk operation per window, so the memory needed to load the data depends on the chunk size instead of the whole period. Use this if a long period fails with an out-of-memory error; 30 is a good starting point. Requires a Period start date. A chunked run is slower, because it makes one bulk operation per chunk and Shopify runs one at a time per shop, and it writes no output until every chunk has finished. A record updated while the extraction is running can match two windows; only its newest copy is kept. Has no effect on Inventory and Locations, which always extract the full current snapshot, or on custom queries."
         }
       }
     }

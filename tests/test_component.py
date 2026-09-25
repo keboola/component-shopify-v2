@@ -12,6 +12,7 @@ from unittest import mock
 
 import duckdb
 from freezegun import freeze_time
+from keboola.component.exceptions import UserException
 
 import component
 from component import (
@@ -22,6 +23,7 @@ from component import (
     resolve_duckdb_memory_limit_mb,
 )
 from configuration import Configuration
+from shopify_cli.client import ShopifyGraphQLClient
 
 
 class TestParseLoadingOptionDates(unittest.TestCase):
@@ -676,6 +678,96 @@ class TestFetchBulkWindows(unittest.TestCase):
         self.assertEqual(calls, [(None, "2026-06-01T00:00:00Z")])
         for result in results:
             Path(result.file_path).unlink(missing_ok=True)
+
+
+class TestBulkSlotContention(unittest.TestCase):
+    """A bulk operation left behind by a cancelled job must not fail every later run."""
+
+    def setUp(self):
+        self.client = ShopifyGraphQLClient.__new__(ShopifyGraphQLClient)
+        self.client.logger = logging.getLogger("test")
+
+    @staticmethod
+    def _busy(operation_id="gid://shopify/BulkOperation/1"):
+        return {
+            "bulkOperationRunQuery": {
+                "bulkOperation": None,
+                "userErrors": [
+                    {
+                        "field": None,
+                        "message": f"A bulk query operation for this app and shop is already in progress: {operation_id}.",
+                    }
+                ],
+            }
+        }
+
+    @staticmethod
+    def _started(operation_id="gid://shopify/BulkOperation/2"):
+        return {"bulkOperationRunQuery": {"bulkOperation": {"id": operation_id}, "userErrors": []}}
+
+    def test_busy_error_is_recognised(self):
+        self.assertTrue(ShopifyGraphQLClient._is_bulk_slot_busy(self._busy()["bulkOperationRunQuery"]["userErrors"]))
+        self.assertFalse(ShopifyGraphQLClient._is_bulk_slot_busy([{"message": "Something else went wrong"}]))
+        self.assertFalse(ShopifyGraphQLClient._is_bulk_slot_busy([]))
+
+    def test_free_slot_submits_exactly_once(self):
+        # The happy path must not make any extra request, or every cassette would break.
+        self.client.execute_query = mock.Mock(return_value=self._started())
+        bulk_op = self.client._start_bulk_operation("mutation {}")
+        self.assertEqual(bulk_op, {"id": "gid://shopify/BulkOperation/2"})
+        self.assertEqual(self.client.execute_query.call_count, 1)
+
+    def test_busy_slot_is_waited_out_then_the_operation_starts(self):
+        self.client._load_bulk_status_query = mock.Mock(return_value="query {}")
+        self.client.execute_query = mock.Mock(
+            side_effect=[
+                self._busy(),  # first submit is blocked
+                {"currentBulkOperation": {"id": "gid://shopify/BulkOperation/1", "status": "COMPLETED"}},
+                self._started(),  # retry succeeds
+            ]
+        )
+        with mock.patch("shopify_cli.client.time.sleep"):
+            bulk_op = self.client._start_bulk_operation("mutation {}")
+        self.assertEqual(bulk_op, {"id": "gid://shopify/BulkOperation/2"})
+        self.assertEqual(self.client.execute_query.call_count, 3)
+
+    def test_blocking_operation_is_never_cancelled(self):
+        # Cancelling could kill another configuration's run, or a production run.
+        self.client._load_bulk_status_query = mock.Mock(return_value="query {}")
+        self.client.execute_query = mock.Mock(
+            side_effect=[
+                self._busy(),
+                {"currentBulkOperation": {"id": "gid://shopify/BulkOperation/1", "status": "COMPLETED"}},
+                self._started(),
+            ]
+        )
+        with mock.patch("shopify_cli.client.time.sleep"):
+            self.client._start_bulk_operation("mutation {}")
+        sent = " ".join(str(call) for call in self.client.execute_query.call_args_list)
+        self.assertNotIn("bulkOperationCancel", sent)
+
+    def test_wait_gives_up_with_an_actionable_error(self):
+        self.client._load_bulk_status_query = mock.Mock(return_value="query {}")
+        self.client.execute_query = mock.Mock(
+            return_value={"currentBulkOperation": {"id": "gid://shopify/BulkOperation/1", "status": "RUNNING"}}
+        )
+        # Freeze sleep and jump the clock past the timeout on the first poll.
+        with (
+            mock.patch("shopify_cli.client.time.sleep"),
+            mock.patch("shopify_cli.client.time.time", side_effect=[0, 0, 10_000, 10_000]),
+            self.assertRaises(UserException) as ctx,
+        ):
+            self.client._wait_for_free_bulk_slot([{"message": "already in progress"}])
+        self.assertIn("bulkOperationCancel", str(ctx.exception))
+
+    def test_other_user_errors_still_fail_immediately(self):
+        self.client.execute_query = mock.Mock(
+            return_value={"bulkOperationRunQuery": {"bulkOperation": None, "userErrors": [{"message": "Bad query"}]}}
+        )
+        with self.assertRaises(UserException) as ctx:
+            self.client._start_bulk_operation("mutation {}")
+        self.assertIn("Bad query", str(ctx.exception))
+        self.assertEqual(self.client.execute_query.call_count, 1)
 
 
 if __name__ == "__main__":

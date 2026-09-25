@@ -56,6 +56,10 @@ def log_bulk_performance(entity_name: str):
 # How often the bulk poll loop emits a progress line at INFO while Shopify builds the export.
 BULK_PROGRESS_LOG_INTERVAL_SECONDS = 30
 
+# How long to wait for a bulk operation left behind by an earlier run to finish before giving up.
+BULK_SLOT_WAIT_TIMEOUT_SECONDS = 1800
+BULK_SLOT_POLL_INTERVAL_SECONDS = 15
+
 
 class ShopifyGraphQLClient:
     """
@@ -119,6 +123,73 @@ class ShopifyGraphQLClient:
             f"Waiting for Shopify to build the export: status={status}, {int(now - poll_start)}s elapsed{progress}"
         )
         return now
+
+    def _load_bulk_status_query(self) -> str:
+        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
+        with open(status_file) as f:
+            return f.read()
+
+    @staticmethod
+    def _is_bulk_slot_busy(user_errors: list[dict[str, Any]]) -> bool:
+        return any("already in progress" in str(error.get("message", "")).lower() for error in user_errors)
+
+    def _start_bulk_operation(self, mutation: str) -> dict[str, Any]:
+        """Submit a bulk operation, waiting out any operation already holding the shop's slot.
+
+        Shopify runs one bulk query per app and shop, so an operation outlives the job that
+        started it: cancelling a Keboola job kills the container, but the export keeps building
+        on Shopify's side and blocks the next run with "A bulk query operation for this app and
+        shop is already in progress". Every following run then failed immediately, and clearing
+        it by hand needs Admin API access to the store.
+
+        The blocking operation is waited out instead. It is never cancelled and its result is
+        never read - it may belong to another configuration, or to a production run.
+        """
+        result = self.execute_query(mutation)
+        payload = result.get("bulkOperationRunQuery", {})
+        user_errors = payload.get("userErrors", [])
+
+        if user_errors and self._is_bulk_slot_busy(user_errors):
+            self._wait_for_free_bulk_slot(user_errors)
+            result = self.execute_query(mutation)
+            payload = result.get("bulkOperationRunQuery", {})
+            user_errors = payload.get("userErrors", [])
+
+        if user_errors:
+            raise UserException(f"Bulk operation failed: {user_errors}")
+
+        bulk_op = payload.get("bulkOperation", {})
+        self.logger.info(f"Bulk operation started: {bulk_op.get('id')}")
+        return bulk_op
+
+    def _wait_for_free_bulk_slot(self, user_errors: list[dict[str, Any]]) -> None:
+        """Poll until the bulk operation already running for this shop is no longer running."""
+        timeout_minutes = BULK_SLOT_WAIT_TIMEOUT_SECONDS // 60
+        self.logger.warning(
+            "Another bulk operation is already running for this shop, so this one cannot start yet. "
+            "This usually means an earlier job was cancelled while Shopify was still building its "
+            f"export. Waiting up to {timeout_minutes} minutes for it to finish. "
+            f"Shopify reported: {user_errors}"
+        )
+        status_query = self._load_bulk_status_query()
+        wait_start = time.time()
+        while time.time() - wait_start < BULK_SLOT_WAIT_TIMEOUT_SECONDS:
+            time.sleep(BULK_SLOT_POLL_INTERVAL_SECONDS)
+            current_op = self.execute_query(status_query).get("currentBulkOperation") or {}
+            status = current_op.get("status")
+            if status not in ("CREATED", "RUNNING", "CANCELING"):
+                self.logger.info(f"The blocking bulk operation ended with status {status}; continuing")
+                return
+            self.logger.info(
+                f"Still waiting for the blocking bulk operation ({current_op.get('id')}, {status}): "
+                f"{int(time.time() - wait_start)}s elapsed"
+            )
+        raise UserException(
+            "A bulk operation started by an earlier run is still building on Shopify's side, and it did "
+            f"not finish within {timeout_minutes} minutes, so this run cannot start one. Shopify allows "
+            "one bulk query per app and shop. Wait for it to finish and run again, or cancel it with the "
+            "bulkOperationCancel mutation."
+        )
 
     def execute_query(
         self, query: str, variables: dict[str, Any] | None = None, max_retries: int = 5
@@ -616,16 +687,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        result = self.execute_query(mutation)
-
-        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
-        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
-
-        if user_errors:
-            raise UserException(f"Bulk operation failed: {user_errors}")
-
-        operation_id = bulk_op.get("id")
-        self.logger.info(f"Bulk operation started: {operation_id}")
+        self._start_bulk_operation(mutation)
 
         # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
@@ -728,16 +790,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        result = self.execute_query(mutation)
-
-        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
-        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
-
-        if user_errors:
-            raise UserException(f"Bulk operation failed: {user_errors}")
-
-        operation_id = bulk_op.get("id")
-        self.logger.info(f"Bulk operation started: {operation_id}")
+        self._start_bulk_operation(mutation)
 
         # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
@@ -829,16 +882,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        result = self.execute_query(mutation)
-
-        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
-        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
-
-        if user_errors:
-            raise UserException(f"Bulk operation failed: {user_errors}")
-
-        operation_id = bulk_op.get("id")
-        self.logger.info(f"Bulk operation started: {operation_id}")
+        self._start_bulk_operation(mutation)
 
         # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
@@ -903,16 +947,7 @@ class ShopifyGraphQLClient:
         with open(mutation_file) as f:
             mutation = f.read()
 
-        result = self.execute_query(mutation)
-
-        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
-        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
-
-        if user_errors:
-            raise UserException(f"Bulk operation failed: {user_errors}")
-
-        operation_id = bulk_op.get("id")
-        self.logger.info(f"Bulk operation started: {operation_id}")
+        self._start_bulk_operation(mutation)
 
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
         with open(status_file) as f:
@@ -1001,16 +1036,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        result = self.execute_query(mutation)
-
-        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
-        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
-
-        if user_errors:
-            raise UserException(f"Bulk operation failed: {user_errors}")
-
-        operation_id = bulk_op.get("id")
-        self.logger.info(f"Bulk operation started: {operation_id}")
+        self._start_bulk_operation(mutation)
 
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
         with open(status_file) as f:
@@ -1114,16 +1140,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        result = self.execute_query(mutation)
-
-        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
-        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
-
-        if user_errors:
-            raise UserException(f"Bulk operation failed: {user_errors}")
-
-        operation_id = bulk_op.get("id")
-        self.logger.info(f"Bulk operation started: {operation_id}")
+        self._start_bulk_operation(mutation)
 
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
         with open(status_file) as f:
@@ -1183,16 +1200,7 @@ class ShopifyGraphQLClient:
         with open(mutation_file) as f:
             mutation = f.read()
 
-        result = self.execute_query(mutation)
-
-        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
-        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
-
-        if user_errors:
-            raise UserException(f"Bulk operation failed: {user_errors}")
-
-        operation_id = bulk_op.get("id")
-        self.logger.info(f"Bulk operation started: {operation_id}")
+        self._start_bulk_operation(mutation)
 
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
         with open(status_file) as f:
@@ -1287,16 +1295,7 @@ class ShopifyGraphQLClient:
         api_wait_start = time.time()
         self.logger.info("Starting custom bulk operation")
 
-        result = self.execute_query(query)
-
-        bulk_op = result.get("bulkOperationRunQuery", {}).get("bulkOperation", {})
-        user_errors = result.get("bulkOperationRunQuery", {}).get("userErrors", [])
-
-        if user_errors:
-            raise UserException(f"Bulk operation failed: {user_errors}")
-
-        operation_id = bulk_op.get("id")
-        self.logger.info(f"Bulk operation started: {operation_id}")
+        self._start_bulk_operation(query)
 
         # Poll for completion
         status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"

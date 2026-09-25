@@ -100,6 +100,7 @@ You can inject values from **Loading Options** into a custom query with these pl
   - **date_to** - End date for extraction (ISO format YYYY-MM-DD or relative like "now", "yesterday"). Resolved to a full ISO-8601 UTC timestamp of the actual run moment, so `date_to: "now"` includes records updated earlier the same day. Leave unset to emit no upper bound. **Note:** prior to this fix, `date_to` was truncated to midnight of the run day, silently excluding records updated on the run day whenever `date_to` was set.
   - **fetch_parameter** - Field to filter by: "updated_at" or "created_at" (default: "updated_at")
   - **incremental_output** - Load type: 0=Full Load, 1=Incremental Update (default: 1)
+  - **chunk_size_days** - Split the period into consecutive windows of this many days, one bulk operation per window (default: 0 = disabled). Use this if a long period fails with an out-of-memory error; 30 is a good starting point. It bounds the memory needed to load the data by the chunk size instead of the whole period. Trade-offs: a chunked run is slower (one bulk operation per chunk, and Shopify allows one at a time per shop), it requires `date_since`, and it has no effect on `inventory`/`locations` (always full snapshots), custom queries, the `*_legacy` endpoints, or the paginated refund/shipping endpoints. It does not remove the per-row cost of serializing very wide nested rows, which scales with row width rather than row count.
 - **events** - Array of event configurations for events endpoint (default: [])
 - **custom_queries** - Array of custom bulk query configurations:
   - **name** - Query name (used for output table name)
@@ -423,7 +424,7 @@ Data types are automatically detected and mapped:
 The component leverages several key technologies:
 
 - **Shopify GraphQL API**: Uses the modern Admin API for efficient data retrieval
-- **DuckDB**: In-memory analytical database for data processing and type detection
+- **DuckDB**: File-backed analytical database (under `/tmp`) for data processing and type detection
 - **Pydantic**: Configuration validation and type safety
 - **Keboola Component Framework**: Integration with Keboola platform
 

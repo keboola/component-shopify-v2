@@ -53,6 +53,10 @@ def log_bulk_performance(entity_name: str):
     return decorator
 
 
+# How often the bulk poll loop emits a progress line at INFO while Shopify builds the export.
+BULK_PROGRESS_LOG_INTERVAL_SECONDS = 30
+
+
 class ShopifyGraphQLClient:
     """
     Shopify GraphQL API client for data extraction
@@ -89,6 +93,32 @@ class ShopifyGraphQLClient:
             self.logger.info(f"Successfully connected to Shopify store: {self.store_name}")
         except Exception as e:
             raise UserException(f"Failed to connect to Shopify store: {str(e)}")
+
+    def _log_bulk_poll_progress(
+        self,
+        status: str | None,
+        current_op: dict[str, Any],
+        poll_start: float,
+        last_progress_log: float,
+    ) -> float:
+        """Log a heartbeat while Shopify builds a bulk export, and return when it last logged.
+
+        Shopify builds the export on its own side, which takes minutes to hours on a wide
+        window. The poll loop logged the status at debug level only, so at the default log
+        level the job emitted nothing at all for the whole wait and looked hung — long enough
+        that a healthy run gets terminated by hand. Logging only changes; the poll interval
+        and the loop's exit conditions are unchanged.
+        """
+        self.logger.debug(f"Bulk operation status: {status}")
+        now = time.time()
+        if now - last_progress_log < BULK_PROGRESS_LOG_INTERVAL_SECONDS:
+            return last_progress_log
+        object_count = current_op.get("objectCount")
+        progress = f", {object_count} objects so far" if object_count else ""
+        self.logger.info(
+            f"Waiting for Shopify to build the export: status={status}, {int(now - poll_start)}s elapsed{progress}"
+        )
+        return now
 
     def execute_query(
         self, query: str, variables: dict[str, Any] | None = None, max_retries: int = 5
@@ -603,6 +633,7 @@ class ShopifyGraphQLClient:
             status_query = f.read()
 
         poll_start = time.time()
+        last_progress_log = poll_start
         while True:
             elapsed = time.time() - poll_start
             sleep_interval = 5 if elapsed < 60 else 15
@@ -612,7 +643,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.debug(f"Bulk operation status: {status}")
+            last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -714,6 +745,7 @@ class ShopifyGraphQLClient:
             status_query = f.read()
 
         poll_start = time.time()
+        last_progress_log = poll_start
         while True:
             elapsed = time.time() - poll_start
             sleep_interval = 5 if elapsed < 60 else 15
@@ -723,7 +755,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.debug(f"Bulk operation status: {status}")
+            last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -814,6 +846,7 @@ class ShopifyGraphQLClient:
             status_query = f.read()
 
         poll_start = time.time()
+        last_progress_log = poll_start
         while True:
             elapsed = time.time() - poll_start
             sleep_interval = 5 if elapsed < 60 else 15
@@ -823,7 +856,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.debug(f"Bulk operation status: {status}")
+            last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -886,6 +919,7 @@ class ShopifyGraphQLClient:
             status_query = f.read()
 
         poll_start = time.time()
+        last_progress_log = poll_start
         while True:
             elapsed = time.time() - poll_start
             sleep_interval = 5 if elapsed < 60 else 15
@@ -895,7 +929,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.debug(f"Bulk operation status: {status}")
+            last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -983,6 +1017,7 @@ class ShopifyGraphQLClient:
             status_query = f.read()
 
         poll_start = time.time()
+        last_progress_log = poll_start
         while True:
             elapsed = time.time() - poll_start
             sleep_interval = 5 if elapsed < 60 else 15
@@ -992,7 +1027,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.debug(f"Bulk operation status: {status}")
+            last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -1095,6 +1130,7 @@ class ShopifyGraphQLClient:
             status_query = f.read()
 
         poll_start = time.time()
+        last_progress_log = poll_start
         while True:
             elapsed = time.time() - poll_start
             sleep_interval = 5 if elapsed < 60 else 15
@@ -1104,7 +1140,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.debug(f"Bulk operation status: {status}")
+            last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -1163,6 +1199,7 @@ class ShopifyGraphQLClient:
             status_query = f.read()
 
         poll_start = time.time()
+        last_progress_log = poll_start
         while True:
             elapsed = time.time() - poll_start
             sleep_interval = 5 if elapsed < 60 else 15
@@ -1172,7 +1209,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.debug(f"Bulk operation status: {status}")
+            last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
 
             if status == "COMPLETED":
                 url = current_op.get("url")
@@ -1267,6 +1304,7 @@ class ShopifyGraphQLClient:
             status_query = f.read()
 
         poll_start = time.time()
+        last_progress_log = poll_start
         while True:
             elapsed = time.time() - poll_start
             sleep_interval = 5 if elapsed < 60 else 15
@@ -1276,7 +1314,7 @@ class ShopifyGraphQLClient:
             current_op = status_result.get("currentBulkOperation", {})
 
             status = current_op.get("status")
-            self.logger.debug(f"Bulk operation status: {status}")
+            last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
 
             if status == "COMPLETED":
                 url = current_op.get("url")

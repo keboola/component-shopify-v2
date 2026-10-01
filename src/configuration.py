@@ -32,6 +32,12 @@ class LoadingOptions(BaseModel):
     date_to: str | None = Field(default=None, description="End date for data extraction (YYYY-MM-DD)")
     fetch_parameter: str = Field(default="updated_at", description="Field to filter by (updated_at or created_at)")
     incremental_output: int = Field(default=1, description="Load type: 0=Full Load, 1=Incremental Update")
+    chunk_size_days: int = Field(
+        default=0,
+        ge=0,
+        le=3650,
+        description="0=disabled. When set, the period is fetched in consecutive windows of this many days.",
+    )
 
 
 class Endpoints(BaseModel):

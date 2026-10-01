@@ -8,6 +8,8 @@ import tempfile
 import time
 import uuid
 from collections import OrderedDict, defaultdict
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -139,6 +141,154 @@ def _build_customer_journey_columns() -> list[tuple[str, str]]:
 CUSTOMER_JOURNEY_SUMMARY_COLUMNS = _build_customer_journey_columns()
 
 
+# ---------------------------------------------------------------------------
+# DuckDB memory budget
+#
+# Up to 0.3.3 the DuckDB ``memory_limit`` was the hardcoded literal ``320MB``. That
+# value was chosen for the Keboola "small" backend (512 MiB container): 320 MiB for
+# DuckDB, the rest for the Python process and DuckDB's own untracked allocations.
+# Because it was a constant, moving a config to a larger backend bought no extra
+# DuckDB headroom at all — a "medium" container has ~2x the memory, but DuckDB still
+# refused to use more than 320 MiB and still aborted with
+# ``Out of Memory Error: failed to pin block ... (305.0 MiB/305.1 MiB used)``.
+# That made "move to a bigger backend" ineffective advice for DuckDB-bound OOMs.
+#
+# The limit is now derived from the container's own cgroup memory limit using the
+# same 320/512 ratio the constant encoded, so small-backend behaviour is unchanged
+# and larger backends get proportionally more. Detection is deliberately
+# conservative: anything unreadable, absent, unlimited, or implausibly large falls
+# back to the previous constant.
+# ---------------------------------------------------------------------------
+
+# 320 of 512 — the ratio the previous constant encoded, kept exactly. Note DuckDB
+# reads the ``MB`` suffix as decimal megabytes, so ``320MB`` is 305.2 MiB (which is
+# why the production OOM reported "305.0 MiB/305.1 MiB used"). The fraction is
+# applied to the cgroup value in MiB and re-emitted with the same ``MB`` suffix, so
+# a 512 MiB container resolves to the identical ``320MB`` string as before.
+DUCKDB_MEMORY_FRACTION = 0.625
+# Never go below the previous hardcoded value, so no backend loses headroom.
+DUCKDB_MEMORY_FLOOR_MB = 320
+# A cgroup value above this is treated as "not a real container limit" (cgroup v1
+# reports unlimited as a huge sentinel, and an unconstrained container reports host
+# memory). In that case we keep the floor rather than trusting the reading.
+DUCKDB_MEMORY_PLAUSIBLE_CONTAINER_CEILING_MB = 16384
+
+CGROUP_MEMORY_LIMIT_PATHS = (
+    "/sys/fs/cgroup/memory.max",  # cgroup v2
+    "/sys/fs/cgroup/memory/memory.limit_in_bytes",  # cgroup v1
+)
+
+
+def _read_container_memory_limit_mb() -> int | None:
+    """Return the container's memory limit in MiB, or None if it cannot be trusted.
+
+    Reads the cgroup limit the container runtime imposes. Returns None when no cgroup
+    file is readable, when the limit is unset/unlimited, or when the value is not a
+    plausible container limit — callers must fall back to ``DUCKDB_MEMORY_FLOOR_MB``.
+    """
+    for path in CGROUP_MEMORY_LIMIT_PATHS:
+        try:
+            raw = Path(path).read_text().strip()
+        # ValueError covers UnicodeDecodeError, so a cgroup file that is unreadable for
+        # any reason falls back to the floor rather than aborting the whole run.
+        except (OSError, ValueError):
+            continue
+        if not raw or raw == "max":
+            continue
+        try:
+            limit_bytes = int(raw)
+        except ValueError:
+            continue
+        if limit_bytes <= 0:
+            continue
+        limit_mb = limit_bytes // (1024 * 1024)
+        if limit_mb <= 0 or limit_mb > DUCKDB_MEMORY_PLAUSIBLE_CONTAINER_CEILING_MB:
+            continue
+        return limit_mb
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Window chunking
+#
+# The non-spillable memory that scales with the NUMBER of rows in a window is the
+# base-table load: ``read_json_auto`` over the whole bulk JSONL. Splitting the
+# configured period into consecutive windows, one Shopify bulk operation each, keeps
+# that load proportional to the chunk instead of the period.
+#
+# The remaining memory floor (serializing a wide nested row with ``to_json``) scales
+# with row WIDTH, not row count, so no window size can move it — see L1-144.
+# ---------------------------------------------------------------------------
+
+SHOPIFY_TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+# Helper column added only while several chunk files are being loaded, so the newer copy of a
+# record returned by two chunks can be identified. Always dropped before the table is used.
+CHUNK_INDEX_COLUMN = "__chunk_index"
+
+# Above this many chunks the run is almost certainly mis-sized: each chunk is one sequential
+# Shopify bulk operation, and no output is written until every chunk has completed.
+CHUNK_COUNT_WARNING_THRESHOLD = 100
+
+
+def build_window_chunks(
+    date_since: str | None,
+    date_to: str | None,
+    chunk_size_days: int,
+    now_timestamp: str,
+) -> list[tuple[str | None, str | None]]:
+    """Split a resolved ``[date_since, date_to)`` window into consecutive half-open chunks.
+
+    Takes and returns the same ``%Y-%m-%dT%H:%M:%SZ`` strings that
+    ``_parse_loading_option_dates`` produces, so chunk bounds reach Shopify through the
+    identical quoting path as an unchunked run.
+
+    Returns ``[(date_since, date_to)]`` unchanged — i.e. exactly today's single request —
+    when chunking is off, when there is no lower bound to step from, or when the window
+    fits in one chunk. ``date_to=None`` means "no upper bound"; that is preserved on the
+    final chunk so records updated during the run are still caught.
+    """
+    if chunk_size_days <= 0 or date_since is None:
+        return [(date_since, date_to)]
+
+    start = datetime.strptime(date_since, SHOPIFY_TIMESTAMP_FORMAT)
+    # An unset date_to means "up to whenever the run reaches"; use the run moment only to
+    # lay the boundaries out, never as an emitted bound.
+    end = datetime.strptime(date_to or now_timestamp, SHOPIFY_TIMESTAMP_FORMAT)
+    if end <= start:
+        return [(date_since, date_to)]
+
+    step = timedelta(days=chunk_size_days)
+    chunks: list[tuple[str | None, str | None]] = []
+    cursor = start
+    while cursor < end:
+        following = cursor + step
+        if following >= end:
+            # Final chunk keeps the caller's original upper bound verbatim, including None.
+            chunks.append((cursor.strftime(SHOPIFY_TIMESTAMP_FORMAT), date_to))
+            break
+        chunks.append((cursor.strftime(SHOPIFY_TIMESTAMP_FORMAT), following.strftime(SHOPIFY_TIMESTAMP_FORMAT)))
+        cursor = following
+    return chunks
+
+
+def duckdb_memory_limit_for_container_mb(container_mb: int | None) -> int:
+    """Clamp a detected container limit (MiB) to the DuckDB budget (MiB).
+
+    Pure function, no I/O. Always returns at least ``DUCKDB_MEMORY_FLOOR_MB``, which is
+    the constant used before this function existed — so on the 512 MiB "small" backend,
+    and on any container whose limit could not be read, the result is identical to 0.3.3.
+    """
+    if container_mb is None:
+        return DUCKDB_MEMORY_FLOOR_MB
+    return max(DUCKDB_MEMORY_FLOOR_MB, int(container_mb * DUCKDB_MEMORY_FRACTION))
+
+
+def resolve_duckdb_memory_limit_mb() -> int:
+    """Resolve the DuckDB ``memory_limit`` (MiB) from the container's memory limit."""
+    return duckdb_memory_limit_for_container_mb(_read_container_memory_limit_mb())
+
+
 class Component(ComponentBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -151,13 +301,22 @@ class Component(ComponentBase):
             self.db_path = str(db_dir / f"data-{uuid.uuid4().hex}.duckdb")
         self.conn = duckdb.connect(self.db_path)
         self.conn.execute("SET temp_directory='/tmp/duckdb_temp'")
-        self.conn.execute("SET memory_limit='320MB'")
+        container_memory_mb = _read_container_memory_limit_mb()
+        memory_limit_mb = duckdb_memory_limit_for_container_mb(container_memory_mb)
+        self.conn.execute(f"SET memory_limit='{memory_limit_mb}MB'")
         self.conn.execute("SET threads=2")
         self.conn.execute("SET preserve_insertion_order=false")
         effective_memory_limit = self.conn.execute("SELECT current_setting('memory_limit')").fetchone()[0]
         effective_threads = self.conn.execute("SELECT current_setting('threads')").fetchone()[0]
+        if container_memory_mb is None:
+            memory_source = "container limit not detected, using the default minimum"
+        elif memory_limit_mb == DUCKDB_MEMORY_FLOOR_MB:
+            memory_source = f"container limit {container_memory_mb} MiB, raised to the default minimum"
+        else:
+            memory_source = f"scaled from container limit {container_memory_mb} MiB"
         self.logger.info(
-            f"DuckDB memory_limit={effective_memory_limit}; threads={effective_threads}; database file: {self.db_path}"
+            f"DuckDB memory_limit={effective_memory_limit} ({memory_source}); "
+            f"threads={effective_threads}; database file: {self.db_path}"
         )
         self.params = Configuration(**self.configuration.parameters)
 
@@ -884,25 +1043,26 @@ class Component(ComponentBase):
         """Extract orders using Shopify bulk operations"""
         self.logger.info("Extracting orders using bulk operations")
 
-        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
-            temp_jsonl = tmp.name
-
         date_since, date_to = self._parse_loading_option_dates(
             params.loading_options.date_since, params.loading_options.date_to
         )
-        result = client.get_orders_bulk(
-            temp_jsonl,
-            include_transactions=params.endpoints.order_transactions,
-            date_since=date_since,
-            date_to=date_to,
-            fetch_parameter=params.loading_options.fetch_parameter,
+        results = self._fetch_bulk_windows(
+            lambda path, since, to: client.get_orders_bulk(
+                path,
+                include_transactions=params.endpoints.order_transactions,
+                date_since=since,
+                date_to=to,
+                fetch_parameter=params.loading_options.fetch_parameter,
+            ),
+            "orders",
+            date_since,
+            date_to,
         )
 
-        if result.item_count > 0:
-            self._process_bulk_orders(result)
+        if results:
+            self._process_bulk_orders(results)
         else:
             self.logger.info("No orders found")
-            Path(result.file_path).unlink(missing_ok=True)
 
     def _extract_order_shipping_discounts(self, client: ShopifyGraphQLClient, params: Configuration):
         """Extract order shipping lines and code-type discount applications via paginated GraphQL.
@@ -1052,31 +1212,149 @@ class Component(ComponentBase):
         status_filter = ",".join(statuses)
         self.logger.info(f"Fetching products with statuses: {status_filter}")
 
-        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
-            temp_jsonl = tmp.name
-
         date_since, date_to = self._parse_loading_option_dates(
             params.loading_options.date_since, params.loading_options.date_to
         )
-        result = client.get_products_bulk(
-            temp_jsonl,
-            status=status_filter,
-            include_product_metafields=params.endpoints.product_metafields,
-            include_variant_metafields=params.endpoints.variant_metafields,
-            date_since=date_since,
-            date_to=date_to,
-            fetch_parameter=params.loading_options.fetch_parameter,
+        results = self._fetch_bulk_windows(
+            lambda path, since, to: client.get_products_bulk(
+                path,
+                status=status_filter,
+                include_product_metafields=params.endpoints.product_metafields,
+                include_variant_metafields=params.endpoints.variant_metafields,
+                date_since=since,
+                date_to=to,
+                fetch_parameter=params.loading_options.fetch_parameter,
+            ),
+            "products",
+            date_since,
+            date_to,
         )
 
-        if result.item_count > 0:
-            self._process_bulk_products(result)
+        if results:
+            self._process_bulk_products(results)
         else:
             self.logger.info("No products found")
-            Path(result.file_path).unlink(missing_ok=True)
+
+    def _window_chunks(self, date_since: str | None, date_to: str | None) -> list[tuple[str | None, str | None]]:
+        """Resolve the configured period into the windows to fetch, one bulk operation each."""
+        chunk_size_days = self.params.loading_options.chunk_size_days
+        if chunk_size_days > 0 and date_since is None:
+            self.logger.warning(
+                "chunk_size_days is set but no period start date is configured; "
+                "there is no lower bound to step from, so the period is fetched in one pass."
+            )
+            return [(date_since, date_to)]
+        now_timestamp = datetime.now(UTC).strftime(SHOPIFY_TIMESTAMP_FORMAT)
+        chunks = build_window_chunks(date_since, date_to, chunk_size_days, now_timestamp)
+        if len(chunks) > 1:
+            self.logger.info(f"Period split into {len(chunks)} chunks of {chunk_size_days} day(s)")
+        if len(chunks) > CHUNK_COUNT_WARNING_THRESHOLD:
+            self.logger.warning(
+                f"This period splits into {len(chunks)} chunks, which means {len(chunks)} Shopify bulk "
+                "operations run one after another. Shopify allows one bulk operation per shop at a time, "
+                "and no output table is written until every chunk has completed, so the job may reach its "
+                "time limit and then produce nothing. Increase chunk_size_days or shorten the period."
+            )
+        return chunks
+
+    def _fetch_bulk_windows(
+        self,
+        fetch: Callable[[str, str | None, str | None], BulkOperationResult],
+        entity_name: str,
+        date_since: str | None,
+        date_to: str | None,
+    ) -> list[BulkOperationResult]:
+        """Run one bulk operation per window chunk and return the non-empty results.
+
+        With chunking off this runs exactly one bulk operation with the caller's original
+        bounds, which is what the extractors did before chunking existed.
+        """
+        chunks = self._window_chunks(date_since, date_to)
+        results: list[BulkOperationResult] = []
+        for index, (chunk_since, chunk_to) in enumerate(chunks, start=1):
+            with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
+                temp_jsonl = tmp.name
+            if len(chunks) > 1:
+                self.logger.info(
+                    f"Fetching {entity_name} chunk {index}/{len(chunks)} "
+                    f"[{chunk_since} -> {chunk_to or 'no upper bound'})"
+                )
+            result = fetch(temp_jsonl, chunk_since, chunk_to)
+            if result.item_count > 0:
+                results.append(result)
+            else:
+                if len(chunks) > 1:
+                    self.logger.info(f"Chunk {index}/{len(chunks)} returned no {entity_name}")
+                Path(result.file_path).unlink(missing_ok=True)
+        return results
+
+    def _load_bulk_files(self, table_name: str, file_paths: list[str]) -> None:
+        """Load one or more bulk JSONL files into ``table_name``.
+
+        A single file takes the original one-statement ``read_json_auto`` path verbatim, so an
+        unchunked run is byte-identical to before chunking existed.
+
+        Several files cannot simply be loaded one after another: ``read_json_auto`` infers the
+        schema per file, so a column present only in a later chunk would fail to insert, and an
+        explicit column spec silently drops keys it does not name. The schema is therefore
+        detected once across all files (``union_by_name`` with full sampling) and then pinned for
+        every insert. Detection reads the files but materializes no rows (``LIMIT 0``).
+        """
+        self.conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+        if len(file_paths) == 1:
+            self.conn.execute(f"CREATE TABLE \"{table_name}\" AS SELECT * FROM read_json_auto('{file_paths[0]}')")
+            return
+
+        file_list = ", ".join(f"'{path}'" for path in file_paths)
+        self.conn.execute(
+            f'CREATE TABLE "{table_name}" AS SELECT * FROM '
+            f"read_json_auto([{file_list}], union_by_name=true, sample_size=-1) LIMIT 0"
+        )
+        columns_spec = ", ".join(
+            f"'{name}': '{dtype}'" for name, dtype, *_ in self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()
+        )
+        self.conn.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{CHUNK_INDEX_COLUMN}" INTEGER')
+        for index, path in enumerate(file_paths):
+            self.conn.execute(
+                f'INSERT INTO "{table_name}" BY NAME '
+                f'SELECT *, {index} AS "{CHUNK_INDEX_COLUMN}" '
+                f"FROM read_json('{path}', columns={{{columns_spec}}}, format='newline_delimited')"
+            )
+        self._drop_chunk_overlap(table_name)
+
+    def _drop_chunk_overlap(self, table_name: str) -> None:
+        """Remove records that two chunks both returned, keeping the copy from the later chunk.
+
+        Chunk windows are half-open and disjoint, but they are fetched one after another over the
+        wall clock and filter on a mutable field (``updated_at`` by default). A record that is
+        updated again while a later chunk is still being fetched therefore matches two windows and
+        arrives twice. With incremental output Storage collapses the pair on the primary key, but a
+        full load would emit both rows, so the duplicate has to be removed here. The copy from the
+        later chunk is the newer snapshot, so that is the one kept.
+
+        Rows without an ``id`` are never treated as duplicates of each other.
+        """
+        columns = {c[0] for c in self.conn.execute(f'DESCRIBE "{table_name}"').fetchall()}
+        if "id" in columns:
+            overlap = self.conn.execute(
+                f'SELECT COUNT(*) FROM (SELECT "id" FROM "{table_name}" '
+                f'WHERE "id" IS NOT NULL GROUP BY "id" HAVING COUNT(*) > 1)'
+            ).fetchone()
+            if overlap and overlap[0]:
+                self.logger.info(
+                    f"{overlap[0]} record(s) were returned by more than one chunk "
+                    f"(updated while the extraction was running); keeping the newest copy of each"
+                )
+                self.conn.execute(
+                    f'CREATE OR REPLACE TABLE "{table_name}" AS SELECT * FROM "{table_name}" '
+                    f'QUALIFY "id" IS NULL '
+                    f'OR row_number() OVER (PARTITION BY "id" ORDER BY "{CHUNK_INDEX_COLUMN}" DESC) = 1'
+                )
+        self.conn.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{CHUNK_INDEX_COLUMN}"')
 
     def _process_bulk_result(
         self,
-        bulk_result: BulkOperationResult,
+        bulk_result: BulkOperationResult | list[BulkOperationResult],
         table_name: str,
         entity_name: str | None = None,
         entity_name_overrides: dict[str, str] | None = None,
@@ -1086,15 +1364,21 @@ class Component(ComponentBase):
             entity_name = table_name
         process_start = time.time()
 
-        self.logger.info(f"Processing {bulk_result.item_count} {entity_name} from {bulk_result.file_path}")
+        bulk_results = bulk_result if isinstance(bulk_result, list) else [bulk_result]
+        file_paths = [r.file_path for r in bulk_results]
+        item_count = sum(r.item_count for r in bulk_results)
+        api_wait_time = sum(r.api_wait_time for r in bulk_results)
+        download_time = sum(r.download_time for r in bulk_results)
+
+        self.logger.info(f"Processing {item_count} {entity_name} from {len(file_paths)} file(s)")
 
         try:
-            entity_keys = self._scan_jsonl_keys(bulk_result.file_path)
+            entity_keys: dict[str, set[str]] = defaultdict(set)
+            for path in file_paths:
+                for entity_type, keys in self._scan_jsonl_keys(path).items():
+                    entity_keys[entity_type].update(keys)
 
-            self.conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
-            self.conn.execute(
-                f"CREATE TABLE \"{table_name}\" AS SELECT * FROM read_json_auto('{bulk_result.file_path}')"
-            )
+            self._load_bulk_files(table_name, file_paths)
 
             if table_name == "order":
                 self._flatten_customer_journey_summary(table_name, entity_keys)
@@ -1114,19 +1398,20 @@ class Component(ComponentBase):
             process_time = time.time() - process_start
             self.logger.info(
                 f"{entity_name.capitalize()} processing complete: {row_count} items in {process_time:.2f}s "
-                f"(API wait: {bulk_result.api_wait_time:.2f}s, download: {bulk_result.download_time:.2f}s, "
+                f"(API wait: {api_wait_time:.2f}s, download: {download_time:.2f}s, "
                 f"process: {process_time:.2f}s)"
             )
         finally:
-            if self.params.debug:
-                debug_file = f"bulk_{table_name}_download.jsonl"
-                shutil.copy2(bulk_result.file_path, debug_file)
-            Path(bulk_result.file_path).unlink(missing_ok=True)
+            for index, path in enumerate(file_paths):
+                if self.params.debug:
+                    suffix = "" if len(file_paths) == 1 else f"_{index + 1}"
+                    shutil.copy2(path, f"bulk_{table_name}{suffix}_download.jsonl")
+                Path(path).unlink(missing_ok=True)
 
-    def _process_bulk_products(self, bulk_result: BulkOperationResult):
+    def _process_bulk_products(self, bulk_result: BulkOperationResult | list[BulkOperationResult]):
         self._process_bulk_result(bulk_result, "product")
 
-    def _process_bulk_orders(self, bulk_result: BulkOperationResult):
+    def _process_bulk_orders(self, bulk_result: BulkOperationResult | list[BulkOperationResult]):
         self._process_bulk_result(bulk_result, "order")
 
     def _extract_customers_legacy(self, client: ShopifyGraphQLClient, params: Configuration):
@@ -1147,26 +1432,27 @@ class Component(ComponentBase):
         """Extract customers using Shopify bulk operations"""
         self.logger.info("Extracting customers using bulk operations")
 
-        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
-            temp_jsonl = tmp.name
-
         date_since, date_to = self._parse_loading_option_dates(
             params.loading_options.date_since, params.loading_options.date_to
         )
-        result = client.get_customers_bulk(
-            temp_jsonl,
-            date_since=date_since,
-            date_to=date_to,
-            fetch_parameter=params.loading_options.fetch_parameter,
+        results = self._fetch_bulk_windows(
+            lambda path, since, to: client.get_customers_bulk(
+                path,
+                date_since=since,
+                date_to=to,
+                fetch_parameter=params.loading_options.fetch_parameter,
+            ),
+            "customers",
+            date_since,
+            date_to,
         )
 
-        if result.item_count > 0:
-            self._process_bulk_customers(result)
+        if results:
+            self._process_bulk_customers(results)
         else:
             self.logger.info("No customers found")
-            Path(result.file_path).unlink(missing_ok=True)
 
-    def _process_bulk_customers(self, bulk_result: BulkOperationResult):
+    def _process_bulk_customers(self, bulk_result: BulkOperationResult | list[BulkOperationResult]):
         self._process_bulk_result(bulk_result, "customer")
 
     def _extract_inventory_bulk(self, client: ShopifyGraphQLClient, params: Configuration):
@@ -1209,27 +1495,30 @@ class Component(ComponentBase):
         """Extract collections using Shopify bulk operations"""
         self.logger.info("Extracting collections using bulk operations")
 
-        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
-            temp_jsonl = tmp.name
-
         date_since, date_to = self._parse_loading_option_dates(
             params.loading_options.date_since, params.loading_options.date_to
         )
-        result = client.get_collections_bulk(
-            temp_jsonl,
-            include_metafields=params.endpoints.collection_metafields,
-            date_since=date_since,
-            date_to=date_to,
-            fetch_parameter=params.loading_options.fetch_parameter,
+        results = self._fetch_bulk_windows(
+            lambda path, since, to: client.get_collections_bulk(
+                path,
+                include_metafields=params.endpoints.collection_metafields,
+                date_since=since,
+                date_to=to,
+                fetch_parameter=params.loading_options.fetch_parameter,
+            ),
+            "collections",
+            date_since,
+            date_to,
         )
 
-        if result.item_count > 0:
-            self._process_bulk_collections(result, include_metafields=params.endpoints.collection_metafields)
+        if results:
+            self._process_bulk_collections(results, include_metafields=params.endpoints.collection_metafields)
         else:
             self.logger.info("No collections found")
-            Path(result.file_path).unlink(missing_ok=True)
 
-    def _process_bulk_collections(self, bulk_result: BulkOperationResult, include_metafields: bool = False):
+    def _process_bulk_collections(
+        self, bulk_result: BulkOperationResult | list[BulkOperationResult], include_metafields: bool = False
+    ):
         # The collections bulk decomposes into child entities that share generic GID entity
         # types with the products endpoint. "Product" rows here are the product-GID -> collection-GID
         # mapping (not the full product schema), and "Metafield" rows are collection-owned. Rename
@@ -1258,25 +1547,22 @@ class Component(ComponentBase):
         """Extract events using Shopify bulk operations"""
         self.logger.info("Extracting events using bulk operations")
 
-        with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
-            temp_jsonl = tmp.name
-
         date_since, date_to = self._parse_loading_option_dates(
             params.loading_options.date_since, params.loading_options.date_to
         )
-        result = client.get_events_bulk(
-            temp_jsonl,
-            date_since=date_since,
-            date_to=date_to,
+        results = self._fetch_bulk_windows(
+            lambda path, since, to: client.get_events_bulk(path, date_since=since, date_to=to),
+            "events",
+            date_since,
+            date_to,
         )
 
-        if result.item_count > 0:
-            self._process_bulk_events(result)
+        if results:
+            self._process_bulk_events(results)
         else:
             self.logger.info("No events found")
-            Path(result.file_path).unlink(missing_ok=True)
 
-    def _process_bulk_events(self, bulk_result: BulkOperationResult):
+    def _process_bulk_events(self, bulk_result: BulkOperationResult | list[BulkOperationResult]):
         self._process_bulk_result(bulk_result, "event")
 
     def _process_with_duckdb(self, table_name: str, data: list[dict[str, Any]], params: Configuration):

@@ -790,7 +790,12 @@ class TestShopifyApiVersionPinning(unittest.TestCase):
         self.assertEqual(default, "2026-10")
 
     def test_config_schema_default_matches_configuration_default(self):
-        schema = json.loads((Path(__file__).parent.parent / "component_config" / "configSchema.json").read_text())
+        # Repo-level consistency check. component_config/ is intentionally not copied into the
+        # runtime image (see Dockerfile), so skip rather than fail when running inside it.
+        schema_path = Path(__file__).parent.parent / "component_config" / "configSchema.json"
+        if not schema_path.is_file():
+            self.skipTest("component_config/configSchema.json not present (running inside the component image)")
+        schema = json.loads(schema_path.read_text())
         self.assertEqual(
             schema["properties"]["api_version"]["default"],
             Configuration.model_fields["api_version"].default,

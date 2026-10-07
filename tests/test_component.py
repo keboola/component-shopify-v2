@@ -24,6 +24,7 @@ from component import (
 )
 from configuration import Configuration
 from shopify_cli.client import ShopifyGraphQLClient
+from shopify_cli.query_loader import QueryLoader
 
 
 class TestParseLoadingOptionDates(unittest.TestCase):
@@ -813,6 +814,55 @@ class TestShopifyApiVersionPinning(unittest.TestCase):
                     f"{f.name} does not request groupObjects: true; Shopify defaults it to false "
                     f"from API version 2026-01, which ungroups the JSONL export",
                 )
+
+    def test_group_objects_is_actually_transmitted_by_every_bulk_method(self):
+        """Assert the mutation the client really sends carries groupObjects: true.
+
+        The file-content check above cannot see placeholder substitution. Each bulk method
+        rewrites its mutation (metafield fragments, query filters) before sending it, so this
+        drives the real builders and inspects what reaches _start_bulk_operation.
+        """
+
+        class _Sent(Exception):
+            pass
+
+        client = ShopifyGraphQLClient.__new__(ShopifyGraphQLClient)
+        client.logger = logging.getLogger("test")
+        client.query_loader = QueryLoader()
+
+        cases = [
+            ("get_products_bulk", {}),
+            # exercise both placeholder branches of the products mutation
+            ("get_products_bulk", {"include_product_metafields": True, "include_variant_metafields": True}),
+            ("get_orders_bulk", {}),
+            ("get_orders_bulk", {"include_transactions": True}),
+            ("get_customers_bulk", {}),
+            ("get_inventory_bulk", {}),
+            ("get_events_bulk", {}),
+            ("get_collections_bulk", {}),
+            ("get_collections_bulk", {"include_metafields": True}),
+            ("get_locations_bulk", {}),
+        ]
+
+        for method_name, kwargs in cases:
+            with self.subTest(method=method_name, **kwargs):
+                captured = {}
+
+                def _capture(mutation, _c=captured):
+                    _c["mutation"] = mutation
+                    raise _Sent
+
+                client._start_bulk_operation = _capture
+                with self.assertRaises(_Sent):
+                    getattr(client, method_name)("/tmp/unused.jsonl", **kwargs)
+
+                mutation = captured["mutation"]
+                self.assertIn("groupObjects: true", mutation, f"{method_name} sent no groupObjects")
+                self.assertNotIn("__QUERY_FILTER__", mutation, f"{method_name} left a placeholder unsubstituted")
+                self.assertNotIn("PLACEHOLDER__", mutation, f"{method_name} left a placeholder unsubstituted")
+                # groupObjects must sit in the mutation's argument list, not inside the inner query string
+                args_part = mutation.split('"""')[-1]
+                self.assertIn("groupObjects: true", args_part, f"{method_name} put groupObjects inside the query")
 
 
 if __name__ == "__main__":

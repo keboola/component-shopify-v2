@@ -25,7 +25,7 @@ CASSETTE_DIR = SOURCE_DATA / "cassettes"
 EXPECTED_OUT = FIXTURE / "expected" / "data" / "out"
 COMPONENT_SCRIPT = REPO_ROOT / "src" / "component.py"
 
-GRAPHQL_URI = "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+GRAPHQL_URI = "https://keboola-dummy.myshopify.com/admin/api/2026-10/graphql.json"
 DOWNLOAD_URI = (
     "https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/"
     "bulk-operation-outputs/orders-transactions?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED"

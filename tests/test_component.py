@@ -135,7 +135,7 @@ class TestLegacyOrdersQueryBuilder(unittest.TestCase):
 
         with mock.patch.object(ShopifyGraphQLClient, "_setup_session", return_value=None):
             client = ShopifyGraphQLClient(
-                store_name="test-shop", api_token="TEST_TOKEN", api_version="2025-10", debug=False
+                store_name="test-shop", api_token="TEST_TOKEN", api_version="2026-10", debug=False
             )
         captured: dict[str, str] = {}
 
@@ -166,7 +166,7 @@ class TestBulkOrdersQueryBuilder(unittest.TestCase):
 
         with mock.patch.object(ShopifyGraphQLClient, "_setup_session", return_value=None):
             client = ShopifyGraphQLClient(
-                store_name="test-shop", api_token="TEST_TOKEN", api_version="2025-10", debug=False
+                store_name="test-shop", api_token="TEST_TOKEN", api_version="2026-10", debug=False
             )
         captured: dict[str, str] = {}
         responses = iter(
@@ -768,6 +768,46 @@ class TestBulkSlotContention(unittest.TestCase):
             self.client._start_bulk_operation("mutation {}")
         self.assertIn("Bad query", str(ctx.exception))
         self.assertEqual(self.client.execute_query.call_count, 1)
+
+
+class TestShopifyApiVersionPinning(unittest.TestCase):
+    """Guards the CFTL-840 API-version migration.
+
+    Shopify retired 2025-10 on 2026-10-16. Two things must stay true together: the component
+    must pin a supported version, and every bulk operation must ask for grouped JSONL output.
+    Shopify flipped the bulkOperationRunQuery `groupObjects` default from true to false in
+    2026-01, and the loader infers columns from a bounded row sample, so an ungrouped export
+    can silently drop child columns. Requesting it explicitly keeps the 2025-10 layout.
+    """
+
+    QUERIES_DIR = Path(__file__).parent.parent / "src" / "shopify_cli" / "queries"
+
+    def test_default_api_version_is_supported(self):
+        # Must not be a retired version. 2025-10 was inaccessible from 2026-10-16 15:00 UTC.
+        retired = {"2024-01", "2024-04", "2024-07", "2024-10", "2025-01", "2025-04", "2025-07", "2025-10"}
+        default = Configuration.model_fields["api_version"].default
+        self.assertNotIn(default, retired, f"api_version default {default!r} is a retired Shopify version")
+        self.assertEqual(default, "2026-10")
+
+    def test_config_schema_default_matches_configuration_default(self):
+        schema = json.loads((Path(__file__).parent.parent / "component_config" / "configSchema.json").read_text())
+        self.assertEqual(
+            schema["properties"]["api_version"]["default"],
+            Configuration.model_fields["api_version"].default,
+            "configSchema.json api_version default drifted from the Configuration default",
+        )
+
+    def test_every_bulk_mutation_requests_grouped_objects(self):
+        mutations = [f for f in sorted(self.QUERIES_DIR.glob("*.graphql")) if "bulkOperationRunQuery(" in f.read_text()]
+        self.assertTrue(mutations, "no bulkOperationRunQuery mutations found")
+        for f in mutations:
+            with self.subTest(query=f.name):
+                self.assertIn(
+                    "groupObjects: true",
+                    f.read_text(),
+                    f"{f.name} does not request groupObjects: true; Shopify defaults it to false "
+                    f"from API version 2026-01, which ungroups the JSONL export",
+                )
 
 
 if __name__ == "__main__":

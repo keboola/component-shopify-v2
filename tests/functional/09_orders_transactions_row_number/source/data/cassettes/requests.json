@@ -17,7 +17,7 @@
                     ]
                 },
                 "method": "POST",
-                "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+                "uri": "https://keboola-dummy.myshopify.com/admin/api/2026-10/graphql.json"
             },
             "response": {
                 "body": {
@@ -46,7 +46,7 @@
                     ]
                 },
                 "method": "POST",
-                "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+                "uri": "https://keboola-dummy.myshopify.com/admin/api/2026-10/graphql.json"
             },
             "response": {
                 "body": {

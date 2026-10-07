@@ -10,7 +10,7 @@ This component extracts data from Shopify stores using the modern GraphQL Admin 
 
 | **Feature**             | **Description**                               |
 |-------------------------|-----------------------------------------------|
-| GraphQL API             | Uses modern Shopify GraphQL Admin API v2025-10 |
+| GraphQL API             | Uses modern Shopify GraphQL Admin API v2026-10 |
 | Bulk Operations         | Efficient bulk data extraction for large datasets |
 | DuckDB Processing       | Advanced data processing with automatic type detection |
 | Data Normalization      | Converts nested JSON into normalized relational tables |
@@ -69,6 +69,22 @@ The component also supports custom GraphQL bulk operations (mutations), allowing
 
 You can inject values from **Loading Options** into a custom query with these placeholders: `{{ period_start_date }}`, `{{ period_end_date }}`, and `{{ fetch_parameter }}`. Both `{{ period_start_date }}` and `{{ period_end_date }}` are substituted with full ISO-8601 UTC timestamps (e.g. `2026-03-19T01:56:13Z`), matching the built-in endpoints — always wrap them in quotes in the Shopify search string since the value contains colons, e.g. `orders(query: "{{ fetch_parameter }}:>='{{ period_start_date }}' AND {{ fetch_parameter }}:<'{{ period_end_date }}'")`.
 
+> **Add `groupObjects: true` to your custom bulk mutation.** A custom query is sent to Shopify exactly as you wrote it. From API version `2026-01` onward Shopify defaults `bulkOperationRunQuery(groupObjects:)` to `false`, which stops child objects from being written next to their parent in the JSONL export. The built-in endpoints request `groupObjects: true` so their output is unaffected; a custom query must ask for it itself, otherwise its child columns can be dropped on a large export. Write it as:
+>
+> ```graphql
+> mutation {
+>   bulkOperationRunQuery(
+>     query: """
+>     { orders { edges { node { id name } } } }
+>     """
+>     groupObjects: true
+>   ) {
+>     bulkOperation { id status }
+>     userErrors { field message }
+>   }
+> }
+> ```
+
 ## Configuration
 
 ### Required Parameters
@@ -78,7 +94,7 @@ You can inject values from **Loading Options** into a custom query with these pl
 
 ### Optional Parameters
 
-- **api_version** - Shopify API version (default: "2025-10")
+- **api_version** - Shopify API version (default: "2026-10")
 - **endpoints** - Object with boolean flags for each endpoint to enable:
   - **products** - Extract active products (default: false)
   - **products_drafts** - Extract draft products (default: false)
@@ -114,7 +130,7 @@ You can inject values from **Loading Options** into a custom query with these pl
   "parameters": {
     "#api_token": "your_shopify_admin_api_token_here",
     "store_name": "your-shop-name",
-    "api_version": "2025-10",
+    "api_version": "2026-10",
     "endpoints": {
       "orders": true,
       "order_transactions": true,
@@ -349,7 +365,7 @@ nullable: guest or partial addresses can arrive with `country_code` empty.
 Enabled with the `order_shipping_discounts` endpoint flag. Unlike the other order data, these two
 tables are produced by a **paginated GraphQL pass** (not by bulk operations). This is required
 because `Order.shippingLines` and `Order.discountApplications` are connections whose node types do
-NOT implement the Shopify `Node` interface (verified on API version `2025-10`): `ShippingLine` has a
+NOT implement the Shopify `Node` interface (verified on API version `2026-10`): `ShippingLine` has a
 nullable `id` and implements no interfaces, and `DiscountApplication` has no `id` field at all.
 Shopify bulk operations require "Connections must implement the Node interface", so bulk cannot be
 used for them. Both connections are fetched together in a single paginated query per order page, and

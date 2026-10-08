@@ -79,7 +79,7 @@ class Endpoints(BaseModel):
 
 class Configuration(BaseModel):
     store_name: str = Field(..., description="Shopify store name (without .myshopify.com)")
-    api_version: str = Field(default="2025-10", description="Shopify API version")
+    api_version: str = Field(default="2026-10", description="Shopify API version")
     api_token: str = Field(default="", alias="#api_token", description="Shopify Admin API access token")
     client_id: str = Field(default="", alias="#client_id", description="Shopify app Client ID (Dev Dashboard)")
     client_secret: str = Field(

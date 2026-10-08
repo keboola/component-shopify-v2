@@ -24,6 +24,7 @@ from component import (
 )
 from configuration import Configuration
 from shopify_cli.client import ShopifyGraphQLClient
+from shopify_cli.query_loader import QueryLoader
 
 
 class TestParseLoadingOptionDates(unittest.TestCase):
@@ -135,7 +136,7 @@ class TestLegacyOrdersQueryBuilder(unittest.TestCase):
 
         with mock.patch.object(ShopifyGraphQLClient, "_setup_session", return_value=None):
             client = ShopifyGraphQLClient(
-                store_name="test-shop", api_token="TEST_TOKEN", api_version="2025-10", debug=False
+                store_name="test-shop", api_token="TEST_TOKEN", api_version="2026-10", debug=False
             )
         captured: dict[str, str] = {}
 
@@ -166,7 +167,7 @@ class TestBulkOrdersQueryBuilder(unittest.TestCase):
 
         with mock.patch.object(ShopifyGraphQLClient, "_setup_session", return_value=None):
             client = ShopifyGraphQLClient(
-                store_name="test-shop", api_token="TEST_TOKEN", api_version="2025-10", debug=False
+                store_name="test-shop", api_token="TEST_TOKEN", api_version="2026-10", debug=False
             )
         captured: dict[str, str] = {}
         responses = iter(
@@ -768,6 +769,100 @@ class TestBulkSlotContention(unittest.TestCase):
             self.client._start_bulk_operation("mutation {}")
         self.assertIn("Bad query", str(ctx.exception))
         self.assertEqual(self.client.execute_query.call_count, 1)
+
+
+class TestShopifyApiVersionPinning(unittest.TestCase):
+    """Guards the CFTL-840 API-version migration.
+
+    Shopify retired 2025-10 on 2026-10-16. Two things must stay true together: the component
+    must pin a supported version, and every bulk operation must ask for grouped JSONL output.
+    Shopify flipped the bulkOperationRunQuery `groupObjects` default from true to false in
+    2026-01, and the loader infers columns from a bounded row sample, so an ungrouped export
+    can silently drop child columns. Requesting it explicitly keeps the 2025-10 layout.
+    """
+
+    QUERIES_DIR = Path(__file__).parent.parent / "src" / "shopify_cli" / "queries"
+
+    def test_default_api_version_is_supported(self):
+        # Must not be a retired version. 2025-10 was inaccessible from 2026-10-16 15:00 UTC.
+        retired = {"2024-01", "2024-04", "2024-07", "2024-10", "2025-01", "2025-04", "2025-07", "2025-10"}
+        default = Configuration.model_fields["api_version"].default
+        self.assertNotIn(default, retired, f"api_version default {default!r} is a retired Shopify version")
+        self.assertEqual(default, "2026-10")
+
+    def test_config_schema_default_matches_configuration_default(self):
+        # Repo-level consistency check. component_config/ is intentionally not copied into the
+        # runtime image (see Dockerfile), so skip rather than fail when running inside it.
+        schema_path = Path(__file__).parent.parent / "component_config" / "configSchema.json"
+        if not schema_path.is_file():
+            self.skipTest("component_config/configSchema.json not present (running inside the component image)")
+        schema = json.loads(schema_path.read_text())
+        self.assertEqual(
+            schema["properties"]["api_version"]["default"],
+            Configuration.model_fields["api_version"].default,
+            "configSchema.json api_version default drifted from the Configuration default",
+        )
+
+    def test_every_bulk_mutation_requests_grouped_objects(self):
+        mutations = [f for f in sorted(self.QUERIES_DIR.glob("*.graphql")) if "bulkOperationRunQuery(" in f.read_text()]
+        self.assertTrue(mutations, "no bulkOperationRunQuery mutations found")
+        for f in mutations:
+            with self.subTest(query=f.name):
+                self.assertIn(
+                    "groupObjects: true",
+                    f.read_text(),
+                    f"{f.name} does not request groupObjects: true; Shopify defaults it to false "
+                    f"from API version 2026-01, which ungroups the JSONL export",
+                )
+
+    def test_group_objects_is_actually_transmitted_by_every_bulk_method(self):
+        """Assert the mutation the client really sends carries groupObjects: true.
+
+        The file-content check above cannot see placeholder substitution. Each bulk method
+        rewrites its mutation (metafield fragments, query filters) before sending it, so this
+        drives the real builders and inspects what reaches _start_bulk_operation.
+        """
+
+        class _Sent(Exception):
+            pass
+
+        client = ShopifyGraphQLClient.__new__(ShopifyGraphQLClient)
+        client.logger = logging.getLogger("test")
+        client.query_loader = QueryLoader()
+
+        cases = [
+            ("get_products_bulk", {}),
+            # exercise both placeholder branches of the products mutation
+            ("get_products_bulk", {"include_product_metafields": True, "include_variant_metafields": True}),
+            ("get_orders_bulk", {}),
+            ("get_orders_bulk", {"include_transactions": True}),
+            ("get_customers_bulk", {}),
+            ("get_inventory_bulk", {}),
+            ("get_events_bulk", {}),
+            ("get_collections_bulk", {}),
+            ("get_collections_bulk", {"include_metafields": True}),
+            ("get_locations_bulk", {}),
+        ]
+
+        for method_name, kwargs in cases:
+            with self.subTest(method=method_name, **kwargs):
+                captured = {}
+
+                def _capture(mutation, _c=captured):
+                    _c["mutation"] = mutation
+                    raise _Sent
+
+                client._start_bulk_operation = _capture
+                with self.assertRaises(_Sent):
+                    getattr(client, method_name)("/tmp/unused.jsonl", **kwargs)
+
+                mutation = captured["mutation"]
+                self.assertIn("groupObjects: true", mutation, f"{method_name} sent no groupObjects")
+                self.assertNotIn("__QUERY_FILTER__", mutation, f"{method_name} left a placeholder unsubstituted")
+                self.assertNotIn("PLACEHOLDER__", mutation, f"{method_name} left a placeholder unsubstituted")
+                # groupObjects must sit in the mutation's argument list, not inside the inner query string
+                args_part = mutation.split('"""')[-1]
+                self.assertIn("groupObjects: true", args_part, f"{method_name} put groupObjects inside the query")
 
 
 if __name__ == "__main__":

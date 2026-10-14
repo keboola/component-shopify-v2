@@ -36,13 +36,16 @@
         },
         {
             "request": {
-                "body": "{\"query\": \"query { currentBulkOperation { ... } }\"}",
+                "body": "{\"query\": \"query BulkOperationById($id: ID!) {\\n  node(id: $id) {\\n    ... on BulkOperation {\\n      id\\n      status\\n      errorCode\\n      createdAt\\n      completedAt\\n      objectCount\\n      fileSize\\n      url\\n      partialDataUrl\\n    }\\n  }\\n}\", \"variables\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\"}, \"operationName\": null}",
                 "headers": {
                     "Accept": [
                         "application/json"
                     ],
                     "Content-Type": [
                         "application/json"
+                    ],
+                    "Content-Length": [
+                        "344"
                     ]
                 },
                 "method": "POST",
@@ -50,7 +53,7 @@
             },
             "response": {
                 "body": {
-                    "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-03-19T11:17:38Z\", \"completedAt\": \"2026-03-19T11:17:40Z\", \"objectCount\": \"1\", \"fileSize\": \"894\", \"url\": \"https://storage.googleapis.com/shopify-bulk-storage/orders.jsonl?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED\", \"partialDataUrl\": null}}}"
+                    "string": "{\"data\":{\"node\":{\"id\":\"gid://shopify/BulkOperation/9000000000001\",\"status\":\"COMPLETED\",\"errorCode\":null,\"createdAt\":\"2026-03-19T11:17:38Z\",\"completedAt\":\"2026-03-19T11:17:40Z\",\"objectCount\":\"1\",\"fileSize\":\"894\",\"url\":\"https://storage.googleapis.com/shopify-bulk-storage/orders.jsonl?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED\",\"partialDataUrl\":null}}}"
                 },
                 "headers": {
                     "Content-Type": [

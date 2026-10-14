@@ -161,6 +161,44 @@
     }
   },
   {
+    "name": "09_collections",
+    "description": "Extract collections with rule sets, product membership and product counts",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "collections": true
+        },
+        "loading_options": {
+          "date_since": "2024-01-01",
+          "date_to": "2025-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "09_order_refunds",
+    "description": "Extract order refunds with refund line items, order adjustments, shipping lines and transactions",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "order_refunds": true
+        },
+        "loading_options": {
+          "date_since": "2024-01-01",
+          "date_to": "2025-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
     "name": "09_orders_real_data",
     "description": "Extract orders with populated results, covering v1 order and line item fields",
     "config": {
@@ -200,6 +238,26 @@
     }
   },
   {
+    "name": "10_collections_with_metafields",
+    "description": "Extract collections including collection metafields",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "collections": true,
+          "collection_metafields": true
+        },
+        "loading_options": {
+          "date_since": "2024-01-01",
+          "date_to": "2025-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
     "name": "10_orders_shipping_discounts",
     "description": "Extract order shipping lines and discount codes via paginated GraphQL",
     "config": {
@@ -231,6 +289,45 @@
         "loading_options": {
           "date_since": "2025-01-01",
           "date_to": "2026-01-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "11_products_and_collections",
+    "description": "Extract active products and collections together in a single run",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "products": true,
+          "collections": true
+        },
+        "loading_options": {
+          "date_since": "2024-05-01",
+          "date_to": "2025-05-01",
+          "fetch_parameter": "updated_at",
+          "incremental_output": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "12_orders_date_to_bounded",
+    "description": "Run orders with date_to=\"now\" so the relative upper bound resolves to the run timestamp in the updated_at filter; expected to succeed (previous recording produced no output tables)",
+    "config": {
+      "parameters": {
+        "#api_token": "DUMMY_TOKEN",
+        "store_name": "keboola-dummy",
+        "endpoints": {
+          "orders": true
+        },
+        "loading_options": {
+          "date_since": "2020-01-01",
+          "date_to": "now",
           "fetch_parameter": "updated_at",
           "incremental_output": 1
         }

@@ -129,6 +129,16 @@ class ShopifyGraphQLClient:
         with open(status_file) as f:
             return f.read()
 
+    def _get_bulk_operation(self, bulk_op_id: str) -> dict[str, Any]:
+        """Fetch one bulk operation by its id.
+
+        `currentBulkOperation` returns the app's most recent operation. From API 2026-01 Shopify
+        runs up to five per app and shop at once, so a job polling it read the operation of a
+        configuration started in parallel, downloaded that export and loaded it as its own.
+        """
+        query = self.query_loader.load_query("BulkOperationById")
+        return self.execute_query(query, variables={"id": bulk_op_id}).get("node") or {}
+
     @staticmethod
     def _is_bulk_slot_busy(user_errors: list[dict[str, Any]]) -> bool:
         return any("already in progress" in str(error.get("message", "")).lower() for error in user_errors)
@@ -687,12 +697,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        self._start_bulk_operation(mutation)
-
-        # Poll for completion
-        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file) as f:
-            status_query = f.read()
+        bulk_op_id = self._start_bulk_operation(mutation).get("id")
 
         poll_start = time.time()
         last_progress_log = poll_start
@@ -701,8 +706,7 @@ class ShopifyGraphQLClient:
             sleep_interval = 5 if elapsed < 60 else 15
             time.sleep(sleep_interval)
 
-            status_result = self.execute_query(status_query)
-            current_op = status_result.get("currentBulkOperation", {})
+            current_op = self._get_bulk_operation(bulk_op_id)
 
             status = current_op.get("status")
             last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
@@ -790,12 +794,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        self._start_bulk_operation(mutation)
-
-        # Poll for completion
-        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file) as f:
-            status_query = f.read()
+        bulk_op_id = self._start_bulk_operation(mutation).get("id")
 
         poll_start = time.time()
         last_progress_log = poll_start
@@ -804,8 +803,7 @@ class ShopifyGraphQLClient:
             sleep_interval = 5 if elapsed < 60 else 15
             time.sleep(sleep_interval)
 
-            status_result = self.execute_query(status_query)
-            current_op = status_result.get("currentBulkOperation", {})
+            current_op = self._get_bulk_operation(bulk_op_id)
 
             status = current_op.get("status")
             last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
@@ -882,12 +880,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        self._start_bulk_operation(mutation)
-
-        # Poll for completion
-        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file) as f:
-            status_query = f.read()
+        bulk_op_id = self._start_bulk_operation(mutation).get("id")
 
         poll_start = time.time()
         last_progress_log = poll_start
@@ -896,8 +889,7 @@ class ShopifyGraphQLClient:
             sleep_interval = 5 if elapsed < 60 else 15
             time.sleep(sleep_interval)
 
-            status_result = self.execute_query(status_query)
-            current_op = status_result.get("currentBulkOperation", {})
+            current_op = self._get_bulk_operation(bulk_op_id)
 
             status = current_op.get("status")
             last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
@@ -947,11 +939,7 @@ class ShopifyGraphQLClient:
         with open(mutation_file) as f:
             mutation = f.read()
 
-        self._start_bulk_operation(mutation)
-
-        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file) as f:
-            status_query = f.read()
+        bulk_op_id = self._start_bulk_operation(mutation).get("id")
 
         poll_start = time.time()
         last_progress_log = poll_start
@@ -960,8 +948,7 @@ class ShopifyGraphQLClient:
             sleep_interval = 5 if elapsed < 60 else 15
             time.sleep(sleep_interval)
 
-            status_result = self.execute_query(status_query)
-            current_op = status_result.get("currentBulkOperation", {})
+            current_op = self._get_bulk_operation(bulk_op_id)
 
             status = current_op.get("status")
             last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
@@ -1036,11 +1023,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        self._start_bulk_operation(mutation)
-
-        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file) as f:
-            status_query = f.read()
+        bulk_op_id = self._start_bulk_operation(mutation).get("id")
 
         poll_start = time.time()
         last_progress_log = poll_start
@@ -1049,8 +1032,7 @@ class ShopifyGraphQLClient:
             sleep_interval = 5 if elapsed < 60 else 15
             time.sleep(sleep_interval)
 
-            status_result = self.execute_query(status_query)
-            current_op = status_result.get("currentBulkOperation", {})
+            current_op = self._get_bulk_operation(bulk_op_id)
 
             status = current_op.get("status")
             last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
@@ -1140,11 +1122,7 @@ class ShopifyGraphQLClient:
         else:
             mutation = mutation.replace("__QUERY_FILTER__", "")
 
-        self._start_bulk_operation(mutation)
-
-        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file) as f:
-            status_query = f.read()
+        bulk_op_id = self._start_bulk_operation(mutation).get("id")
 
         poll_start = time.time()
         last_progress_log = poll_start
@@ -1153,8 +1131,7 @@ class ShopifyGraphQLClient:
             sleep_interval = 5 if elapsed < 60 else 15
             time.sleep(sleep_interval)
 
-            status_result = self.execute_query(status_query)
-            current_op = status_result.get("currentBulkOperation", {})
+            current_op = self._get_bulk_operation(bulk_op_id)
 
             status = current_op.get("status")
             last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
@@ -1200,11 +1177,7 @@ class ShopifyGraphQLClient:
         with open(mutation_file) as f:
             mutation = f.read()
 
-        self._start_bulk_operation(mutation)
-
-        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file) as f:
-            status_query = f.read()
+        bulk_op_id = self._start_bulk_operation(mutation).get("id")
 
         poll_start = time.time()
         last_progress_log = poll_start
@@ -1213,8 +1186,7 @@ class ShopifyGraphQLClient:
             sleep_interval = 5 if elapsed < 60 else 15
             time.sleep(sleep_interval)
 
-            status_result = self.execute_query(status_query)
-            current_op = status_result.get("currentBulkOperation", {})
+            current_op = self._get_bulk_operation(bulk_op_id)
 
             status = current_op.get("status")
             last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
@@ -1295,12 +1267,7 @@ class ShopifyGraphQLClient:
         api_wait_start = time.time()
         self.logger.info("Starting custom bulk operation")
 
-        self._start_bulk_operation(query)
-
-        # Poll for completion
-        status_file = self.query_loader.queries_dir / "BulkOperationStatus.graphql"
-        with open(status_file) as f:
-            status_query = f.read()
+        bulk_op_id = self._start_bulk_operation(query).get("id")
 
         poll_start = time.time()
         last_progress_log = poll_start
@@ -1309,8 +1276,7 @@ class ShopifyGraphQLClient:
             sleep_interval = 5 if elapsed < 60 else 15
             time.sleep(sleep_interval)
 
-            status_result = self.execute_query(status_query)
-            current_op = status_result.get("currentBulkOperation", {})
+            current_op = self._get_bulk_operation(bulk_op_id)
 
             status = current_op.get("status")
             last_progress_log = self._log_bulk_poll_progress(status, current_op, poll_start, last_progress_log)
@@ -1322,7 +1288,7 @@ class ShopifyGraphQLClient:
 
                 if not url:
                     self.logger.info("Bulk operation completed with no results (empty dataset)")
-                    with open(temp_file_path, "w") as f:
+                    with open(temp_file_path, "w"):
                         pass
                     return BulkOperationResult(
                         file_path=temp_file_path,

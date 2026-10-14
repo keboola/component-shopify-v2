@@ -36,13 +36,16 @@
   },
   {
    "request": {
-    "body": "{\"query\": \"query {\\n  currentBulkOperation {\\n    id\\n    status\\n    errorCode\\n    createdAt\\n    completedAt\\n    objectCount\\n    fileSize\\n    url\\n    partialDataUrl\\n  }\\n}\\n\", \"variables\": null, \"operationName\": null}",
+    "body": "{\"query\": \"query BulkOperationById($id: ID!) {\\n  node(id: $id) {\\n    ... on BulkOperation {\\n      id\\n      status\\n      errorCode\\n      createdAt\\n      completedAt\\n      objectCount\\n      fileSize\\n      url\\n      partialDataUrl\\n    }\\n  }\\n}\", \"variables\": {\"id\": \"gid://shopify/BulkOperation/9000000000012\"}, \"operationName\": null}",
     "headers": {
      "Accept": [
       "application/json"
      ],
      "Content-Type": [
       "application/json"
+     ],
+     "Content-Length": [
+      "344"
      ]
     },
     "method": "POST",
@@ -50,7 +53,7 @@
    },
    "response": {
     "body": {
-     "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000012\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-07-14T07:59:32Z\", \"completedAt\": \"2026-07-14T07:59:33Z\", \"objectCount\": \"4\", \"fileSize\": \"3144\", \"url\": \"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-customer-journey?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-orders.jsonl%22&response-content-type=application%2Fjsonl\", \"partialDataUrl\": null}}}"
+     "string": "{\"data\":{\"node\":{\"id\":\"gid://shopify/BulkOperation/9000000000012\",\"status\":\"COMPLETED\",\"errorCode\":null,\"createdAt\":\"2026-07-14T07:59:32Z\",\"completedAt\":\"2026-07-14T07:59:33Z\",\"objectCount\":\"4\",\"fileSize\":\"3144\",\"url\":\"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-customer-journey?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-orders.jsonl%22&response-content-type=application%2Fjsonl\",\"partialDataUrl\":null}}}"
     },
     "headers": {
      "Content-Type": [

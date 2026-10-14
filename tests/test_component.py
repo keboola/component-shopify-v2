@@ -173,7 +173,7 @@ class TestBulkOrdersQueryBuilder(unittest.TestCase):
         responses = iter(
             [
                 {"bulkOperationRunQuery": {"bulkOperation": {"id": "gid://shopify/BulkOperation/1"}, "userErrors": []}},
-                {"currentBulkOperation": {"status": "COMPLETED", "url": None, "objectCount": "0"}},
+                {"node": {"status": "COMPLETED", "url": None, "objectCount": "0"}},
             ]
         )
 
@@ -771,6 +771,72 @@ class TestBulkSlotContention(unittest.TestCase):
         self.assertEqual(self.client.execute_query.call_count, 1)
 
 
+class TestBulkOperationPolledById(unittest.TestCase):
+    """From API 2026-01 Shopify runs several bulk operations per app and shop at once, so a job must
+    poll its own operation by id. Polling currentBulkOperation read a parallel job's newer operation
+    and loaded its export as this job's data."""
+
+    OWN_ID = "gid://shopify/BulkOperation/1"
+
+    def test_every_bulk_method_polls_its_own_operation(self):
+        client = ShopifyGraphQLClient.__new__(ShopifyGraphQLClient)
+        client.logger = logging.getLogger("test")
+        client.query_loader = QueryLoader()
+        methods = [
+            "get_products_bulk",
+            "get_orders_bulk",
+            "get_customers_bulk",
+            "get_inventory_bulk",
+            "get_events_bulk",
+            "get_collections_bulk",
+            "get_locations_bulk",
+        ]
+        for method in methods:
+            with self.subTest(method=method):
+                polls: list[tuple[str, dict | None]] = []
+
+                def fake_execute_query(query, variables=None):
+                    if "bulkOperationRunQuery" in query:
+                        return {"bulkOperationRunQuery": {"bulkOperation": {"id": self.OWN_ID}, "userErrors": []}}
+                    polls.append((query, variables))
+                    return {"node": {"id": self.OWN_ID, "status": "COMPLETED", "url": None, "objectCount": "0"}}
+
+                with (
+                    mock.patch.object(client, "execute_query", side_effect=fake_execute_query),
+                    mock.patch("shopify_cli.client.time.sleep", return_value=None),
+                    tempfile.NamedTemporaryFile(suffix=".jsonl") as tmp,
+                ):
+                    getattr(client, method)(temp_file_path=tmp.name)
+
+                self.assertEqual(len(polls), 1)
+                query, variables = polls[0]
+                self.assertNotIn("currentBulkOperation", query)
+                self.assertEqual(variables, {"id": self.OWN_ID})
+
+    def test_custom_query_polls_its_own_operation(self):
+        client = ShopifyGraphQLClient.__new__(ShopifyGraphQLClient)
+        client.logger = logging.getLogger("test")
+        client.query_loader = QueryLoader()
+        polls: list[dict | None] = []
+
+        def fake_execute_query(query, variables=None):
+            if "bulkOperationRunQuery" in query:
+                return {"bulkOperationRunQuery": {"bulkOperation": {"id": self.OWN_ID}, "userErrors": []}}
+            polls.append(variables)
+            return {"node": {"id": self.OWN_ID, "status": "COMPLETED", "url": None, "objectCount": "0"}}
+
+        with (
+            mock.patch.object(client, "execute_query", side_effect=fake_execute_query),
+            mock.patch("shopify_cli.client.time.sleep", return_value=None),
+            tempfile.NamedTemporaryFile(suffix=".jsonl") as tmp,
+        ):
+            client.execute_custom_bulk_query(
+                'mutation { bulkOperationRunQuery(query: "{ shop { id } }") { x } }', tmp.name
+            )
+
+        self.assertEqual(polls, [{"id": self.OWN_ID}])
+
+
 class TestShopifyApiVersionPinning(unittest.TestCase):
     """Guards the CFTL-840 API-version migration.
 
@@ -789,6 +855,17 @@ class TestShopifyApiVersionPinning(unittest.TestCase):
         default = Configuration.model_fields["api_version"].default
         self.assertNotIn(default, retired, f"api_version default {default!r} is a retired Shopify version")
         self.assertEqual(default, "2026-10")
+
+    def test_saved_older_version_is_raised_to_the_default(self):
+        # The UI saves the read-only default into every configuration, so the bump must override it.
+        for saved in ("2025-10", "2026-01", ""):
+            with self.subTest(saved=saved):
+                config = Configuration(store_name="test-shop", **{"#api_token": "T"}, api_version=saved)
+                self.assertEqual(config.api_version, "2026-10")
+
+    def test_saved_newer_version_is_kept(self):
+        config = Configuration(store_name="test-shop", **{"#api_token": "T"}, api_version="2027-01")
+        self.assertEqual(config.api_version, "2027-01")
 
     def test_config_schema_default_matches_configuration_default(self):
         # Repo-level consistency check. component_config/ is intentionally not copied into the

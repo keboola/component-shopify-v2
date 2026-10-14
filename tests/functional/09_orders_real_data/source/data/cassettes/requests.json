@@ -71,13 +71,16 @@
   },
   {
    "request": {
-    "body": "{\"query\": \"query {\\n  currentBulkOperation {\\n    id\\n    status\\n    errorCode\\n    createdAt\\n    completedAt\\n    objectCount\\n    fileSize\\n    url\\n    partialDataUrl\\n  }\\n}\\n\", \"variables\": null, \"operationName\": null}",
+    "body": "{\"query\": \"query BulkOperationById($id: ID!) {\\n  node(id: $id) {\\n    ... on BulkOperation {\\n      id\\n      status\\n      errorCode\\n      createdAt\\n      completedAt\\n      objectCount\\n      fileSize\\n      url\\n      partialDataUrl\\n    }\\n  }\\n}\", \"variables\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\"}, \"operationName\": null}",
     "headers": {
      "Accept": [
       "application/json"
      ],
      "Content-Type": [
       "application/json"
+     ],
+     "Content-Length": [
+      "344"
      ]
     },
     "method": "POST",
@@ -85,7 +88,7 @@
    },
    "response": {
     "body": {
-     "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-03-19T11:17:32Z\", \"completedAt\": \"2026-03-19T11:17:33Z\", \"objectCount\": \"5\", \"fileSize\": \"4016\", \"url\": \"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-real-data-final?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-orders.jsonl%22&response-content-type=application%2Fjsonl\", \"partialDataUrl\": null}}, \"extensions\": {\"cost\": {\"requestedQueryCost\": 1, \"actualQueryCost\": 1, \"throttleStatus\": {\"maximumAvailable\": 2000.0, \"currentlyAvailable\": 1999, \"restoreRate\": 100.0}}}}"
+     "string": "{\"data\":{\"node\":{\"id\":\"gid://shopify/BulkOperation/9000000000001\",\"status\":\"COMPLETED\",\"errorCode\":null,\"createdAt\":\"2026-03-19T11:17:32Z\",\"completedAt\":\"2026-03-19T11:17:33Z\",\"objectCount\":\"5\",\"fileSize\":\"4016\",\"url\":\"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-real-data-final?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-orders.jsonl%22&response-content-type=application%2Fjsonl\",\"partialDataUrl\":null}},\"extensions\":{\"cost\":{\"requestedQueryCost\":1,\"actualQueryCost\":1,\"throttleStatus\":{\"maximumAvailable\":2000.0,\"currentlyAvailable\":1999,\"restoreRate\":100.0}}}}"
     },
     "headers": {
      "Content-Type": [

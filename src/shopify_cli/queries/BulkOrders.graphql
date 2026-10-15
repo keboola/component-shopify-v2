@@ -187,6 +187,7 @@ mutation {
       }
     }
     """
+    groupObjects: true
   ) {
     bulkOperation {
       id

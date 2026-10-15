@@ -17,7 +17,7 @@
      ]
     },
     "method": "POST",
-    "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+    "uri": "https://keboola-dummy.myshopify.com/admin/api/2026-10/graphql.json"
    },
    "response": {
     "status": {
@@ -36,17 +36,20 @@
   },
   {
    "request": {
-    "body": "{\"query\": \"query { currentBulkOperation { ... } }\"}",
+    "body": "{\"query\": \"query BulkOperationById($id: ID!) {\\n  node(id: $id) {\\n    ... on BulkOperation {\\n      id\\n      status\\n      errorCode\\n      createdAt\\n      completedAt\\n      objectCount\\n      fileSize\\n      url\\n      partialDataUrl\\n    }\\n  }\\n}\", \"variables\": {\"id\": \"gid://shopify/BulkOperation/9000000000022\"}, \"operationName\": null}",
     "headers": {
      "Accept": [
       "application/json"
      ],
      "Content-Type": [
       "application/json"
+     ],
+     "Content-Length": [
+      "344"
      ]
     },
     "method": "POST",
-    "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+    "uri": "https://keboola-dummy.myshopify.com/admin/api/2026-10/graphql.json"
    },
    "response": {
     "status": {
@@ -59,7 +62,7 @@
      ]
     },
     "body": {
-     "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000022\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-07-14T07:59:32Z\", \"completedAt\": \"2026-07-14T07:59:33Z\", \"objectCount\": \"2\", \"fileSize\": \"3000\", \"url\": \"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-transactions?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED\", \"partialDataUrl\": null}}}"
+     "string": "{\"data\":{\"node\":{\"id\":\"gid://shopify/BulkOperation/9000000000022\",\"status\":\"COMPLETED\",\"errorCode\":null,\"createdAt\":\"2026-07-14T07:59:32Z\",\"completedAt\":\"2026-07-14T07:59:33Z\",\"objectCount\":\"2\",\"fileSize\":\"3000\",\"url\":\"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/orders-transactions?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED\",\"partialDataUrl\":null}}}"
     }
    }
   },

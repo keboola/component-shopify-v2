@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 PRODUCTS_ENDPOINTS = {"products", "products_drafts", "products_archived", "products_unlisted"}
 EXCLUDE_FROM_ENDPOINTS = {"product_metafields", "variant_metafields", "order_transactions", "collection_metafields"}
+DEFAULT_API_VERSION = "2026-10"
 
 
 class CustomQuery(BaseModel):
@@ -79,7 +80,7 @@ class Endpoints(BaseModel):
 
 class Configuration(BaseModel):
     store_name: str = Field(..., description="Shopify store name (without .myshopify.com)")
-    api_version: str = Field(default="2025-10", description="Shopify API version")
+    api_version: str = Field(default=DEFAULT_API_VERSION, description="Shopify API version")
     api_token: str = Field(default="", alias="#api_token", description="Shopify Admin API access token")
     client_id: str = Field(default="", alias="#client_id", description="Shopify app Client ID (Dev Dashboard)")
     client_secret: str = Field(
@@ -115,6 +116,23 @@ class Configuration(BaseModel):
     def uses_client_credentials(self) -> bool:
         """Check if the configuration uses client credentials auth (Dev Dashboard apps)."""
         return bool(self.client_id and self.client_secret)
+
+    @field_validator("api_version")
+    def validate_api_version(cls, v):
+        """Raise a saved version older than the default to the default.
+
+        The UI saves the schema default into the configuration although the field is read-only, so
+        every configuration carries the version that was the default when it was saved. Bumping the
+        default alone never reaches them, and Shopify serves a retired version as its oldest
+        supported one, which nobody chose or tested.
+        """
+        version = (v or "").strip()
+        if version < DEFAULT_API_VERSION:
+            logging.info(
+                f"Configured Shopify API version {version!r} is older than {DEFAULT_API_VERSION}; using {DEFAULT_API_VERSION}"
+            )
+            return DEFAULT_API_VERSION
+        return version
 
     @field_validator("api_token")
     def validate_api_token(cls, v):

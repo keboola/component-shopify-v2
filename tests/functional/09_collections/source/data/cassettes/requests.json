@@ -55,7 +55,7 @@
           ]
         },
         "method": "POST",
-        "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+        "uri": "https://keboola-dummy.myshopify.com/admin/api/2026-10/graphql.json"
       },
       "response": {
         "body": {
@@ -74,24 +74,24 @@
     },
     {
       "request": {
-        "body": "{\"query\": \"query {\\n  currentBulkOperation {\\n    id\\n    status\\n    errorCode\\n    createdAt\\n    completedAt\\n    objectCount\\n    fileSize\\n    url\\n    partialDataUrl\\n  }\\n}\\n\", \"variables\": null, \"operationName\": null}",
+        "body": "{\"query\": \"query BulkOperationById($id: ID!) {\\n  node(id: $id) {\\n    ... on BulkOperation {\\n      id\\n      status\\n      errorCode\\n      createdAt\\n      completedAt\\n      objectCount\\n      fileSize\\n      url\\n      partialDataUrl\\n    }\\n  }\\n}\", \"variables\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\"}, \"operationName\": null}",
         "headers": {
           "Accept": [
             "application/json"
           ],
           "Content-Length": [
-            "225"
+            "344"
           ],
           "Content-Type": [
             "application/json"
           ]
         },
         "method": "POST",
-        "uri": "https://keboola-dummy.myshopify.com/admin/api/2025-10/graphql.json"
+        "uri": "https://keboola-dummy.myshopify.com/admin/api/2026-10/graphql.json"
       },
       "response": {
         "body": {
-          "string": "{\"data\": {\"currentBulkOperation\": {\"id\": \"gid://shopify/BulkOperation/9000000000001\", \"status\": \"COMPLETED\", \"errorCode\": null, \"createdAt\": \"2026-06-30T12:00:00Z\", \"completedAt\": \"2026-06-30T12:00:01Z\", \"objectCount\": \"5\", \"fileSize\": \"898\", \"url\": \"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/collections-test-final?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-collections-test.jsonl%22%3B+filename%2A%3DUTF-8%27%27bulk-collections-test.jsonl&response-content-type=application%2Fjsonl\", \"partialDataUrl\": null}}, \"extensions\": {\"cost\": {\"requestedQueryCost\": 1, \"actualQueryCost\": 1, \"throttleStatus\": {\"maximumAvailable\": 2000.0, \"currentlyAvailable\": 1999, \"restoreRate\": 100.0}}}}"
+          "string": "{\"data\":{\"node\":{\"id\":\"gid://shopify/BulkOperation/9000000000001\",\"status\":\"COMPLETED\",\"errorCode\":null,\"createdAt\":\"2026-06-30T12:00:00Z\",\"completedAt\":\"2026-06-30T12:00:01Z\",\"objectCount\":\"5\",\"fileSize\":\"898\",\"url\":\"https://storage.googleapis.com/shopify-tiers-assets-prod-us-east1/bulk-operation-outputs/collections-test-final?GoogleAccessId=REDACTED&Expires=REDACTED&Signature=REDACTED&response-content-disposition=attachment%3B+filename%3D%22bulk-collections-test.jsonl%22%3B+filename%2A%3DUTF-8%27%27bulk-collections-test.jsonl&response-content-type=application%2Fjsonl\",\"partialDataUrl\":null}},\"extensions\":{\"cost\":{\"requestedQueryCost\":1,\"actualQueryCost\":1,\"throttleStatus\":{\"maximumAvailable\":2000.0,\"currentlyAvailable\":1999,\"restoreRate\":100.0}}}}"
         },
         "headers": {
           "Content-Type": [

@@ -1,4 +1,5 @@
 import csv
+import io
 import json
 import logging
 import os
@@ -947,6 +948,115 @@ class TestBulkResultDownload(unittest.TestCase):
                 self._download([_FakeResponse([b"x"])])
         self.assertEqual(self.urlopen.call_count, 1)
         self.sleep.assert_not_called()
+
+
+class _FakeGraphQLResponse:
+    """urlopen() stand-in for the GraphQL endpoint: read() takes no size and returns the whole body."""
+
+    def __init__(self, body):
+        self._body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self._body
+
+
+class _SessionlessGraphQL(client_module._TimeoutGraphQL):
+    """The real execute(), with the endpoint and headers a live Shopify session would have provided."""
+
+    def __init__(self):
+        self.endpoint = "https://test.myshopify.com/admin/api/2026-10/graphql.json"
+        self.headers = {"X-Shopify-Access-Token": "token"}
+
+
+class TestGraphQLRequestTimeout(unittest.TestCase):
+    """shopify.GraphQL.execute() calls urlopen() with no timeout, so a silent connection to Shopify hangs
+    every API call and every bulk poll for as long as the platform allows (SUPPORT-17934)."""
+
+    def setUp(self):
+        self.client = ShopifyGraphQLClient.__new__(ShopifyGraphQLClient)
+        self.client.logger = logging.getLogger("test")
+        self.sleep = mock.patch("shopify_cli.client.time.sleep").start()
+        mock.patch("shopify_cli.client._TimeoutGraphQL", _SessionlessGraphQL).start()
+        self.addCleanup(mock.patch.stopall)
+
+    def _query(self, urlopen_side_effect, **kwargs):
+        self.urlopen = mock.patch("shopify_cli.client.urlopen", side_effect=urlopen_side_effect).start()
+        return self.client.execute_query("{ shop { name } }", **kwargs)
+
+    @staticmethod
+    def _ok(payload):
+        return _FakeGraphQLResponse(json.dumps(payload).encode("utf-8"))
+
+    @staticmethod
+    def _http_error(code):
+        return HTTPError("https://test.myshopify.com", code, "err", {}, io.BytesIO(b"{}"))
+
+    def test_request_passes_a_socket_timeout_and_returns_the_data(self):
+        data = self._query([self._ok({"data": {"shop": {"name": "test"}}})])
+        self.assertEqual(data, {"shop": {"name": "test"}})
+        self.assertEqual(self.urlopen.call_args.kwargs["timeout"], client_module.GRAPHQL_SOCKET_TIMEOUT_SECONDS)
+        self.sleep.assert_not_called()
+
+    def test_the_request_itself_is_unchanged(self):
+        """Same endpoint, same headers, same body as the library builds, so a healthy run is identical."""
+        self._query([self._ok({"data": {}})], variables={"first": 50})
+        request = self.urlopen.call_args.args[0]
+        self.assertEqual(request.full_url, _SessionlessGraphQL().endpoint)
+        self.assertEqual(
+            json.loads(request.data),
+            {"query": "{ shop { name } }", "variables": {"first": 50}, "operationName": None},
+        )
+        self.assertEqual(request.get_header("X-shopify-access-token"), "token")
+        self.assertEqual(request.get_header("Content-type"), "application/json")
+
+    def test_a_silent_connection_is_retried_instead_of_hanging(self):
+        data = self._query([TimeoutError("timed out"), self._ok({"data": {"shop": {"name": "test"}}})])
+        self.assertEqual(data, {"shop": {"name": "test"}})
+        self.assertEqual(self.urlopen.call_count, 2)
+        self.sleep.assert_called_once_with(client_module.GRAPHQL_NETWORK_RETRY_DELAYS_SECONDS[0])
+
+    def test_transient_connection_and_http_errors_are_retried_with_backoff(self):
+        with self.assertRaises(UserException):
+            self._query([ConnectionResetError(), self._http_error(503), URLError(TimeoutError()), TimeoutError()])
+        self.assertEqual(self.urlopen.call_count, client_module.GRAPHQL_NETWORK_MAX_ATTEMPTS)
+        self.assertEqual(
+            [c.args[0] for c in self.sleep.call_args_list],
+            list(client_module.GRAPHQL_NETWORK_RETRY_DELAYS_SECONDS),
+        )
+
+    def test_exhausted_retries_fail_with_a_message_that_names_the_stall(self):
+        with self.assertRaises(UserException) as ctx:
+            self._query([TimeoutError()] * client_module.GRAPHQL_NETWORK_MAX_ATTEMPTS)
+        self.assertIn("no data received for", str(ctx.exception))
+
+    def test_a_permanent_http_error_is_not_retried(self):
+        with self.assertRaises(UserException):
+            self._query([self._http_error(401)])
+        self.assertEqual(self.urlopen.call_count, 1)
+        self.sleep.assert_not_called()
+
+    def test_throttling_still_uses_the_existing_retry_and_is_not_counted_as_a_network_failure(self):
+        data = self._query(
+            [
+                self._ok({"errors": [{"message": "Throttled"}]}),
+                self._ok({"data": {"shop": {"name": "test"}}}),
+            ]
+        )
+        self.assertEqual(data, {"shop": {"name": "test"}})
+        self.assertEqual(self.urlopen.call_count, 2)
+        self.sleep.assert_called_once_with(1)
+
+    def test_a_graphql_error_still_fails_the_job_without_retrying(self):
+        with self.assertRaises(UserException) as ctx:
+            self._query([self._ok({"errors": [{"message": "Field 'nope' doesn't exist"}]})])
+        self.assertIn("nope", str(ctx.exception))
+        self.assertEqual(self.urlopen.call_count, 1)
 
 
 class TestShopifyApiVersionPinning(unittest.TestCase):

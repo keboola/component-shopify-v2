@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import shopify
 from keboola.component.exceptions import UserException
@@ -71,7 +71,53 @@ BULK_DOWNLOAD_SOCKET_TIMEOUT_SECONDS = 120
 BULK_DOWNLOAD_MAX_ATTEMPTS = 4
 BULK_DOWNLOAD_RETRY_DELAYS_SECONDS = (15, 30, 60)
 BULK_DOWNLOAD_CHUNK_SIZE = 8192
-BULK_DOWNLOAD_RETRYABLE_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+RETRYABLE_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+
+# `shopify.GraphQL.execute()` calls `urlopen()` with no timeout. That is the same defect as the result
+# download above, on a much larger surface: every API call and every bulk poll goes through it, so a
+# connection to Shopify that stops sending data blocks the job silently until the platform kills it.
+# The timeout covers the connect and each read, not the whole call, so a slow response is never cut off.
+GRAPHQL_SOCKET_TIMEOUT_SECONDS = 300
+GRAPHQL_NETWORK_MAX_ATTEMPTS = 4
+GRAPHQL_NETWORK_RETRY_DELAYS_SECONDS = (5, 15, 30)
+
+
+def _is_retryable_network_error(error: BaseException) -> bool:
+    """Network failures are retried. HTTP errors are retried only when the status is transient: a 403 or a
+    404 on a signed result URL, or a 401 on the API, will not change on a second try."""
+    if isinstance(error, HTTPError):
+        return error.code in RETRYABLE_HTTP_STATUSES
+    return isinstance(error, (TimeoutError, ConnectionError, ssl.SSLError, http.client.HTTPException, URLError))
+
+
+def _describe_network_error(error: BaseException, timeout_seconds: int | None = None) -> str:
+    """A bare `TimeoutError` has an empty message, so say what actually happened."""
+    if isinstance(error, TimeoutError) or (
+        isinstance(error, URLError) and isinstance(getattr(error, "reason", None), TimeoutError)
+    ):
+        if timeout_seconds is not None:
+            return f"no data received for {timeout_seconds} s"
+        return "the connection to Shopify went silent"
+    return f"{type(error).__name__}: {error}"
+
+
+class _TimeoutGraphQL(shopify.GraphQL):
+    """`shopify.GraphQL` makes its one request with `urlopen(req)` and no timeout. This subclass makes the
+    same single request with a socket timeout, and logs the Shopify error body instead of printing it to
+    stdout. Nothing else about the request changes."""
+
+    def execute(self, query: str, variables: dict[str, Any] | None = None, operation_name: str | None = None) -> str:
+        headers = self.merge_headers({"Accept": "application/json", "Content-Type": "application/json"}, self.headers)
+        body = json.dumps({"query": query, "variables": variables, "operationName": operation_name}).encode("utf-8")
+        request = Request(self.endpoint, body, headers)
+        try:
+            with urlopen(request, timeout=GRAPHQL_SOCKET_TIMEOUT_SECONDS) as response:
+                return response.read().decode("utf-8")
+        except HTTPError as e:
+            logging.getLogger(__name__).warning(
+                f"Shopify API returned HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:500]}"
+            )
+            raise
 
 
 class ShopifyGraphQLClient:
@@ -229,11 +275,12 @@ class ShopifyGraphQLClient:
             Query response data
         """
         retry_count = 0
+        network_attempt = 0
         base_wait = 1  # Start with 1 second
 
         while retry_count <= max_retries:
             try:
-                client = shopify.GraphQL()
+                client = _TimeoutGraphQL()
                 result_str = client.execute(query, variables=variables)
 
                 result = json.loads(result_str)
@@ -258,7 +305,22 @@ class ShopifyGraphQLClient:
             except Exception as e:
                 if isinstance(e, UserException):
                     raise
-                raise UserException(f"Failed to execute GraphQL query: {str(e)}")
+                # A request that timed out or was cut off is retried a bounded number of times. Before this,
+                # any transport error ended the job at once, and a silent connection ended nothing at all.
+                if _is_retryable_network_error(e) and network_attempt < GRAPHQL_NETWORK_MAX_ATTEMPTS - 1:
+                    delay = GRAPHQL_NETWORK_RETRY_DELAYS_SECONDS[
+                        min(network_attempt, len(GRAPHQL_NETWORK_RETRY_DELAYS_SECONDS) - 1)
+                    ]
+                    network_attempt += 1
+                    self.logger.warning(
+                        f"Shopify API request failed ({_describe_network_error(e, GRAPHQL_SOCKET_TIMEOUT_SECONDS)}). "
+                        f"Retry {network_attempt}/{GRAPHQL_NETWORK_MAX_ATTEMPTS - 1} in {delay} s."
+                    )
+                    time.sleep(delay)
+                    continue
+                raise UserException(
+                    f"Failed to execute GraphQL query: {_describe_network_error(e, GRAPHQL_SOCKET_TIMEOUT_SECONDS)}"
+                ) from e
 
         # If all retries exhausted
         raise UserException(f"GraphQL query failed after {max_retries} retries due to throttling")
@@ -1297,19 +1359,11 @@ class ShopifyGraphQLClient:
 
     @staticmethod
     def _is_retryable_download_error(error: Exception) -> bool:
-        """Network failures are retried. HTTP errors are retried only when the status is transient: a 403 or 404
-        on the signed result URL will not change on a second try."""
-        if isinstance(error, HTTPError):
-            return error.code in BULK_DOWNLOAD_RETRYABLE_HTTP_STATUSES
-        return isinstance(error, (TimeoutError, ConnectionError, ssl.SSLError, http.client.HTTPException, URLError))
+        return _is_retryable_network_error(error)
 
     @staticmethod
     def _describe_download_error(error: Exception) -> str:
-        if isinstance(error, TimeoutError) or (
-            isinstance(error, URLError) and isinstance(getattr(error, "reason", None), TimeoutError)
-        ):
-            return f"no data received for {BULK_DOWNLOAD_SOCKET_TIMEOUT_SECONDS} s"
-        return f"{type(error).__name__}: {error}"
+        return _describe_network_error(error, BULK_DOWNLOAD_SOCKET_TIMEOUT_SECONDS)
 
     @log_bulk_performance("custom")
     def execute_custom_bulk_query(self, query: str, temp_file_path: str) -> BulkOperationResult:

@@ -1,10 +1,14 @@
+import http.client
 import json
 import logging
+import os
+import ssl
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 import shopify
@@ -59,6 +63,15 @@ BULK_PROGRESS_LOG_INTERVAL_SECONDS = 30
 # How long to wait for a bulk operation left behind by an earlier run to finish before giving up.
 BULK_SLOT_WAIT_TIMEOUT_SECONDS = 1800
 BULK_SLOT_POLL_INTERVAL_SECONDS = 15
+
+# The result download had no timeout, so a connection that went silent blocked the job until it was killed.
+# The timeout applies to the connect and to each read, not to the whole download: a slow download that keeps
+# receiving data is never cut off.
+BULK_DOWNLOAD_SOCKET_TIMEOUT_SECONDS = 120
+BULK_DOWNLOAD_MAX_ATTEMPTS = 4
+BULK_DOWNLOAD_RETRY_DELAYS_SECONDS = (15, 30, 60)
+BULK_DOWNLOAD_CHUNK_SIZE = 8192
+BULK_DOWNLOAD_RETRYABLE_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
 
 
 class ShopifyGraphQLClient:
@@ -1232,14 +1245,29 @@ class ShopifyGraphQLClient:
         """
         download_start = time.time()
 
-        with urlopen(url) as response:
-            with open(temp_file_path, "wb") as f:
-                chunk_size = 8192
-                while True:
-                    chunk = response.read(chunk_size)
-                    if not chunk:
-                        break
-                    f.write(chunk)
+        for attempt in range(1, BULK_DOWNLOAD_MAX_ATTEMPTS + 1):
+            try:
+                self._download_to_file(url, temp_file_path)
+                break
+            except Exception as e:
+                if not self._is_retryable_download_error(e):
+                    if isinstance(e, HTTPError):
+                        raise UserException(f"Downloading the {entity_type} results from Shopify failed: {e}") from e
+                    raise
+                if attempt == BULK_DOWNLOAD_MAX_ATTEMPTS:
+                    raise UserException(
+                        f"Downloading the {entity_type} results from Shopify failed after {attempt} attempts: "
+                        f"{self._describe_download_error(e)}. The export itself finished in Shopify; only the "
+                        "download of its result file failed. Run the job again."
+                    ) from e
+                delay = BULK_DOWNLOAD_RETRY_DELAYS_SECONDS[
+                    min(attempt - 1, len(BULK_DOWNLOAD_RETRY_DELAYS_SECONDS) - 1)
+                ]
+                self.logger.warning(
+                    f"Download of {entity_type} results failed (attempt {attempt}/{BULK_DOWNLOAD_MAX_ATTEMPTS}): "
+                    f"{self._describe_download_error(e)}. Retrying in {delay} s."
+                )
+                time.sleep(delay)
 
         download_time = time.time() - download_start
 
@@ -1251,6 +1279,37 @@ class ShopifyGraphQLClient:
             api_wait_time=api_wait_time,
             download_time=download_time,
         )
+
+    @staticmethod
+    def _download_to_file(url: str, temp_file_path: str) -> None:
+        """Stream the result file to a sibling `.part` file and move it into place only once it is complete,
+        so a failed attempt never leaves a truncated file behind at `temp_file_path`."""
+        part_path = f"{temp_file_path}.part"
+        try:
+            with urlopen(url, timeout=BULK_DOWNLOAD_SOCKET_TIMEOUT_SECONDS) as response, open(part_path, "wb") as f:
+                while chunk := response.read(BULK_DOWNLOAD_CHUNK_SIZE):
+                    f.write(chunk)
+            os.replace(part_path, temp_file_path)
+        except BaseException:
+            if os.path.exists(part_path):
+                os.remove(part_path)
+            raise
+
+    @staticmethod
+    def _is_retryable_download_error(error: Exception) -> bool:
+        """Network failures are retried. HTTP errors are retried only when the status is transient: a 403 or 404
+        on the signed result URL will not change on a second try."""
+        if isinstance(error, HTTPError):
+            return error.code in BULK_DOWNLOAD_RETRYABLE_HTTP_STATUSES
+        return isinstance(error, (TimeoutError, ConnectionError, ssl.SSLError, http.client.HTTPException, URLError))
+
+    @staticmethod
+    def _describe_download_error(error: Exception) -> str:
+        if isinstance(error, TimeoutError) or (
+            isinstance(error, URLError) and isinstance(getattr(error, "reason", None), TimeoutError)
+        ):
+            return f"no data received for {BULK_DOWNLOAD_SOCKET_TIMEOUT_SECONDS} s"
+        return f"{type(error).__name__}: {error}"
 
     @log_bulk_performance("custom")
     def execute_custom_bulk_query(self, query: str, temp_file_path: str) -> BulkOperationResult:

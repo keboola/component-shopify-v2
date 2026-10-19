@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A stalled download of a bulk result file no longer hangs the job until it is killed.** After Shopify finishes a bulk export, the component downloads the result JSONL from Shopify's file storage with `urlopen()`. It passed no timeout, so when the connection went silent the read waited forever: a job stopped logging right after `Downloading results from: ...` and held its slot (and blocked every later run of its flow) for about 15 hours until the flow was killed by hand. The download now has a 120 s socket timeout and is retried up to 4 times, 15 / 30 / 60 s apart.
+  > **The timeout is per connect and per read, not per download.** A slow download that keeps receiving data is never cut off, however long it takes; only a connection that sends nothing for 120 s in a row fails an attempt. A fully stalled download now fails in about 10 minutes instead of hanging.
+  > **A retry only repeats the file download, never the Shopify export.** The finished result URL is downloaded again, so no extra bulk operation is started and the per-shop bulk slot is unaffected.
+  > **Retried:** timeouts, connection resets, TLS errors, truncated responses and HTTP 408 / 429 / 5xx. **Not retried:** other HTTP errors such as 403 / 404 on the signed URL, which fail at once with the entity name, and local file errors such as a full disk.
+  > **No partial file is left behind.** Each attempt writes to `<file>.part` and moves it into place only when complete. Output tables, columns and manifests are unchanged.
+
 ## 0.3.4 - unreleased
 
 ### Changed

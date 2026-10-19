@@ -9,6 +9,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 from unittest import mock
+from urllib.error import HTTPError, URLError
 
 import duckdb
 from freezegun import freeze_time
@@ -23,6 +24,7 @@ from component import (
     resolve_duckdb_memory_limit_mb,
 )
 from configuration import Configuration
+from shopify_cli import client as client_module
 from shopify_cli.client import ShopifyGraphQLClient
 from shopify_cli.query_loader import QueryLoader
 
@@ -835,6 +837,116 @@ class TestBulkOperationPolledById(unittest.TestCase):
             )
 
         self.assertEqual(polls, [{"id": self.OWN_ID}])
+
+
+class _FakeResponse:
+    """urlopen() stand-in: returns the given chunks, raising any chunk that is an exception."""
+
+    def __init__(self, chunks):
+        self._chunks = list(chunks)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self, _size):
+        if not self._chunks:
+            return b""
+        chunk = self._chunks.pop(0)
+        if isinstance(chunk, BaseException):
+            raise chunk
+        return chunk
+
+
+class TestBulkResultDownload(unittest.TestCase):
+    """A result download that went silent blocked a job for 15 hours, because urlopen() had no timeout."""
+
+    def setUp(self):
+        self.client = ShopifyGraphQLClient.__new__(ShopifyGraphQLClient)
+        self.client.logger = logging.getLogger("test")
+        self.tmp = tempfile.mkdtemp()
+        self.path = os.path.join(self.tmp, "locations.jsonl")
+        self.sleep = mock.patch("shopify_cli.client.time.sleep").start()
+        self.addCleanup(mock.patch.stopall)
+        self.addCleanup(shutil.rmtree, self.tmp)
+
+    def _download(self, urlopen_side_effect):
+        self.urlopen = mock.patch("shopify_cli.client.urlopen", side_effect=urlopen_side_effect).start()
+        return self.client._download_bulk_results("https://example.com/result.jsonl", 2, "locations", self.path, 1.0)
+
+    def _files(self):
+        return sorted(os.listdir(self.tmp))
+
+    def test_success_passes_a_socket_timeout_and_writes_the_file(self):
+        result = self._download([_FakeResponse([b'{"a":1}\n', b'{"a":2}\n'])])
+        self.assertEqual(self.urlopen.call_args.kwargs["timeout"], client_module.BULK_DOWNLOAD_SOCKET_TIMEOUT_SECONDS)
+        self.assertEqual(Path(self.path).read_bytes(), b'{"a":1}\n{"a":2}\n')
+        self.assertEqual(result.item_count, 2)
+        self.assertEqual(self._files(), ["locations.jsonl"])
+        self.sleep.assert_not_called()
+
+    def test_slow_download_that_keeps_receiving_data_is_not_cut_off(self):
+        # The timeout is per read, not per download, so many chunks over a long time still succeed.
+        chunks = [b"x" * 10] * 5000
+        self._download([_FakeResponse(chunks)])
+        self.assertEqual(os.path.getsize(self.path), 50_000)
+        self.assertEqual(self.urlopen.call_count, 1)
+
+    def test_stalled_read_is_retried_from_scratch(self):
+        result = self._download(
+            [
+                _FakeResponse([b'{"partial":', TimeoutError("The read operation timed out")]),
+                _FakeResponse([b'{"a":1}\n']),
+            ]
+        )
+        self.assertEqual(Path(self.path).read_bytes(), b'{"a":1}\n')
+        self.assertEqual(result.file_path, self.path)
+        self.assertEqual(self.urlopen.call_count, 2)
+        self.sleep.assert_called_once_with(client_module.BULK_DOWNLOAD_RETRY_DELAYS_SECONDS[0])
+        self.assertEqual(self._files(), ["locations.jsonl"])
+
+    def test_transient_connect_and_http_errors_are_retried(self):
+        self._download(
+            [
+                URLError(TimeoutError("timed out")),
+                ConnectionResetError("reset"),
+                HTTPError("https://example.com", 503, "Service Unavailable", {}, None),
+                _FakeResponse([b"ok"]),
+            ]
+        )
+        self.assertEqual(Path(self.path).read_bytes(), b"ok")
+        self.assertEqual(
+            [c.args[0] for c in self.sleep.call_args_list], list(client_module.BULK_DOWNLOAD_RETRY_DELAYS_SECONDS)
+        )
+
+    def test_exhausted_retries_fail_with_an_actionable_error_and_no_partial_file(self):
+        stall = TimeoutError("The read operation timed out")
+        with self.assertRaises(UserException) as ctx:
+            self._download(
+                [_FakeResponse([b"partial", stall]) for _ in range(client_module.BULK_DOWNLOAD_MAX_ATTEMPTS)]
+            )
+        message = str(ctx.exception)
+        self.assertIn("locations", message)
+        self.assertIn(f"after {client_module.BULK_DOWNLOAD_MAX_ATTEMPTS} attempts", message)
+        self.assertIn(f"no data received for {client_module.BULK_DOWNLOAD_SOCKET_TIMEOUT_SECONDS} s", message)
+        self.assertEqual(self.urlopen.call_count, client_module.BULK_DOWNLOAD_MAX_ATTEMPTS)
+        self.assertEqual(self._files(), [])
+
+    def test_permanent_http_error_is_not_retried(self):
+        with self.assertRaises(UserException) as ctx:
+            self._download([HTTPError("https://example.com", 403, "Forbidden", {}, None)])
+        self.assertIn("locations", str(ctx.exception))
+        self.assertEqual(self.urlopen.call_count, 1)
+        self.sleep.assert_not_called()
+
+    def test_local_write_error_is_not_retried(self):
+        with mock.patch("builtins.open", side_effect=OSError(28, "No space left on device")):
+            with self.assertRaises(OSError):
+                self._download([_FakeResponse([b"x"])])
+        self.assertEqual(self.urlopen.call_count, 1)
+        self.sleep.assert_not_called()
 
 
 class TestShopifyApiVersionPinning(unittest.TestCase):

@@ -7,12 +7,14 @@ import shutil
 import tempfile
 import time
 import unittest
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from unittest import mock
 from urllib.error import HTTPError, URLError
 
 import duckdb
+import shopify
 from freezegun import freeze_time
 from keboola.component.exceptions import UserException
 
@@ -1051,6 +1053,30 @@ class TestGraphQLRequestTimeout(unittest.TestCase):
         self.assertEqual(data, {"shop": {"name": "test"}})
         self.assertEqual(self.urlopen.call_count, 2)
         self.sleep.assert_called_once_with(1)
+
+    def test_the_subclass_builds_the_same_request_as_the_installed_library(self):
+        """_TimeoutGraphQL re-implements the library's single request so it can pass a timeout. If a
+        `shopifyapi` upgrade ever changes how that request is built, this fails here instead of silently
+        sending a different request to Shopify."""
+        query, variables = "{ shop { name } }", {"first": 50}
+
+        from_library = []
+
+        def capture(request, *_args, **_kwargs):
+            from_library.append(request)
+            return _FakeGraphQLResponse(b'{"data": {}}')
+
+        with mock.patch.object(urllib.request, "urlopen", side_effect=capture):
+            shopify.GraphQL.execute(_SessionlessGraphQL(), query, variables=variables)
+
+        self._query([self._ok({"data": {}})], variables=variables)
+        ours = self.urlopen.call_args.args[0]
+        theirs = from_library[0]
+
+        self.assertEqual(ours.full_url, theirs.full_url)
+        self.assertEqual(ours.data, theirs.data)
+        self.assertEqual(dict(ours.header_items()), dict(theirs.header_items()))
+        self.assertEqual(ours.get_method(), theirs.get_method())
 
     def test_a_graphql_error_still_fails_the_job_without_retrying(self):
         with self.assertRaises(UserException) as ctx:

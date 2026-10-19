@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A stalled download of a bulk result file no longer hangs the job until it is killed.** After Shopify finishes a bulk export, the component downloads the result JSONL from Shopify's file storage with `urlopen()`. It passed no timeout, so when the connection went silent the read waited forever: a job stopped logging right after `Downloading results from: ...` and held its slot (and blocked every later run of its flow) for about 15 hours until the flow was killed by hand. The download now has a 120 s socket timeout and is retried up to 4 times, 15 / 30 / 60 s apart.
+  > **The timeout is per connect and per read, not per download.** A slow download that keeps receiving data is never cut off, however long it takes; only a connection that sends nothing for 120 s in a row fails an attempt. A fully stalled download now fails in about 10 minutes instead of hanging.
+  > **A retry only repeats the file download, never the Shopify export.** The finished result URL is downloaded again, so no extra bulk operation is started and the per-shop bulk slot is unaffected.
+  > **Retried:** timeouts, connection resets, TLS errors, truncated responses and HTTP 408 / 429 / 5xx. **Not retried:** other HTTP errors such as 403 / 404 on the signed URL, which fail at once with the entity name, and local file errors such as a full disk.
+  > **No partial file is left behind.** Each attempt writes to `<file>.part` and moves it into place only when complete. Output tables, columns and manifests are unchanged.
+- **A Shopify API request that goes silent no longer hangs the job either.** The same defect sat one level deeper, on a much larger surface: `shopify.GraphQL.execute()` builds its single request and calls `urlopen(req)` with no timeout, and every GraphQL call in the component goes through it — each paginated query, each bulk mutation, and each poll inside the "wait for the export to build" loops. A connection to Shopify that stopped sending data blocked the job with no log line and no error. API requests now use a 300 s socket timeout, and a request that fails on the transport is retried up to 3 times, 5 / 15 / 30 s apart. Throttling keeps its own separate retry budget, so a request that hits both throttling and a connection failure can take more attempts than either budget alone — every budget is bounded, and none of them can wait forever.
+  > **The timeout is per connect and per read.** Shopify answers these queries in seconds, so 300 s of complete silence is not a slow response; it is a dead connection. A worst case of a fully dead connection now ends in about 21 minutes with a clear error instead of running until the configuration timeout.
+  > **Transport failures are now retried, where before they failed the job at once.** A connection reset or an HTTP 503 previously ended the run on the first occurrence. **Retried:** timeouts, connection resets, TLS errors, truncated responses and HTTP 408 / 429 / 5xx. **Not retried:** other HTTP errors such as 401 / 403, and GraphQL errors in a 200 response, which keep failing immediately with the Shopify message. Throttling keeps its own existing retry and backoff, unchanged.
+  > **The request is byte-for-byte the one the library sent.** Same endpoint, same headers, same body; only the socket timeout is added. A Shopify error body is now logged as a warning instead of printed to stdout. Output tables, columns, manifests and the success path are unchanged.
+  > **Not changed: the "wait for the export to build" loops have no overall time limit.** Once the connection is no longer silent, a bulk operation that Shopify genuinely keeps in `RUNNING` still polls for as long as the configuration timeout allows, logging a progress line every 30 s. A hard cap would cut off large exports that legitimately run for hours, so it is left to the configuration timeout.
+
+
 ## 0.3.4 - unreleased
 
 ### Changed

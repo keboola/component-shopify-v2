@@ -21,7 +21,7 @@ dependencies = [
 dev = [
     "deptry>=0.23.1",
     "keboola.datadirtest>=2.0.0",
-    "pytest>=8.0.0",
+    "pytest>=9.0.3",
     "ruff>=0.15.0",
 ]
 
